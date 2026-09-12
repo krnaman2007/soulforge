@@ -1564,7 +1564,7 @@ Retrieves details of a specific achievement by its unique ID, including the auth
 
 ## 10. Leaderboard System (Weekly & Lifetime Rankings)
 
-The leaderboard subsystem calculates real-time competitive rankings across adventurers. Weekly rankings aggregate XP gained in the current UTC week via `ActivityLog` (`TASK_COMPLETED`, `XP_GAINED`, `PROJECT_COMPLETED`, `CHALLENGE_CLAIMED`), giving new and active players an equal opportunity to compete.
+The leaderboard subsystem calculates real-time competitive rankings across adventurers. Weekly rankings aggregate XP gained in the current UTC week via `ActivityLog` (`TASK_COMPLETED`, `PROJECT_COMPLETED`, `CHALLENGE_CLAIMED`, `ACHIEVEMENT_UNLOCKED`, `XP_GAINED`), giving new and active players an equal opportunity to compete.
 
 ### 10.1 Global Lifetime Leaderboard
 Ranks all adventurers globally by total lifetime character XP.

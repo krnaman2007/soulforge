@@ -140,11 +140,12 @@ class RewardService {
       });
 
       // 6. Write ActivityLog within same transactional boundary
-      if (source) {
+      const logType = source || (safeXP > 0 ? 'XP_GAINED' : (safeCoins > 0 ? 'ITEM_PURCHASED' : null));
+      if (logType) {
         await db.activityLog.create({
           data: {
             userId,
-            type: source,
+            type: logType,
             taskId: taskId || null,
             projectId: projectId || null,
             itemId: itemId || null,
