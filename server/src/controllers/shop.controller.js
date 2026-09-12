@@ -1,6 +1,6 @@
 const rewardService = require('../services/reward.service');
 const { AppError } = require('../utils/errors');
-const logger = require('../utils/logger');
+const logger = require('../errorlogging/logger');
 
 exports.getRewards = async (req, res, next) => {
   try {
