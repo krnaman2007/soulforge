@@ -3,6 +3,7 @@ import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion"
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "../store/store";
 import { fetchCurrentUser } from "../store/slices/authSlice";
+import { getTotalXP } from "../utils/rpg";
 import GlassCard from "../components/GlassCard";
 import Starfield from "../components/Starfield";
 
@@ -292,15 +293,9 @@ export default function ProgressionPath() {
   const level = character?.level || 1;
   const currentXp = character?.xp || 0;
   
-  const calculateTotalXP = (lvl: number, xp: number) => {
-    let total = Math.max(0, xp);
-    for (let i = 1; i < lvl; i++) {
-      total += Math.floor(100 * Math.pow(i, 1.6));
-    }
-    return total;
-  };
-  
-  const CURRENT_XP = calculateTotalXP(level, currentXp);
+  // Backend XP is the XP remaining inside the current level.
+  // Convert it to cumulative XP only for progression/rank calculations.
+  const CURRENT_XP = getTotalXP(level, currentXp);
   const CURRENT_RANK = RANKS.find((r) => CURRENT_XP >= r.xpMin && (CURRENT_XP < r.xpMax || r.xpMax === Infinity)) || RANKS[0];
   const currentIndex = RANKS.findIndex((r) => r.id === CURRENT_RANK.id);
   
