@@ -809,7 +809,7 @@ Deletes a task owned by the authenticated player.
 
 ---
 
-## 5. AI & RPG Intelligence (Groq LLM)
+## 5. AI & RPG Intelligence (Google Gemini)
 
 ### 5.1 Analyze Task
 Uses AI to classify an input task into the 6 Life RPG categories, estimating difficulty, effort, impact, XP, and coin rewards.

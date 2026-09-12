@@ -84,6 +84,8 @@ const ANTI_CHEAT = {
 };
 
 const AI_CONFIG = {
+  GEMINI_MODEL: 'gemini-1.5-flash',
+  GEMINI_TIMEOUT_MS: 8000,
   GROQ_TIMEOUT_MS: 5000,
   FALLBACK_CONFIDENCE: 0.85
 };

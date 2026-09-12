@@ -1,4 +1,4 @@
-const { generateJson } = require('./groq.client');
+const { generateJson } = require('./gemini.client');
 const FallbackService = require('./fallback.service');
 const logger = require('../../errorlogging/logger');
 

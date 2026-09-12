@@ -7,6 +7,8 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   DIRECT_URL: z.string().optional(),
   JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters').default('soulforge_secret_jwt_key_tech_zephyr_4_hackathon_2026'),
+  GEMINI_API_KEY: z.string().optional().default(''),
+  GOOGLE_API_KEY: z.string().optional().default(''),
   LLM_API_KEY: z.string().optional().default(''),
   GROQ_API_KEY: z.string().optional().default(''),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
