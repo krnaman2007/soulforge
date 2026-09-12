@@ -8,6 +8,28 @@ type View = "following" | "followers" | "add";
 
 function FriendCard({ friend, view, onSocialChange }: { friend: any; view?: string; onSocialChange?: () => void }) {
   const dispatch = useDispatch<AppDispatch>();
+  const isOnline = friend.isOnline !== undefined ? friend.isOnline : friend.online;
+  const [isFollowingLocal, setIsFollowingLocal] = useState(friend.isFollowing);
+
+  useEffect(() => {
+    setIsFollowingLocal(friend.isFollowing);
+  }, [friend.isFollowing]);
+
+  const handleFollowToggle = async () => {
+    try {
+      if (isFollowingLocal) {
+        setIsFollowingLocal(false);
+        await dispatch(unfollowUser(friend.id)).unwrap();
+      } else {
+        setIsFollowingLocal(true);
+        await dispatch(followUser(friend.id)).unwrap();
+      }
+      onSocialChange?.();
+    } catch (err) {
+      // Revert optimistic update on failure
+      setIsFollowingLocal(!isFollowingLocal);
+    }
+  };
 
   return (
     <div className="relative group preserve-3d">
@@ -55,20 +77,16 @@ function FriendCard({ friend, view, onSocialChange }: { friend: any; view?: stri
             </span>
             {view === "add" ? (
               <button 
-                onClick={async () => {
-                  if (friend.isFollowing) await dispatch(unfollowUser(friend.id)).unwrap();
-                  else await dispatch(followUser(friend.id)).unwrap();
-                  onSocialChange?.();
-                }}
+                onClick={handleFollowToggle}
                 className="mt-4 sm:mt-0 w-full sm:w-auto px-4 py-2 font-black uppercase tracking-widest text-xs transition-all relative overflow-hidden group/btn"
                 style={{
-                  background: friend.isFollowing ? "rgba(255,255,255,0.05)" : "rgba(0,240,255,0.1)",
-                  border: `1px solid ${friend.isFollowing ? "rgba(255,255,255,0.1)" : "rgba(0,240,255,0.4)"}`,
-                  color: friend.isFollowing ? "rgba(232,232,240,0.5)" : "#00f0ff",
+                  background: isFollowingLocal ? "rgba(255,255,255,0.05)" : "rgba(0,240,255,0.1)",
+                  border: `1px solid ${isFollowingLocal ? "rgba(255,255,255,0.1)" : "rgba(0,240,255,0.4)"}`,
+                  color: isFollowingLocal ? "rgba(232,232,240,0.5)" : "#00f0ff",
                   clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))",
                   fontFamily: "Rajdhani, sans-serif"
                 }}>
-                {friend.isFollowing ? "Unfollow" : "Follow"}
+                {isFollowingLocal ? "Unfollow" : "Follow"}
               </button>
             ) : (
               <div className="flex gap-2 mt-4 sm:mt-0">
@@ -76,11 +94,16 @@ function FriendCard({ friend, view, onSocialChange }: { friend: any; view?: stri
                   style={{ clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))", fontFamily: "Rajdhani, sans-serif" }}>
                   View Profile
                 </button>
+                <button 
+                  onClick={handleFollowToggle}
+                  className="px-4 py-2 font-black uppercase tracking-widest text-xs transition-all bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.1)] hover:border-[#ef4444] hover:text-[#ef4444]"
+                  style={{ clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))", fontFamily: "Rajdhani, sans-serif" }}>
+                  {isFollowingLocal ? "Unfollow" : "Follow"}
+                </button>
               </div>
             )}
           </div>
         </div>
-
       </div>
 
 
@@ -104,9 +127,21 @@ export default function Friends() {
   const [query, setQuery] = useState("");
   const [added, setAdded] = useState<string[]>([]);
 
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (query.trim().length >= 2) {
+        dispatch(searchUsers({ q: query }));
+        setView("add");
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [query, dispatch]);
+
   const handleSearch = (e: any) => {
     e.preventDefault();
-    if (query) {
+    if (query.trim().length >= 2) {
       dispatch(searchUsers({ q: query }));
       setView("add");
     }
@@ -116,15 +151,20 @@ export default function Friends() {
     if (view === "following") return following.users;
     if (view === "followers") return followers.users;
     if (view === "add") return searchResults.users;
+    if (view === "guilds") return [];
     return [];
   };
 
   const list = getActiveList();
   const activeList = list;
 
-  const filtered = activeList.filter((f: any) =>
-    (f.username || f.name).toLowerCase().includes(query.toLowerCase())
-  );
+  const filtered = view === "add" 
+    ? activeList // Backend already filters search results
+    : activeList.filter((f: any) => {
+        const usernameMatch = f.username?.toLowerCase().includes(query.toLowerCase());
+        const nameMatch = f.name?.toLowerCase().includes(query.toLowerCase());
+        return usernameMatch || nameMatch;
+      });
 
   const dynamicSuggestions = useMemo(() => {
     return followers.users.filter(f => !f.isFollowing).slice(0, 5);
@@ -233,6 +273,21 @@ export default function Friends() {
         {/* Sidebar */}
         <div className="lg:col-span-4 flex flex-col gap-6">
           
+          {/* Party Status */}
+          <div className="p-6 bg-[rgba(139,92,246,0.05)] border border-[rgba(139,92,246,0.2)] mb-6" style={{ clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))" }}>
+            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-[#8b5cf6] font-['Rajdhani'] mb-4 flex items-center gap-2">
+              <span className="w-2 h-2 bg-[#8b5cf6] rounded-full animate-pulse" /> Party Status
+            </h2>
+            <div className="text-center py-6 border border-dashed border-[rgba(139,92,246,0.3)] bg-[rgba(0,0,0,0.2)]">
+               <p className="text-xs font-bold text-[rgba(232,232,240,0.5)] font-['Inter'] mb-3">You are currently solo.</p>
+               <button 
+                 onClick={() => alert("Party System is still being forged in the backend. Coming soon!")}
+                 className="text-[10px] font-black uppercase tracking-widest px-4 py-2 bg-[rgba(139,92,246,0.1)] border border-[rgba(139,92,246,0.3)] text-[#8b5cf6] hover:bg-[#8b5cf6] hover:text-white transition-colors font-['Rajdhani']"
+                 style={{ clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)" }}>
+                 Create Party
+               </button>
+            </div>
+          </div>
           {/* Suggestions */}
           {dynamicSuggestions.length > 0 && (
             <div>

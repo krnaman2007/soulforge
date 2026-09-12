@@ -24,10 +24,19 @@ export interface ActivityStats {
   breakdown: Record<string, { count: number; xp: number; coins: number }>;
 }
 
+export interface ActivityAnalytics {
+  xpTrajectory: { day: string; xp: number }[];
+  activityDensity: number[];
+  operationalMatrix: (number | null)[][];
+  currentMonthLabel: string;
+  peakVelocity: number;
+}
+
 export interface ActivityState {
   feed: { activities: Activity[]; pagination: any };
   recent: Activity[];
   stats: ActivityStats | null;
+  analytics: ActivityAnalytics | null;
   status: 'idle' | 'loading' | 'succeeded' | 'failed';
   error: string | null;
 }
@@ -36,6 +45,7 @@ const initialState: ActivityState = {
   feed: { activities: [], pagination: {} },
   recent: [],
   stats: null,
+  analytics: null,
   status: 'idle',
   error: null,
 };
@@ -76,6 +86,18 @@ export const fetchActivityStats = createAsyncThunk(
   }
 );
 
+export const fetchActivityAnalytics = createAsyncThunk(
+  'activity/fetchAnalytics',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.get('/activity/analytics');
+      return response.data.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.error?.message || 'Failed to fetch activity analytics');
+    }
+  }
+);
+
 const activitySlice = createSlice({
   name: 'activity',
   initialState,
@@ -101,6 +123,10 @@ const activitySlice = createSlice({
       // Stats
       .addCase(fetchActivityStats.fulfilled, (state, action) => {
         state.stats = action.payload;
+      })
+      // Analytics
+      .addCase(fetchActivityAnalytics.fulfilled, (state, action) => {
+        state.analytics = action.payload;
       });
   },
 });

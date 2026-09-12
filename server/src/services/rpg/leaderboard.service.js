@@ -149,7 +149,7 @@ class LeaderboardService {
     // Always include the requesting user in their own friends leaderboard to see where they rank
     friendIds.push(userId);
 
-    return await this._buildLeaderboard(friendIds, limit, false);
+    return await this._buildLeaderboard(friendIds, limit, true);
   }
 
   /**

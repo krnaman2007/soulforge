@@ -287,6 +287,128 @@ class ActivityService {
       breakdown
     };
   }
+
+  /**
+   * Generates time-series data for the Stats dashboard charts.
+   */
+  static async getActivityAnalytics(userId) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { timezone: true }
+    });
+    const tz = user?.timezone || 'UTC';
+    
+    const now = new Date();
+    const today = DateService.getStartOfUserDay(tz, now);
+    
+    // Fetch logs from 40 days ago to cover all charts
+    const fortyDaysAgo = new Date(now.getTime() - 40 * 24 * 3600 * 1000);
+    
+    const logs = await prisma.activityLog.findMany({
+      where: {
+        userId,
+        type: { in: CANONICAL_XP_TYPES },
+        xpChange: { gt: 0 },
+        createdAt: { gte: fortyDaysAgo }
+      },
+      select: {
+        createdAt: true,
+        xpChange: true
+      }
+    });
+
+    const xpPerDay = {};
+    for (const log of logs) {
+      const dateKey = DateService.getDailyPeriodKey(tz, log.createdAt);
+      xpPerDay[dateKey] = (xpPerDay[dateKey] || 0) + log.xpChange;
+    }
+
+    // 1. Progression Trajectory (Last 12 days)
+    const xpTrajectory = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(today.getTime() - i * 24 * 3600 * 1000);
+      const key = DateService.getDailyPeriodKey(tz, d);
+      const monthStr = new Intl.DateTimeFormat('en-US', { timeZone: tz, month: 'short' }).format(d);
+      const dayStr = new Intl.DateTimeFormat('en-US', { timeZone: tz, day: 'numeric' }).format(d);
+      
+      xpTrajectory.push({
+        day: `${monthStr} ${dayStr}`,
+        xp: xpPerDay[key] || 0
+      });
+    }
+
+    // 2. Activity Density (Last 28 days)
+    const activityDensity = [];
+    for (let i = 27; i >= 0; i--) {
+      const d = new Date(today.getTime() - i * 24 * 3600 * 1000);
+      const key = DateService.getDailyPeriodKey(tz, d);
+      activityDensity.push(xpPerDay[key] || 0);
+    }
+
+    // 3. Operational Matrix (Current month)
+    const month = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: tz, month: 'numeric' }).format(today), 10);
+    const year = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric' }).format(today), 10);
+    const currentMonthLabel = new Intl.DateTimeFormat('en-US', { timeZone: tz, month: 'long', year: 'numeric' }).format(today);
+    
+    let startOfMonthDate = today;
+    while (true) {
+        const d = new Date(startOfMonthDate.getTime() - 24 * 3600 * 1000);
+        const m = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: tz, month: 'numeric' }).format(d), 10);
+        if (m !== month) break;
+        startOfMonthDate = d;
+    }
+    
+    let daysInMonth = 0;
+    let iter = startOfMonthDate;
+    while (true) {
+        const m = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: tz, month: 'numeric' }).format(iter), 10);
+        if (m !== month) break;
+        daysInMonth++;
+        iter = new Date(iter.getTime() + 24 * 3600 * 1000);
+    }
+    
+    const firstDayOfWeekStr = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short' }).format(startOfMonthDate);
+    const dayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    const firstWeekday = dayMap[firstDayOfWeekStr] ?? 0;
+    
+    const operationalMatrix = [];
+    let currentWeek = [];
+    
+    for (let i = 0; i < firstWeekday; i++) {
+        currentWeek.push(null);
+    }
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+        const d = new Date(startOfMonthDate.getTime() + (day - 1) * 24 * 3600 * 1000);
+        const key = DateService.getDailyPeriodKey(tz, d);
+        const isActive = (xpPerDay[key] || 0) > 0;
+        
+        currentWeek.push(isActive ? 1 : 0);
+        
+        if (currentWeek.length === 7) {
+            operationalMatrix.push(currentWeek);
+            currentWeek = [];
+        }
+    }
+    
+    if (currentWeek.length > 0) {
+        while (currentWeek.length < 7) {
+            currentWeek.push(null);
+        }
+        operationalMatrix.push(currentWeek);
+    }
+
+    // 4. Peak Velocity (max XP in a single day within this period)
+    const peakVelocity = Object.values(xpPerDay).reduce((max, val) => Math.max(max, val), 0);
+
+    return {
+        xpTrajectory,
+        activityDensity,
+        operationalMatrix,
+        currentMonthLabel,
+        peakVelocity
+    };
+  }
 }
 
 module.exports = ActivityService;
