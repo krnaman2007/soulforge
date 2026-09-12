@@ -27,6 +27,7 @@ export interface QuestState {
   currentQuest: Quest | null;
   status: 'idle' | 'loading' | 'succeeded' | 'failed';
   error: string | null;
+  pagination: { page?: number; limit?: number; total?: number; totalPages?: number; hasNextPage?: boolean; hasPrevPage?: boolean };
 }
 
 const initialState: QuestState = {
@@ -34,14 +35,15 @@ const initialState: QuestState = {
   currentQuest: null,
   status: 'idle',
   error: null,
+  pagination: {},
 };
 
 export const fetchQuests = createAsyncThunk(
   'quests/fetchQuests',
-  async (params: { page?: number; limit?: number; status?: string; category?: string; difficulty?: string } | undefined, { rejectWithValue }) => {
+  async (params: { page?: number; limit?: number; status?: string; category?: string; difficulty?: string; type?: string } | undefined, { rejectWithValue }) => {
     try {
       const response = await api.get('/quests', { params });
-      return response.data.data.quests;
+      return response.data.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.error?.message || 'Failed to fetch quests');
     }
@@ -86,7 +88,7 @@ export const fetchQuestProgress = createAsyncThunk(
 
 export const updateQuest = createAsyncThunk(
   'quests/updateQuest',
-  async (data: { id: string; name?: string; description?: string; category?: string; difficulty?: string; type?: string; status?: string }, { rejectWithValue }) => {
+  async (data: { id: string; name?: string; description?: string; category?: string; difficulty?: string; type?: string }, { rejectWithValue }) => {
     try {
       const { id, ...updates } = data;
       const response = await api.patch(`/quests/${id}`, updates);
@@ -125,7 +127,9 @@ const questSlice = createSlice({
       })
       .addCase(fetchQuests.fulfilled, (state, action) => {
         state.status = 'succeeded';
-        state.quests = action.payload;
+        state.quests = action.payload.quests || [];
+        state.pagination = action.payload.pagination || {};
+        state.error = null;
       })
       .addCase(fetchQuests.rejected, (state, action) => {
         state.status = 'failed';

@@ -67,6 +67,18 @@ export const generateQuestCampaign = createAsyncThunk(
   }
 );
 
+export const createQuestCampaign = createAsyncThunk(
+  'ai/createQuestCampaign',
+  async (plan: any, { rejectWithValue }) => {
+    try {
+      const response = await api.post('/ai/quests/create', plan);
+      return response.data.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.error?.message || 'Failed to initialize quest campaign');
+    }
+  }
+);
+
 const aiSlice = createSlice({
   name: 'ai',
   initialState,
@@ -127,6 +139,18 @@ const aiSlice = createSlice({
         state.habitPlan = action.payload;
       })
       .addCase(planHabit.rejected, (state, action) => {
+        state.status = 'failed';
+        state.error = action.payload as string;
+      })
+      .addCase(createQuestCampaign.pending, (state) => {
+        state.status = 'loading';
+        state.error = null;
+      })
+      .addCase(createQuestCampaign.fulfilled, (state, action) => {
+        state.status = 'succeeded';
+        state.campaignStatus = action.payload;
+      })
+      .addCase(createQuestCampaign.rejected, (state, action) => {
         state.status = 'failed';
         state.error = action.payload as string;
       })

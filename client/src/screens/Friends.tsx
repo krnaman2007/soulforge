@@ -2,22 +2,20 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "../store/store";
-import { fetchFollowing, fetchFollowers, followUser, unfollowUser, searchUsers } from "../store/slices/socialSlice";
+import { fetchFollowing, fetchFollowers, followUser, unfollowUser, searchUsers, fetchPublicProfile, clearPublicProfile } from "../store/slices/socialSlice";
 
-type View = "following" | "followers" | "add" | "guilds";
+type View = "following" | "followers" | "add";
 
-function FriendCard({ friend, view }: { friend: any; view?: string }) {
-  const [sharing, setSharing] = useState(false);
+function FriendCard({ friend, view, onSocialChange }: { friend: any; view?: string; onSocialChange?: () => void }) {
   const dispatch = useDispatch<AppDispatch>();
-  const isOnline = friend.isOnline !== undefined ? friend.isOnline : friend.online;
 
   return (
     <div className="relative group preserve-3d">
       <div className="p-4 md:p-5 bg-[rgba(15,15,22,0.6)] backdrop-blur-md border transition-all duration-300 relative z-10"
         style={{
-          borderColor: friend.isOnline ? "rgba(16,224,127,0.3)" : "rgba(255,255,255,0.05)",
+          borderColor: "rgba(255,255,255,0.05)",
           clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))",
-          boxShadow: friend.isOnline ? "0 0 20px rgba(16,224,127,0.05)" : "none"
+          boxShadow: "none"
         }}>
         
         {/* Hover Glow */}
@@ -28,14 +26,12 @@ function FriendCard({ friend, view }: { friend: any; view?: string }) {
             <div className="relative flex-shrink-0">
               <div className="w-14 h-14 hex-clip flex items-center justify-center text-2xl"
                 style={{
-                  background: friend.isOnline ? "linear-gradient(135deg, rgba(16,224,127,0.1), rgba(10,10,15,0.9))" : "rgba(255,255,255,0.05)",
-                  border: friend.isOnline ? "1px solid rgba(16,224,127,0.5)" : "1px solid rgba(255,255,255,0.1)",
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.1)",
                 }}>
                 {friend.avatarId ? '👤' : (friend.avatar || '☄')}
               </div>
-              {friend.isOnline && (
-                <div className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-[#10e07f] shadow-[0_0_8px_#10e07f] border border-[#0d0d14]" />
-              )}
+
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
@@ -54,12 +50,16 @@ function FriendCard({ friend, view }: { friend: any; view?: string }) {
           </div>
 
           <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-3 mt-4 sm:mt-0 border-t sm:border-t-0 border-[rgba(255,255,255,0.05)] pt-3 sm:pt-0">
-            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: isOnline ? "#10e07f" : "rgba(232,232,240,0.3)", fontFamily: "Rajdhani, sans-serif" }}>
-              {isOnline ? "Online" : "Offline"}
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[rgba(232,232,240,0.3)]" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+              Level {friend.level || 1}
             </span>
             {view === "add" ? (
               <button 
-                onClick={() => friend.isFollowing ? dispatch(unfollowUser(friend.id)) : dispatch(followUser(friend.id))}
+                onClick={async () => {
+                  if (friend.isFollowing) await dispatch(unfollowUser(friend.id)).unwrap();
+                  else await dispatch(followUser(friend.id)).unwrap();
+                  onSocialChange?.();
+                }}
                 className="mt-4 sm:mt-0 w-full sm:w-auto px-4 py-2 font-black uppercase tracking-widest text-xs transition-all relative overflow-hidden group/btn"
                 style={{
                   background: friend.isFollowing ? "rgba(255,255,255,0.05)" : "rgba(0,240,255,0.1)",
@@ -72,34 +72,25 @@ function FriendCard({ friend, view }: { friend: any; view?: string }) {
               </button>
             ) : (
               <div className="flex gap-2 mt-4 sm:mt-0">
-                <button className="px-4 py-2 font-black uppercase tracking-widest text-xs transition-all bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.1)] hover:border-[#00f0ff] hover:text-[#00f0ff]"
+                <button onClick={() => dispatch(fetchPublicProfile(friend.id))} className="px-4 py-2 font-black uppercase tracking-widest text-xs transition-all bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.1)] hover:border-[#00f0ff] hover:text-[#00f0ff]"
                   style={{ clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))", fontFamily: "Rajdhani, sans-serif" }}>
-                  Message
+                  View Profile
                 </button>
               </div>
             )}
           </div>
         </div>
 
-        {/* Shareable glass card mini (Hidden by default, shown on hover/expand in a real app, keeping it here for aesthetics) */}
-        <div className="mt-4 p-3 bg-[rgba(0,0,0,0.3)] border border-[rgba(255,255,255,0.05)] relative"
-          style={{ clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)" }}>
-           <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#8b5cf6] to-transparent" />
-          <div className="flex items-center justify-between mb-2 pl-2">
-            <span className="text-[9px] uppercase font-bold tracking-widest text-[rgba(232,232,240,0.4)] font-['Rajdhani']">Recent Activity</span>
-          </div>
-          <p className="text-xs text-[rgba(232,232,240,0.7)] font-['Inter'] pl-2">
-            Completed <span className="text-[#00f0ff] font-bold">"Mastery Challenge: Deep Work"</span> (+300 XP)
-          </p>
-        </div>
       </div>
+
+
     </div>
   );
 }
 
 export default function Friends() {
   const dispatch = useDispatch<AppDispatch>();
-  const { following, followers, searchResults, status } = useSelector((state: RootState) => state.social);
+  const { following, followers, searchResults, publicProfile, status } = useSelector((state: RootState) => state.social);
   const authUser = useSelector((state: RootState) => state.auth.user);
   
   useEffect(() => {
@@ -157,13 +148,13 @@ export default function Friends() {
           </h1>
         </div>
         <p className="text-xs text-[rgba(232,232,240,0.5)] max-w-sm md:text-right font-['Inter']">
-          Track your allies' forge progress, form parties for multiplayer quests, and maintain accountability.
+          Track your allies' forge progress and maintain accountability through real social connections.
         </p>
       </div>
 
       {/* View Tabs */}
       <div className="flex items-center gap-2 mb-6">
-        {(["following", "followers", "add", "guilds"] as View[]).map((v) => (
+        {(["following", "followers", "add"] as View[]).map((v) => (
           <button
             key={v}
             onClick={() => setView(v)}
@@ -223,7 +214,7 @@ export default function Friends() {
                       exit={{ opacity: 0, scale: 0.95 }}
                       transition={{ delay: i * 0.05, type: "spring" }}
                     >
-                      <FriendCard friend={f} view={view} />
+                      <FriendCard friend={f} view={view} onSocialChange={() => { if (authUser?.id) { dispatch(fetchFollowing({ userId: authUser.id })); dispatch(fetchFollowers({ userId: authUser.id })); } }} />
                     </motion.div>
                   ))}
                   {filtered.length === 0 && (
@@ -242,20 +233,6 @@ export default function Friends() {
         {/* Sidebar */}
         <div className="lg:col-span-4 flex flex-col gap-6">
           
-          {/* Party Status */}
-          <div className="p-6 bg-[rgba(139,92,246,0.05)] border border-[rgba(139,92,246,0.2)]" style={{ clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))" }}>
-            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-[#8b5cf6] font-['Rajdhani'] mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 bg-[#8b5cf6] rounded-full animate-pulse" /> Party Status
-            </h2>
-            <div className="text-center py-6 border border-dashed border-[rgba(139,92,246,0.3)] bg-[rgba(0,0,0,0.2)]">
-               <p className="text-xs font-bold text-[rgba(232,232,240,0.5)] font-['Inter'] mb-3">You are currently solo.</p>
-               <button className="text-[10px] font-black uppercase tracking-widest px-4 py-2 bg-[rgba(139,92,246,0.1)] border border-[rgba(139,92,246,0.3)] text-[#8b5cf6] hover:bg-[#8b5cf6] hover:text-white transition-colors font-['Rajdhani']"
-                style={{ clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)" }}>
-                 Create Party
-               </button>
-            </div>
-          </div>
-
           {/* Suggestions */}
           {dynamicSuggestions.length > 0 && (
             <div>
@@ -306,6 +283,29 @@ export default function Friends() {
           )}
         </div>
       </div>
+
+      {publicProfile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => dispatch(clearPublicProfile())}>
+          <div className="w-full max-w-lg p-6 bg-[#0f0f16] border border-[rgba(0,240,255,0.25)]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.25em] text-[#00f0ff] font-black">Public Profile</p>
+                <h2 className="text-3xl font-black uppercase text-white font-['Rajdhani'] mt-2">{publicProfile.username || publicProfile.name}</h2>
+                <p className="text-xs text-white/50 mt-1">{publicProfile.name}</p>
+              </div>
+              <button onClick={() => dispatch(clearPublicProfile())} className="text-white/40 hover:text-white">✕</button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-6">
+              <div className="p-4 border border-white/10"><p className="text-[9px] text-white/40 uppercase">Level</p><p className="text-xl text-[#00f0ff] font-black">{publicProfile.level}</p></div>
+              <div className="p-4 border border-white/10"><p className="text-[9px] text-white/40 uppercase">Rank</p><p className="text-xl text-[#8b5cf6] font-black">{publicProfile.rankTitle || "Iron"}</p></div>
+              <div className="p-4 border border-white/10"><p className="text-[9px] text-white/40 uppercase">XP</p><p className="text-xl text-white font-black">{(publicProfile.xp || 0).toLocaleString()}</p></div>
+              <div className="p-4 border border-white/10"><p className="text-[9px] text-white/40 uppercase">Streak</p><p className="text-xl text-[#ec4899] font-black">{publicProfile.currentStreak}d</p></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+
     </div>
   );
 }

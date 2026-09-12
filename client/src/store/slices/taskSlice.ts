@@ -16,6 +16,8 @@ export interface Task {
   projectId: string | null;
   completedAt: string | null;
   createdAt: string;
+  aiAnalyzed?: boolean;
+  aiConfidence?: number | null;
 }
 
 export interface TaskState {

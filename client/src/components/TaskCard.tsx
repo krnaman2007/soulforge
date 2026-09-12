@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { difficultyLabel, isTaskCompleted } from "../utils/status";
 import { motion } from "framer-motion";
 
 const TAG_COLORS: Record<string, string> = {
@@ -36,23 +37,35 @@ function CountdownTimer({ deadline }: { deadline: string }) {
   );
 }
 
-export default function TaskCard({ task, index, onComplete, onDelete }: { task: any; index: number; onComplete?: (id: string) => void; onDelete?: (id: string) => void; }) {
-  const [done, setDone] = useState(task.done || task.isCompleted || task.status === 'completed');
+export default function TaskCard({ task, index, onComplete, onDelete }: { task: any; index: number; onComplete?: (id: string) => Promise<unknown>; onDelete?: (id: string) => void; }) {
+  const [done, setDone] = useState(Boolean(task.done || task.isCompleted || isTaskCompleted(task.status)));
   const [verifying, setVerifying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const isOverdue = task.overdue || false;
+  useEffect(() => {
+    setDone(Boolean(task.done || task.isCompleted || isTaskCompleted(task.status)));
+  }, [task.done, task.isCompleted, task.status]);
 
-  const handleComplete = (e: React.MouseEvent) => {
+  const dueDate = task.dueDate ? new Date(task.dueDate) : null;
+  const isOverdue = Boolean(task.overdue || (dueDate && !Number.isNaN(dueDate.getTime()) && dueDate.getTime() < Date.now() && !isTaskCompleted(task.status)));
+
+  const handleComplete = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (done || verifying || isOverdue) return;
+    if (done || verifying || isOverdue || !task.id || !onComplete) return;
+    setError(null);
     setVerifying(true);
-    if (onComplete && task.id) {
-      onComplete(task.id);
+    try {
+      await onComplete(task.id);
+      setDone(true);
+    } catch (err: any) {
+      setError(err?.message || "Objective verification failed. Try again.");
+      setDone(false);
+    } finally {
+      setVerifying(false);
     }
-    setTimeout(() => { setVerifying(false); setDone(true); }, 2000);
   };
 
-  const diffStr = task.diff || (task.difficulty === 'easy' || task.difficulty === 1 ? 'Easy' : task.difficulty === 'hard' || task.difficulty === 3 ? 'Hard' : 'Medium');
+  const diffStr = task.diff || difficultyLabel(task.difficulty);
 
   return (
     <motion.div
@@ -146,6 +159,10 @@ export default function TaskCard({ task, index, onComplete, onDelete }: { task: 
             </p>
           )}
 
+          {!verifying && error && (
+            <p className="mt-2 text-[10px] uppercase tracking-widest text-[#ef4444] font-black">{error}</p>
+          )}
+
           {!verifying && (
             <div className="flex flex-wrap items-center gap-3 mt-3">
               <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-1 flex items-center"
@@ -166,9 +183,9 @@ export default function TaskCard({ task, index, onComplete, onDelete }: { task: 
                 </span>
               )}
               
-              {isOverdue && task.deadline && (
+              {isOverdue && (task.deadline || task.dueDate) && (
                 <div className="ml-auto">
-                   <CountdownTimer deadline={task.deadline} />
+                   <CountdownTimer deadline={task.deadline || new Date(task.dueDate).toLocaleString()} />
                 </div>
               )}
             </div>

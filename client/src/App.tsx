@@ -17,6 +17,7 @@ import Projects from "./screens/Projects";
 import AIPlanner from "./screens/AIPlanner";
 import HabitChanger from "./screens/HabitChanger";
 import CharacterSheet from "./screens/CharacterSheet";
+import Profile from "./screens/Profile";
 import Shop from "./screens/Shop";
 import Leaderboard from "./screens/Leaderboard";
 import Stats from "./screens/Stats";
@@ -33,6 +34,7 @@ const NAV: NavItem[] = [
   { id: "projects", icon: "◈", label: "Projects", group: "forge" },
   { id: "planner", icon: "✦", label: "AI Planner", group: "ai" },
   { id: "habits", icon: "◐", label: "Habit Changer", group: "ai" },
+  { id: "profile", icon: "◎", label: "Profile", group: "you" },
   { id: "character", icon: "◉", label: "Character", group: "you" },
   { id: "progression", icon: "▲", label: "Progression", group: "you" },
   { id: "shop", icon: "☆", label: "Shop", group: "you" },
@@ -54,6 +56,7 @@ const SCREENS: Record<ScreenId, React.ReactElement> = {
   projects: <Projects />,
   planner: <AIPlanner />,
   habits: <HabitChanger />,
+  profile: <Profile />,
   character: <CharacterSheet />,
   progression: <ProgressionPath />,
   shop: <Shop />,

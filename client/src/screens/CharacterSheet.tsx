@@ -5,6 +5,7 @@ import { RootState, AppDispatch } from "../store/store";
 import { fetchCurrentUser } from "../store/slices/authSlice";
 import { fetchMyAchievementsSummary, fetchAllAchievements } from "../store/slices/achievementSlice";
 import XPBar from "../components/XPBar";
+import { fetchActivityStats } from "../store/slices/activitySlice";
 
 const ATTRIBUTES = [
   { name: "Focus", value: 72, max: 100, color: "#8b5cf6", desc: "Deep work & sustained attention" },
@@ -76,17 +77,18 @@ export default function CharacterSheet() {
   const dispatch = useDispatch<AppDispatch>();
   const { user, character } = useSelector((state: RootState) => state.auth);
   const { mySummary, unlockedAchievements, allAchievements, status } = useSelector((state: RootState) => state.achievements);
+  const activityStats = useSelector((state: RootState) => state.activity.stats);
 
   useEffect(() => {
     if (!user) dispatch(fetchCurrentUser());
     dispatch(fetchMyAchievementsSummary());
     dispatch(fetchAllAchievements(undefined));
+    dispatch(fetchActivityStats("all"));
   }, [dispatch, user]);
 
   const level = character?.level || 1;
   const xp = character?.xp || 0;
-  // Approximation for next level XP
-  const nextLevelXP = 1000 * Math.pow(1.5, level - 1);
+  const nextLevelXP = Math.floor(100 * Math.pow(level, 1.6));
 
   // Derive ATTRIBUTES from character stats if available
   const activeAttributes = character ? [
@@ -98,7 +100,7 @@ export default function CharacterSheet() {
     { name: "Social", value: character.social || 0, max: 100, color: "#00f0ff", desc: "Relationships & networking" },
   ] : ATTRIBUTES;
 
-  const allTitles = allAchievements.filter(a => a.type === 'title').map(a => ({
+  const allTitles = allAchievements.filter(a => Boolean(a.rewardTitle)).map(a => ({
     name: a.rewardTitle || a.name,
     unlocked: unlockedAchievements.some(ua => ua.id === a.id),
     equipped: character?.titleId === a.id,
@@ -106,7 +108,7 @@ export default function CharacterSheet() {
   }));
   const activeTitles = allTitles;
 
-  const allBadges = allAchievements.filter(a => a.type === 'badge' || a.type === 'streak').map(a => {
+  const allBadges = allAchievements.filter(a => Boolean(a.badge)).map(a => {
     const isUnlocked = unlockedAchievements.some(ua => ua.id === a.id);
     let tier = "bronze";
     if (a.rewardXP > 2000) tier = "legendary";
@@ -178,7 +180,7 @@ export default function CharacterSheet() {
                     border: "2px solid rgba(0,240,255,0.5)",
                     boxShadow: "0 0 20px rgba(0,240,255,0.3) inset",
                   }}>
-                  ⚔️
+                  {character?.avatarId === "avatar_starter" || !character?.avatarId ? "⚔️" : character.avatarId}
                 </div>
                 <div className="absolute -bottom-3 -right-3 w-10 h-10 flex items-center justify-center text-sm font-black font-['Rajdhani'] z-20"
                   style={{
@@ -226,7 +228,8 @@ export default function CharacterSheet() {
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-3 gap-2 mt-8 pt-6 border-t border-[rgba(255,255,255,0.05)] relative z-10">
               {[
-                { label: "Total Quests", value: mySummary?.totalAvailable ? mySummary.totalUnlocked : "0", color: "#00f0ff" },
+                { label: "Tasks Completed", value: activityStats?.tasksCompleted ?? 0, color: "#00f0ff" },
+                { label: "Campaigns Completed", value: activityStats?.questsCompleted ?? 0, color: "#8b5cf6" },
                 { label: "Best Streak", value: `${maxStreak}d`, color: "#ec4899" },
                 { label: "Rank Tier", value: "3 / 9", color: "#60a5fa" },
               ].map((s) => (

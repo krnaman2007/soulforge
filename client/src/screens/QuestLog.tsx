@@ -3,9 +3,12 @@ import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "../store/store";
 import { fetchTasks, completeTask, deleteTask } from "../store/slices/taskSlice";
-import { fetchQuests, deleteQuest } from "../store/slices/questSlice";
+import { fetchQuests, fetchQuestById, deleteQuest } from "../store/slices/questSlice";
+import { fetchCurrentUser } from "../store/slices/authSlice";
 import GlassCard from "../components/GlassCard";
 import TaskCard from "../components/TaskCard";
+import { ProjectDetail } from "./Projects";
+import { isProjectActive, isTaskCompleted } from "../utils/status";
 
 type Tab = "daily" | "projects" | "ai";
 
@@ -17,10 +20,10 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "ai", label: "AI-Suggested" },
 ];
 
-function ProjectRowCard({ project, index, onDelete }: { project: any; index: number; onDelete: (id: string, type: string) => void; }) {
-  const completedTasks = project.status === 'completed' ? (project.totalTasks || project.tasks?.length || 1) : (project.completedTasks || project.progress?.current || 0);
-  const totalTasks = project.totalTasks || project.tasks?.length || 1;
-  const pct = Math.round((completedTasks / totalTasks) * 100);
+function ProjectRowCard({ project, index, onDelete, onOpen }: { project: any; index: number; onDelete: (id: string, type: string) => void; onOpen: (project: any) => void; }) {
+  const totalTasks = Number(project.totalTasks ?? project.tasks?.length ?? 0);
+  const completedTasks = isProjectActive(project.status) ? Number(project.completedTasks ?? project.tasks?.filter((t: any) => isTaskCompleted(t.status)).length ?? 0) : totalTasks;
+  const pct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
   const color = project.color || "#00f0ff";
   
   return (
@@ -31,6 +34,10 @@ function ProjectRowCard({ project, index, onDelete }: { project: any; index: num
       className="group relative"
     >
       <div
+        onClick={() => onOpen(project)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onOpen(project); }}
         className="p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-5 transition-all duration-300 relative overflow-hidden group/card bg-[rgba(15,15,22,0.7)] hover:bg-[rgba(20,20,30,0.8)] border border-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.15)]"
         style={{ clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))" }}
       >
@@ -81,7 +88,9 @@ export default function QuestLog() {
   const dispatch = useDispatch<AppDispatch>();
   const { tasks } = useSelector((state: RootState) => state.tasks);
   const { quests: allQuests } = useSelector((state: RootState) => state.quests);
-  const activeQuests = allQuests.filter((q) => q.status === "active");
+  const activeQuests = allQuests.filter((q) => isProjectActive(q.status));
+  const dailyTasks = tasks.filter((task) => !task.projectId && !isTaskCompleted(task.status));
+  const aiProjects = activeQuests.filter((q) => q.tasks?.some((task: any) => task.aiAnalyzed));
 
   useEffect(() => {
     dispatch(fetchTasks());
@@ -89,25 +98,73 @@ export default function QuestLog() {
   }, [dispatch]);
 
   const [tab, setTab] = useState<Tab>("daily");
+  const [selectedProject, setSelectedProject] = useState<any | null>(null);
 
-  const handleCompleteTask = (id: string) => {
-    dispatch(completeTask(id));
+  const handleCompleteTask = async (id: string) => {
+    await dispatch(completeTask(id)).unwrap();
+    await dispatch(fetchTasks()).unwrap();
+    await dispatch(fetchQuests({ limit: 50 })).unwrap();
+    await dispatch(fetchCurrentUser()).unwrap();
   };
 
-  const handleDelete = (id: string, type: string) => {
-    if (type === 'daily') dispatch(deleteTask(id));
-    else if (type === 'projects') dispatch(deleteQuest(id));
+  const handleDelete = async (id: string, type: string) => {
+    if (type === 'daily') await dispatch(deleteTask(id)).unwrap();
+    else if (type === 'projects') {
+      await dispatch(deleteQuest(id)).unwrap();
+      if (selectedProject?.id === id) setSelectedProject(null);
+    }
+  };
+
+  const handleOpenProject = async (project: any) => {
+    const fullProject = await dispatch(fetchQuestById(project.id)).unwrap();
+    setSelectedProject(fullProject);
+  };
+
+  const handleProjectCompleteTask = async (id: string) => {
+    await dispatch(completeTask(id)).unwrap();
+    await dispatch(fetchTasks()).unwrap();
+    await dispatch(fetchQuests({ limit: 50 })).unwrap();
+    if (selectedProject?.id) {
+      const refreshed = await dispatch(fetchQuestById(selectedProject.id)).unwrap();
+      setSelectedProject(refreshed);
+    }
+    await dispatch(fetchCurrentUser()).unwrap();
+  };
+
+  const handleProjectDelete = async (id: string) => {
+    await dispatch(deleteQuest(id)).unwrap();
+    setSelectedProject(null);
+    await dispatch(fetchQuests({ limit: 50 })).unwrap();
+  };
+
+  const handleProjectDeleteTask = async (id: string) => {
+    await dispatch(deleteTask(id)).unwrap();
+    if (selectedProject?.id) {
+      const refreshed = await dispatch(fetchQuestById(selectedProject.id)).unwrap();
+      setSelectedProject(refreshed);
+    }
+    await dispatch(fetchQuests({ limit: 50 })).unwrap();
   };
 
   const getTabData = () => {
-    if (tab === 'daily') {
-      return tasks;
-    }
-    if (tab === 'projects') {
-      return activeQuests;
-    }
-    return [];
+    if (tab === 'daily') return dailyTasks;
+    if (tab === 'projects') return activeQuests;
+    return aiProjects;
   };
+
+  if (selectedProject) {
+    return (
+      <div className="p-6 md:p-8 max-w-4xl mx-auto min-h-screen bg-transparent">
+        <ProjectDetail
+          project={selectedProject}
+          onBack={() => setSelectedProject(null)}
+          onCompleteTask={handleProjectCompleteTask}
+          onDelete={handleProjectDelete}
+          onDeleteTask={handleProjectDeleteTask}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 md:p-8 max-w-4xl mx-auto min-h-screen bg-transparent">
@@ -172,14 +229,14 @@ export default function QuestLog() {
               </div>
             </div>
           )}
-          {getTabData().length === 0 && tab !== "ai" ? (
+          {getTabData().length === 0 ? (
              <div className="py-12 text-center text-[rgba(232,232,240,0.5)] italic text-sm border border-[rgba(255,255,255,0.05)] bg-[rgba(15,15,22,0.6)]" style={{ clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))" }}>
-               No active objectives found for this section.
+               No objectives found for this section.
              </div>
           ) : (
              getTabData().map((item: any, i: number) => {
-               if (tab === 'projects') {
-                 return <ProjectRowCard key={item.id || i} project={item} index={i} onDelete={handleDelete} />;
+               if (tab === 'projects' || tab === 'ai') {
+                 return <ProjectRowCard key={item.id || i} project={item} index={i} onDelete={handleDelete} onOpen={handleOpenProject} />;
                }
                return <TaskCard key={item.id || i} task={item} index={i} onComplete={handleCompleteTask} onDelete={(id) => handleDelete(id, tab)} />;
              })

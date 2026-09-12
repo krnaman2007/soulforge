@@ -2,10 +2,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "../store/store";
-import { fetchQuests, deleteQuest } from "../store/slices/questSlice";
+import { fetchQuests, fetchQuestById, deleteQuest } from "../store/slices/questSlice";
+import { fetchCurrentUser } from "../store/slices/authSlice";
 import { completeTask, deleteTask } from "../store/slices/taskSlice";
 import GlassCard from "../components/GlassCard";
 import TaskCard from "../components/TaskCard";
+import { isProjectActive, isProjectCompleted, isTaskCompleted } from "../utils/status";
 
 
 
@@ -36,11 +38,11 @@ function ProgressRing({ pct, color, size = 60 }: { pct: number; color: string; s
   );
 }
 
-function ProjectDetail({ project, onBack, onCompleteTask, onDelete, onDeleteTask }: { project: any; onBack: () => void; onCompleteTask: (id: string) => void; onDelete: (id: string) => void; onDeleteTask: (id: string) => void; }) {
+export function ProjectDetail({ project, onBack, onCompleteTask, onDelete, onDeleteTask }: { project: any; onBack: () => void; onCompleteTask: (id: string) => Promise<unknown>; onDelete: (id: string) => Promise<unknown>; onDeleteTask: (id: string) => Promise<unknown>; }) {
   const tasks = project.tasks || [];
-  const completedTasks = project.status === 'completed' ? (project.totalTasks || project.tasks?.length || 1) : (project.completedTasks || project.progress?.current || 0);
-  const totalTasks = project.totalTasks || project.tasks?.length || 1;
-  const pct = Math.round((completedTasks / totalTasks) * 100);
+  const totalTasks = Number(project.totalTasks ?? project.tasks?.length ?? 0);
+  const completedTasks = isProjectCompleted(project.status) ? totalTasks : Number(project.completedTasks ?? project.tasks?.filter((t: any) => isTaskCompleted(t.status)).length ?? 0);
+  const pct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   return (
     <motion.div
@@ -68,11 +70,9 @@ function ProjectDetail({ project, onBack, onCompleteTask, onDelete, onDeleteTask
         const color = project.color || "#00f0ff";
         const xpBonus = project.xpBonus !== undefined ? project.xpBonus : (project.bonusXP || 0);
         const coins = project.coins !== undefined ? project.coins : (project.bonusCoins || 0);
-        const completedTasks = project.status === 'completed' 
-          ? (project.totalTasks || project.tasks || 1) 
-          : (typeof project.progress === 'number' ? project.progress : (project.progress?.current || project.completedTasks || project.completed || 0));
-        const totalTasks = project.totalTasks || project.tasks || 1;
-        const pct = Math.round((completedTasks / totalTasks) * 100);
+        const completedTasks = isProjectCompleted(project.status) ? Number(project.totalTasks ?? 0) : Number(project.completedTasks ?? 0);
+        const totalTasks = Number(project.totalTasks ?? 0);
+        const pct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
         return (
           <>
@@ -95,7 +95,7 @@ function ProjectDetail({ project, onBack, onCompleteTask, onDelete, onDeleteTask
                 
                 <div className="flex-1">
                    <div className="text-[10px] uppercase font-bold tracking-[0.3em] mb-1 font-['Rajdhani']" style={{ color: color }}>
-                     Active Campaign
+                     {isProjectCompleted(project.status) ? "Completed Campaign" : "Active Campaign"}
                    </div>
                   <h2 className="text-3xl md:text-5xl font-black mb-2 uppercase tracking-wider text-white" style={{ fontFamily: "Rajdhani, sans-serif" }}>{title}</h2>
                   <p className="text-[10px] md:text-xs uppercase tracking-widest mb-6 font-['Inter']" style={{ color: "rgba(232,232,240,0.5)" }}>{project.description}</p>
@@ -154,19 +154,22 @@ function ProjectDetail({ project, onBack, onCompleteTask, onDelete, onDeleteTask
 
 export default function Projects() {
   const dispatch = useDispatch<AppDispatch>();
-  const { quests, status } = useSelector((state: RootState) => state.quests);
+  const { quests, currentQuest, status } = useSelector((state: RootState) => state.quests);
 
   useEffect(() => {
-    dispatch(fetchQuests());
+    dispatch(fetchQuests({ limit: 50 }));
   }, [dispatch]);
 
-  const activeQuests = quests.filter((q) => q.status === "active");
-  const availableQuests = quests.filter((q) => q.status !== "active");
-
-  const [activeTab, setActiveTab] = useState<"available" | "active">("available");
-  const allProjects: any[] = [...activeQuests, ...availableQuests];
+  const activeQuests = quests.filter((q) => isProjectActive(q.status));
+  const archivedQuests = quests.filter((q) => !isProjectActive(q.status));
+  const [activeTab, setActiveTab] = useState<"active" | "archive">("active");
+  const allProjects: any[] = activeTab === "active" ? activeQuests : archivedQuests;
 
   const [selected, setSelected] = useState<any | null>(null);
+
+  useEffect(() => {
+    if (selected?.id && currentQuest?.id === selected.id) setSelected(currentQuest);
+  }, [currentQuest, selected?.id]);
 
   if (status === "loading") {
     return (
@@ -181,17 +184,25 @@ export default function Projects() {
     );
   }
 
-  const handleCompleteTask = (id: string) => {
-    dispatch(completeTask(id)).then(() => dispatch(fetchQuests())); // Refresh to get updated project progress
+  const handleCompleteTask = async (id: string) => {
+    await dispatch(completeTask(id)).unwrap();
+    await dispatch(fetchQuests({ limit: 50 })).unwrap();
+    await dispatch(fetchQuestById(selected?.id || "")).unwrap();
+    await dispatch(fetchCurrentUser()).unwrap();
   };
 
-  const handleDeleteProject = (id: string) => {
-    dispatch(deleteQuest(id));
+  const handleDeleteProject = async (id: string) => {
+    await dispatch(deleteQuest(id)).unwrap();
     setSelected(null);
   };
 
-  const handleDeleteTask = (id: string) => {
-    dispatch(deleteTask(id)).then(() => dispatch(fetchQuests())); // Refresh to get updated project progress/tasks
+  const handleDeleteTask = async (id: string) => {
+    await dispatch(deleteTask(id)).unwrap();
+    await dispatch(fetchQuests({ limit: 50 })).unwrap();
+    if (selected?.id) {
+      const refreshed = await dispatch(fetchQuestById(selected.id)).unwrap();
+      setSelected(refreshed);
+    }
   };
 
   return (
@@ -209,6 +220,14 @@ export default function Projects() {
               <p className="text-[10px] md:text-xs uppercase tracking-[0.1em] text-[rgba(232,232,240,0.5)] font-['Inter']">Long-term campaigns yielding significant attribute bonuses upon completion.</p>
             </div>
             
+            <div className="flex gap-2 mb-6">
+              {(["active", "archive"] as const).map((tab) => (
+                <button key={tab} onClick={() => setActiveTab(tab)} className="px-5 py-2 text-xs font-black uppercase tracking-widest font-['Rajdhani']" style={{ color: activeTab === tab ? "#00f0ff" : "rgba(232,232,240,0.45)", border: `1px solid ${activeTab === tab ? "rgba(0,240,255,0.35)" : "rgba(255,255,255,0.06)"}`, background: activeTab === tab ? "rgba(0,240,255,0.06)" : "transparent" }}>
+                  {tab === "active" ? `Active (${activeQuests.length})` : `Archive (${archivedQuests.length})`}
+                </button>
+              ))}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6">
               {allProjects.length === 0 ? (
                 <div className="col-span-full py-12 text-center border border-[rgba(255,255,255,0.05)] bg-[rgba(15,15,22,0.6)]" style={{ clipPath: "polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))" }}>
@@ -219,11 +238,9 @@ export default function Projects() {
                   const title = p.title || p.name || "Untitled Campaign";
                   const xpBonus = p.xpBonus !== undefined ? p.xpBonus : (p.bonusXP || 0);
                   const coins = p.coins !== undefined ? p.coins : (p.bonusCoins || 0);
-                  const completedTasks = p.status === 'completed' 
-                    ? (p.totalTasks || p.tasks?.length || 1) 
-                    : (typeof p.progress === 'number' ? p.progress : (p.completedTasks || p.progress?.current || 0));
-                  const totalTasks = p.totalTasks || p.tasks?.length || 1;
-                  const pct = Math.round((completedTasks / totalTasks) * 100);
+                  const totalTasks = Number(p.totalTasks ?? p.tasks?.length ?? 0);
+                  const completedTasks = isProjectCompleted(p.status) ? totalTasks : Number(p.completedTasks ?? 0);
+                  const pct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
                   const color = p.color || "#00f0ff";
                   return (
                     <motion.div
