@@ -10,19 +10,7 @@ import LevelUpModal from "../components/LevelUpModal";
 import PenaltyModal from "../components/PenaltyModal";
 import RankUpModal from "../components/RankUpModal";
 
-const STATS = [
-  { label: "Focus", value: 72, color: "#8b5cf6" },
-  { label: "Vitality", value: 58, color: "#10e07f" },
-  { label: "Mastery", value: 85, color: "#00f0ff" },
-  { label: "Discipline", value: 61, color: "#ec4899" },
-];
 
-const RECENT_QUESTS = [
-  { title: "Complete project architecture doc", xp: 120, coins: 45, done: true, overdue: false },
-  { title: "30-minute morning run", xp: 80, coins: 30, done: true, overdue: false },
-  { title: "Read 20 pages of Deep Work", xp: 60, coins: 25, done: false, overdue: false },
-  { title: "Weekly progress review", xp: 90, coins: 35, done: false, overdue: true, minutesLeft: 0 },
-];
 
 const stagger = {
   hidden: {},
@@ -166,7 +154,7 @@ export default function Dashboard() {
                 <span className="text-[#60a5fa] text-[10px] animate-pulse">◉</span>
                 <span className="text-xs font-black uppercase tracking-widest text-[#60a5fa] font-['Rajdhani']">Level {level}</span>
               </div>
-              <p className="text-[10px] uppercase tracking-[0.2em] mt-3 text-[#8b5cf6] font-bold">The Architect // Tier II</p>
+              <p className="text-[10px] uppercase tracking-[0.2em] mt-3 text-[#8b5cf6] font-bold">{character?.titleId ? character.titleId.replace('title_', '').toUpperCase() : 'NOVICE'} // TIER {Math.floor(level / 10) + 1}</p>
             </div>
 
             <div className="mb-6 relative z-10">
@@ -216,21 +204,7 @@ export default function Dashboard() {
               ))}
             </div>
 
-            {/* Demo modal buttons */}
-            <div className="w-full mt-6 grid grid-cols-3 gap-2 relative z-10">
-              <button onClick={() => setShowLevelUp(true)} className="py-2 text-[10px] md:text-xs font-black uppercase tracking-widest transition-all hover:bg-[rgba(0,240,255,0.15)]"
-                style={{ background: "rgba(0,240,255,0.05)", border: "1px solid rgba(0,240,255,0.3)", color: "#00f0ff", clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))", fontFamily: "Rajdhani, sans-serif" }}>
-                Level Up
-              </button>
-              <button onClick={() => setShowRankUp(true)} className="py-2 text-[10px] md:text-xs font-black uppercase tracking-widest transition-all hover:bg-[rgba(96,165,250,0.15)]"
-                style={{ background: "rgba(96,165,250,0.05)", border: "1px solid rgba(96,165,250,0.3)", color: "#60a5fa", clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))", fontFamily: "Rajdhani, sans-serif" }}>
-                Rank Up
-              </button>
-              <button onClick={() => setShowPenalty(true)} className="py-2 text-[10px] md:text-xs font-black uppercase tracking-widest transition-all hover:bg-[rgba(220,38,38,0.15)]"
-                style={{ background: "rgba(220,38,38,0.05)", border: "1px solid rgba(220,38,38,0.3)", color: "#dc2626", clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))", fontFamily: "Rajdhani, sans-serif" }}>
-                Penalty
-              </button>
-            </div>
+
           </div>
         </motion.div>
 
@@ -249,8 +223,8 @@ export default function Dashboard() {
                 </div>
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[rgba(16,224,127,0.1)] border border-[rgba(16,224,127,0.3)] self-start sm:self-auto"
                   style={{ clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)" }}>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[#10e07f] font-['Rajdhani']">Quests:</span>
-                  <span className="text-sm font-black text-white stat-num">2 <span className="text-[#10e07f]">/ 4</span></span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#10e07f] font-['Rajdhani']">Activities:</span>
+                  <span className="text-sm font-black text-white stat-num">{stats?.totalActivities || 0}</span>
                 </div>
               </div>
 
@@ -294,9 +268,11 @@ export default function Dashboard() {
               <div className="space-y-3">
                 {recent.length > 0 ? recent.map((r, i) => (
                   <QuestItem key={r.id || i} activity={r} index={i} />
-                )) : RECENT_QUESTS.map((q, i) => (
-                  <QuestItem key={i} quest={q} index={i} />
-                ))}
+                )) : (
+                  <div className="py-4 text-center border border-[rgba(255,255,255,0.05)] bg-[rgba(15,15,22,0.6)]" style={{ clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))" }}>
+                    <p className="text-[rgba(232,232,240,0.4)] uppercase tracking-widest text-[10px] md:text-xs font-['Rajdhani']">No recent activity detected.</p>
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>
@@ -329,7 +305,9 @@ export default function Dashboard() {
                 Soulforge AI // Strategic Insight
               </p>
               <p className="text-sm md:text-base font-['Inter'] text-[rgba(232,232,240,0.8)] leading-relaxed">
-                You've completed 85% of Learning quests this week. Consider initializing a <strong className="text-white">Mastery Challenge</strong> quest — your parameters indicate readiness for increased difficulty and higher XP yields.
+                {stats?.totalActivities && stats.totalActivities > 0 
+                  ? `You've completed ${stats.totalActivities} activities recently, yielding ${stats.totalXP} XP. Consider initializing a new Mastery Challenge quest to maintain momentum.`
+                  : `Your activity logs are currently empty. Initialize a new quest or habit to begin your progression journey.`}
               </p>
             </div>
             <button className="px-6 py-2 bg-[rgba(139,92,246,0.1)] border border-[#8b5cf6] text-[#8b5cf6] text-[10px] md:text-xs font-black uppercase tracking-[0.2em] hover:bg-[#8b5cf6] hover:text-white transition-colors font-['Rajdhani']"

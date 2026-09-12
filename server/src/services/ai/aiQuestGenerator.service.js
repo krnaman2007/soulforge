@@ -29,7 +29,7 @@ class AiQuestGeneratorService {
     }
 
     return {
-      questName: rawPlan.projectName || goal,
+      questName: (rawPlan.projectName || goal).substring(0, 100),
       goal,
       category,
       difficulty,
