@@ -212,11 +212,15 @@ model Character {
   lastActiveDate DateTime?
 
   // Equipped Cosmetics Slots
-  avatarId String? @default("avatar_starter")
-  themeId  String? @default("theme_classic")
-  skinId   String?
-  frameId  String?
-  titleId  String? @default("title_apprentice")
+  avatarId     String? @default("avatar_starter")
+  themeId      String? @default("theme_classic")
+  skinId       String?
+  frameId      String?
+  titleId      String? @default("title_apprentice")
+  weaponId     String?
+  petId        String?
+  backgroundId String?
+  effectId     String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -298,6 +302,7 @@ model Project {
 
 model Item {
   id          String     @id @default(cuid())
+  code        String     @unique
   name        String
   description String
   type        ItemType

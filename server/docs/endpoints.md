@@ -1944,18 +1944,271 @@ curl "http://localhost:3000/api/v1/activity/stats?period=week" \
 
 ---
 
-## 12. Common Status Codes
+## 12. Shop & Cosmetic Inventory Subsystem
+
+The Shop and Inventory subsystem forms the core RPG economy loop of SoulForge. Players spend coins earned from tasks, quest campaigns, and challenges to acquire purely aesthetic customizations. Equipping cosmetics updates the adventurer's character profile across all views and leaderboards without creating pay-to-win imbalances.
+
+### 12.1 Browse Cosmetic Shop Catalog
+Retrieves the catalog of available cosmetic items. If called with a valid `Bearer` token, the response automatically enriches each item with the player's ownership status (`isOwned: true/false`), equip status (`isEquipped: true/false`), affordability (`canAfford: true/false`), and the player's current coin balance.
+
+* **Method:** `GET`
+* **URL:** `/api/v1/shop` (or `/api/shop`)
+* **Auth Required:** Optional (`Authorization: Bearer <JWT_TOKEN>`)
+* **Query Parameters:**
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `type` | string | No | - | Filter by item type: `AVATAR`, `THEME`, `SKIN`, `FRAME`, `TITLE`, `WEAPON`, `PET`, `BACKGROUND`, `EFFECT` |
+| `rarity` | string | No | - | Filter by rarity tier: `COMMON`, `UNCOMMON`, `RARE`, `EPIC`, `LEGENDARY` |
+| `minPrice` | integer | No | - | Minimum coin price filter |
+| `maxPrice` | integer | No | - | Maximum coin price filter |
+| `search` | string | No | - | Substring search against item name or description |
+
+* **Example Request:**
+```bash
+curl http://localhost:3000/api/v1/shop?type=AVATAR \
+  -H "Authorization: Bearer <JWT_TOKEN>"
+```
+
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "coins": 350,
+    "total": 6,
+    "items": [
+      {
+        "id": "cmtz0a1b20001...",
+        "code": "avatar_apprentice",
+        "name": "Apprentice Sorcerer",
+        "description": "Robes of the novice spellcaster, ready to weave productive habits.",
+        "type": "AVATAR",
+        "rarity": "COMMON",
+        "price": 50,
+        "metadata": {
+          "assetId": "avatar_apprentice",
+          "icon": "sparkle",
+          "color": "#4F46E5"
+        },
+        "isOwned": true,
+        "isEquipped": true,
+        "canAfford": false,
+        "createdAt": "2026-09-12T13:50:00.000Z"
+      },
+      {
+        "id": "cmtz0a1b20002...",
+        "code": "avatar_paladin",
+        "name": "Luminous Paladin",
+        "description": "Radiating golden discipline and unwavering focus across all quests.",
+        "type": "AVATAR",
+        "rarity": "RARE",
+        "price": 300,
+        "metadata": {
+          "assetId": "avatar_paladin",
+          "icon": "sun",
+          "color": "#F59E0B"
+        },
+        "isOwned": false,
+        "isEquipped": false,
+        "canAfford": true,
+        "createdAt": "2026-09-12T13:50:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 12.2 Purchase Item from Shop
+Authoritatively purchases an item from the shop using the player's character coins. Deducts coins, grants the item to the player's inventory, and records an `ITEM_PURCHASED` event in `ActivityLog` in an atomic ACID transaction. Duplicate purchases are rejected.
+
+* **Method:** `POST`
+* **URL:** `/api/v1/shop/:itemId/purchase` (or `/api/shop/:itemId/purchase`)
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+* **URL Parameters:**
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `itemId` | string | Yes | Unique Item ID or unique item code (e.g. `avatar_paladin`) |
+
+* **Example Request:**
+```bash
+curl -X POST http://localhost:3000/api/v1/shop/avatar_paladin/purchase \
+  -H "Authorization: Bearer <JWT_TOKEN>"
+```
+
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Successfully purchased Luminous Paladin!",
+  "data": {
+    "inventoryId": "cmtz0x9y80003...",
+    "item": {
+      "id": "cmtz0a1b20002...",
+      "code": "avatar_paladin",
+      "name": "Luminous Paladin",
+      "type": "AVATAR",
+      "rarity": "RARE",
+      "price": 300,
+      "metadata": {
+        "assetId": "avatar_paladin",
+        "icon": "sun",
+        "color": "#F59E0B"
+      }
+    },
+    "remainingCoins": 50
+  }
+}
+```
+
+* **Error Responses:**
+  * `400 Bad Request` (`INSUFFICIENT_COINS`): Player does not have enough coins to cover the item price.
+  * `404 Not Found` (`ITEM_NOT_FOUND`): The requested item ID or code does not exist.
+  * `409 Conflict` (`ALREADY_OWNED`): The player already owns this cosmetic item in their inventory.
+
+---
+
+### 12.3 Get Player Inventory
+Retrieves all cosmetic items owned by the player, along with their current equip status and complete cosmetic loadout.
+
+* **Method:** `GET`
+* **URL:** `/api/v1/inventory` (or `/api/inventory`)
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+* **Query Parameters:**
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `type` | string | No | - | Filter owned items by item type: `AVATAR`, `THEME`, `SKIN`, `FRAME`, `TITLE`, `WEAPON`, `PET`, `BACKGROUND`, `EFFECT` |
+| `equipped` | boolean | No | - | Filter by equip status (`true` or `false`) |
+
+* **Example Request:**
+```bash
+curl http://localhost:3000/api/v1/inventory \
+  -H "Authorization: Bearer <JWT_TOKEN>"
+```
+
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "coins": 50,
+    "total": 2,
+    "loadout": {
+      "avatar": "avatar_apprentice",
+      "theme": "theme_classic",
+      "skin": null,
+      "frame": null,
+      "title": "title_apprentice",
+      "weapon": null,
+      "pet": null,
+      "background": null,
+      "effect": null
+    },
+    "items": [
+      {
+        "inventoryId": "cmtz0x9y80001...",
+        "itemId": "cmtz0a1b20001...",
+        "code": "avatar_apprentice",
+        "name": "Apprentice Sorcerer",
+        "description": "Robes of the novice spellcaster, ready to weave productive habits.",
+        "type": "AVATAR",
+        "rarity": "COMMON",
+        "equipped": true,
+        "metadata": {
+          "assetId": "avatar_apprentice"
+        },
+        "purchasedAt": "2026-09-12T13:45:00.000Z"
+      },
+      {
+        "inventoryId": "cmtz0x9y80003...",
+        "itemId": "cmtz0a1b20002...",
+        "code": "avatar_paladin",
+        "name": "Luminous Paladin",
+        "description": "Radiating golden discipline and unwavering focus across all quests.",
+        "type": "AVATAR",
+        "rarity": "RARE",
+        "equipped": false,
+        "metadata": {
+          "assetId": "avatar_paladin"
+        },
+        "purchasedAt": "2026-09-12T13:55:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 12.4 Equip Cosmetic Item
+Equips an owned cosmetic item. Ensures category slot exclusivity: equipping an item automatically un-equips any previously equipped item of the same type, updates the player's `Character` cosmetic slot (`avatarId`, `themeId`, `skinId`, `frameId`, `titleId`, `weaponId`, `petId`, `backgroundId`, or `effectId`), and records an `ITEM_EQUIPPED` event in `ActivityLog`.
+
+* **Method:** `POST`
+* **URL:** `/api/v1/inventory/:itemId/equip` (or `/api/inventory/:itemId/equip`)
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+* **URL Parameters:**
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `itemId` | string | Yes | Item ID, item code, or Inventory ID |
+
+* **Example Request:**
+```bash
+curl -X POST http://localhost:3000/api/v1/inventory/avatar_paladin/equip \
+  -H "Authorization: Bearer <JWT_TOKEN>"
+```
+
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Successfully equipped Luminous Paladin!",
+  "data": {
+    "item": {
+      "id": "cmtz0a1b20002...",
+      "code": "avatar_paladin",
+      "name": "Luminous Paladin",
+      "type": "AVATAR",
+      "rarity": "RARE",
+      "slot": "avatarId"
+    },
+    "equipped": true,
+    "loadout": {
+      "avatar": "avatar_paladin",
+      "theme": "theme_classic",
+      "skin": null,
+      "frame": null,
+      "title": "title_apprentice",
+      "weapon": null,
+      "pet": null,
+      "background": null,
+      "effect": null
+    }
+  }
+}
+```
+
+* **Error Responses:**
+  * `404 Not Found` (`ITEM_NOT_IN_INVENTORY`): The player does not own this item.
+
+---
+
+## 13. Common Status Codes
 
 | Status Code | Code Constant | Reason |
 |---|---|---|
 | `200 OK` | - | Request succeeded |
 | `201 Created` | - | Resource created successfully |
-| `400 Bad Request` | `VALIDATION_ERROR`, `SELF_FOLLOW_NOT_ALLOWED`, `CHALLENGE_NOT_COMPLETED`, `TASK_ALREADY_COMPLETED`, `QUEST_DIFFICULTY_LOCKED`, `FOREIGN_KEY_VIOLATION` | Invalid input or invalid business action |
+| `400 Bad Request` | `VALIDATION_ERROR`, `SELF_FOLLOW_NOT_ALLOWED`, `CHALLENGE_NOT_COMPLETED`, `TASK_ALREADY_COMPLETED`, `QUEST_DIFFICULTY_LOCKED`, `FOREIGN_KEY_VIOLATION`, `INSUFFICIENT_COINS`, `INVALID_SLOT` | Invalid input or invalid business action |
 | `401 Unauthorized` | `UNAUTHORIZED`, `INVALID_CREDENTIALS` | Missing, invalid, or expired JWT Bearer token |
 | `403 Forbidden` | `ACCOUNT_NOT_VERIFIED`, `FORBIDDEN` | Action blocked until email is verified or access denied |
-| `404 Not Found` | `USER_NOT_FOUND`, `NOT_FOLLOWING`, `QUEST_NOT_FOUND`, `TASK_NOT_FOUND`, `ACHIEVEMENT_NOT_FOUND`, `RESOURCE_NOT_FOUND`, `CHARACTER_NOT_FOUND` | Target resource does not exist |
-| `409 Conflict` | `EMAIL_ALREADY_EXISTS`, `USERNAME_ALREADY_EXISTS`, `ALREADY_FOLLOWING`, `CHALLENGE_ALREADY_CLAIMED`, `DUPLICATE_RESOURCE` | Uniqueness conflict or duplicate claim |
+| `404 Not Found` | `USER_NOT_FOUND`, `NOT_FOLLOWING`, `QUEST_NOT_FOUND`, `TASK_NOT_FOUND`, `ACHIEVEMENT_NOT_FOUND`, `RESOURCE_NOT_FOUND`, `CHARACTER_NOT_FOUND`, `ITEM_NOT_FOUND`, `ITEM_NOT_IN_INVENTORY` | Target resource does not exist |
+| `409 Conflict` | `EMAIL_ALREADY_EXISTS`, `USERNAME_ALREADY_EXISTS`, `ALREADY_FOLLOWING`, `CHALLENGE_ALREADY_CLAIMED`, `DUPLICATE_RESOURCE`, `ALREADY_OWNED` | Uniqueness conflict, duplicate claim, or duplicate purchase |
 | `429 Too Many Requests` | `RATE_LIMIT_EXCEEDED` | Rate limit threshold reached |
 | `500 Internal Server Error` | `INTERNAL_SERVER_ERROR` | Unexpected server condition |
+
 
 
