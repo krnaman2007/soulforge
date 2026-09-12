@@ -1,9 +1,9 @@
 import { motion } from "framer-motion";
 import GlassCard from "../components/GlassCard";
 
-const RANKS = [
-  { id: "novice", name: "Novice", xpMin: 0, xpMax: 500, tier: 1, color: "#9ca3af", icon: "◇", desc: "Every forge begins here." },
-  { id: "apprentice", name: "Apprentice", xpMin: 500, xpMax: 2000, tier: 2, color: "#9ca3af", icon: "◈", desc: "Learning the craft." },
+export const RANKS = [
+  { id: "novice", name: "Novice", xpMin: 0, xpMax: 1000, tier: 1, color: "#9ca3af", icon: "◇", desc: "Every forge begins here." },
+  { id: "apprentice", name: "Apprentice", xpMin: 1000, xpMax: 2000, tier: 2, color: "#9ca3af", icon: "◈", desc: "Learning the craft." },
   { id: "journeyman", name: "Journeyman", xpMin: 2000, xpMax: 6000, tier: 3, color: "#60a5fa", icon: "◉", desc: "The path is taking shape." },
   { id: "adept", name: "Adept", xpMin: 6000, xpMax: 15000, tier: 4, color: "#60a5fa", icon: "⬡", desc: "Skill sharpens like steel." },
   { id: "specialist", name: "Specialist", xpMin: 15000, xpMax: 30000, tier: 5, color: "#e2e8f0", icon: "◎", desc: "The professional emerges." },

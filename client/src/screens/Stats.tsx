@@ -1,12 +1,14 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from "recharts";
 import GlassCard from "../components/GlassCard";
+import { RANKS } from "./ProgressionPath";
 
 const XP_DATA = [
-  { day: "Sep 1", xp: 120 }, { day: "Sep 2", xp: 0 }, { day: "Sep 3", xp: 200 },
-  { day: "Sep 4", xp: 180 }, { day: "Sep 5", xp: 340 }, { day: "Sep 6", xp: 280 },
-  { day: "Sep 7", xp: 420 }, { day: "Sep 8", xp: 380 }, { day: "Sep 9", xp: 500 },
-  { day: "Sep 10", xp: 460 }, { day: "Sep 11", xp: 320 }, { day: "Sep 12", xp: 200 },
+  { day: "Sep 1", xp: 120 }, { day: "Sep 2", xp: 120 }, { day: "Sep 3", xp: 320 },
+  { day: "Sep 4", xp: 500 }, { day: "Sep 5", xp: 840 }, { day: "Sep 6", xp: 1120 },
+  { day: "Sep 7", xp: 1540 }, { day: "Sep 8", xp: 1920 }, { day: "Sep 9", xp: 2420 },
+  { day: "Sep 10", xp: 2880 }, { day: "Sep 11", xp: 3200 }, { day: "Sep 12", xp: 3400 },
 ];
 
 const CALENDAR = [
@@ -44,9 +46,58 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-export default function Stats() {
+const CustomReferenceLabel = (props: any) => {
+  const { viewBox, rank, setHovered } = props;
+  if (!viewBox) return null;
+  const isPrismatic = rank.color === "prismatic";
+  const fill = isPrismatic ? "#a78bfa" : rank.color;
+  
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
+    <g 
+      style={{ cursor: "pointer" }}
+      onMouseEnter={(e) => setHovered({ rank, x: e.clientX, y: e.clientY })}
+      onMouseMove={(e) => setHovered({ rank, x: e.clientX, y: e.clientY })}
+      onMouseLeave={() => setHovered(null)}
+    >
+      <rect x={viewBox.x} y={viewBox.y - 6} width={viewBox.width} height={12} fill="transparent" />
+      <text
+        x={viewBox.x + 10}
+        y={viewBox.y}
+        dy={5}
+        fill={fill}
+        fontSize={14}
+      >
+        {rank.icon}
+      </text>
+    </g>
+  );
+};
+
+export default function Stats() {
+  const [hoveredRank, setHoveredRank] = useState<{ rank: any, x: number, y: number } | null>(null);
+
+  return (
+    <div className="p-6 max-w-3xl mx-auto space-y-6 relative">
+      {hoveredRank && (
+        <div 
+          className="fixed z-50 px-3 py-2 rounded-xl pointer-events-none"
+          style={{ 
+            background: "rgba(18,18,46,0.95)", 
+            border: `1px solid ${hoveredRank.rank.color === "prismatic" ? "#a78bfa" : hoveredRank.rank.color}40`, 
+            color: "#e8e8f0",
+            left: hoveredRank.x + 15,
+            top: hoveredRank.y + 15,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.5)"
+          }}
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <span style={{ color: hoveredRank.rank.color === "prismatic" ? "#a78bfa" : hoveredRank.rank.color }}>{hoveredRank.rank.icon}</span>
+            <span className="font-bold text-sm" style={{ color: hoveredRank.rank.color === "prismatic" ? "#a78bfa" : hoveredRank.rank.color }}>{hoveredRank.rank.name}</span>
+          </div>
+          <p className="font-semibold text-xs" style={{ color: "#f6ad37" }}>{hoveredRank.rank.xpMin.toLocaleString()} XP Required</p>
+          <p className="mt-1 pt-1 text-xs" style={{ color: "rgba(232,232,240,0.5)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>{hoveredRank.rank.desc}</p>
+        </div>
+      )}
       <div>
         <h1 className="text-3xl font-bold" style={{ fontFamily: "Sora, sans-serif" }}>Stats & History</h1>
         <p className="text-sm" style={{ color: "rgba(232,232,240,0.5)" }}>Your forge history, growth trends, and personal records.</p>
@@ -92,6 +143,16 @@ export default function Stats() {
               <XAxis dataKey="day" tick={{ fill: "rgba(232,232,240,0.3)", fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: "rgba(232,232,240,0.3)", fontSize: 10 }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
+              {RANKS.filter(r => r.xpMin > 0 && r.xpMin <= 3500).map(rank => (
+                <ReferenceLine
+                  key={rank.id}
+                  y={rank.xpMin}
+                  stroke={rank.color === "prismatic" ? "#a78bfa" : rank.color}
+                  strokeDasharray="4 4"
+                  strokeOpacity={0.6}
+                  label={<CustomReferenceLabel rank={rank} setHovered={setHoveredRank} />}
+                />
+              ))}
               <Area
                 type="monotone"
                 dataKey="xp"
