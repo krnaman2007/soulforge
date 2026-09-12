@@ -2,6 +2,7 @@ const prisma = require('../../db/prisma');
 const { AppError } = require('../../utils/errors');
 const { RPG_CONSTANTS } = require('../../config/constants');
 const LevelService = require('../rpg/level.service');
+const AchievementService = require('../rpg/achievement.service');
 const logger = require('../../errorlogging/logger');
 
 class ChallengeService {
@@ -236,6 +237,54 @@ class ChallengeService {
           }
         });
 
+        // 6. Evaluate Achievements (e.g. CHALLENGER, DEDICATED, HOARDER)
+        let finalCharacter = updatedCharacter;
+        let finalLevelUp = levelUpData;
+
+        const newlyUnlockedAchievements = await AchievementService.evaluateChallengeAchievements(
+          userId,
+          tx,
+          {
+            challengeType: type,
+            character: finalCharacter
+          }
+        );
+
+        for (const ach of newlyUnlockedAchievements) {
+          if (ach.rewardXP > 0) {
+            const achLevelData = LevelService.applyXP(
+              finalCharacter.level,
+              finalCharacter.xp,
+              ach.rewardXP
+            );
+
+            finalCharacter = await tx.character.update({
+              where: { userId },
+              data: {
+                level: achLevelData.newLevel,
+                xp: achLevelData.remainingXP,
+                coins: { increment: ach.rewardCoins }
+              }
+            });
+
+            if (achLevelData.leveledUp) {
+              finalLevelUp = {
+                leveledUp: true,
+                oldLevel: levelUpData.oldLevel,
+                newLevel: achLevelData.newLevel,
+                nextLevelXP: achLevelData.nextLevelXP
+              };
+            }
+          } else if (ach.rewardCoins > 0) {
+            finalCharacter = await tx.character.update({
+              where: { userId },
+              data: {
+                coins: { increment: ach.rewardCoins }
+              }
+            });
+          }
+        }
+
         return {
           success: true,
           message: `${type} challenge claimed successfully`,
@@ -250,17 +299,27 @@ class ChallengeService {
             coins: config.coinReward
           },
           levelUp: {
-            leveledUp: levelUpData.leveledUp,
-            oldLevel: levelUpData.oldLevel,
-            newLevel: levelUpData.newLevel,
-            nextLevelXP: levelUpData.nextLevelXP
+            leveledUp: finalLevelUp.leveledUp,
+            oldLevel: finalLevelUp.oldLevel,
+            newLevel: finalLevelUp.newLevel,
+            nextLevelXP: finalLevelUp.nextLevelXP
           },
           character: {
-            level: updatedCharacter.level,
-            xp: updatedCharacter.xp,
-            nextLevelXP: levelUpData.nextLevelXP,
-            coins: updatedCharacter.coins
-          }
+            level: finalCharacter.level,
+            xp: finalCharacter.xp,
+            nextLevelXP: finalLevelUp.nextLevelXP,
+            coins: finalCharacter.coins
+          },
+          achievementsUnlocked: newlyUnlockedAchievements.map(a => ({
+            id: a.id,
+            code: a.code,
+            name: a.name,
+            description: a.description,
+            rewardXP: a.rewardXP,
+            rewardCoins: a.rewardCoins,
+            badge: a.badge,
+            rewardTitle: a.rewardTitle
+          }))
         };
       });
     } catch (error) {

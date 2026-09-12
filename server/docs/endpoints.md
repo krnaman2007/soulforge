@@ -762,23 +762,50 @@ Marks a task completed, awards authoritative XP & coins to the user's character,
 {
   "success": true,
   "data": {
-    "message": "Task completed successfully",
     "task": {
       "id": "cmty7k0100001j3xdtask002",
       "status": "COMPLETED",
       "completedAt": "2026-09-12T10:15:00.000Z"
     },
     "rewards": {
-      "xpGained": 50,
-      "coinsGained": 20,
-      "attributeBoost": "INTELLECT"
+      "xp": 50,
+      "coins": 20,
+      "attribute": "INTELLECT",
+      "attributeIncrease": 3
     },
+    "questCompleted": false,
+    "questRewards": null,
     "character": {
       "level": 2,
       "xp": 50,
+      "nextLevelXP": 150,
       "coins": 70,
-      "currentStreak": 1
-    }
+      "intellect": 13,
+      "strength": 10,
+      "discipline": 10
+    },
+    "levelUp": {
+      "leveledUp": true,
+      "oldLevel": 1,
+      "newLevel": 2
+    },
+    "streak": {
+      "current": 1,
+      "longest": 1,
+      "streakIncreased": true
+    },
+    "achievementsUnlocked": [
+      {
+        "id": "cmty99ach1...",
+        "code": "FIRST_BLOOD",
+        "name": "First Blood",
+        "description": "Complete your very first task.",
+        "rewardXP": 100,
+        "rewardCoins": 50,
+        "badge": "badge-first-blood",
+        "rewardTitle": "Novice Initiate"
+      }
+    ]
   }
 }
 ```
@@ -1376,7 +1403,164 @@ Decomposes a broad goal into sequential phases and tasks, calculates authoritati
 
 ---
 
-## 9. Common Status Codes
+## 9. Achievement System (Permanent Milestones & Badges)
+
+Achievements are permanent RPG milestones awarded automatically when key events occur (completing tasks, sustaining streaks, leveling up, clearing quests, and claiming challenges). Rewards include bonus XP, coins, player titles, and visual badge identifiers. Unlocks are strictly event-driven and evaluated within transactional boundaries.
+
+### 9.1 List All Achievements
+Retrieves the full achievement catalog. If authenticated with a Bearer token, returns the user's progress percentage, unlock status, and unlock timestamp for each achievement. Supports filtering by achievement category type.
+
+* **Method:** `GET`
+* **URL:** `/api/achievements`
+* **Auth Required:** Optional (`Authorization: Bearer <JWT_TOKEN>`)
+* **Query Parameters:**
+  * `type` (optional string): Filter by category: `TASK`, `STREAK`, `LEVEL`, `PROJECT`, `ECONOMY`, `CHALLENGE`
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "cmty99ach100001j3xd001",
+      "code": "FIRST_BLOOD",
+      "name": "First Blood",
+      "description": "Complete your very first task.",
+      "type": "TASK",
+      "requirement": {
+        "metric": "TASK_COUNT",
+        "target": 1
+      },
+      "rewardXP": 100,
+      "rewardCoins": 50,
+      "badge": "badge-first-blood",
+      "rewardTitle": "Novice Initiate",
+      "isUnlocked": true,
+      "unlockedAt": "2026-09-12T10:45:00.000Z",
+      "progress": {
+        "current": 1,
+        "target": 1,
+        "percentage": 100
+      }
+    },
+    {
+      "id": "cmty99ach100001j3xd002",
+      "code": "GETTING_SERIOUS",
+      "name": "Getting Serious",
+      "description": "Achieve a 7-day task streak.",
+      "type": "STREAK",
+      "requirement": {
+        "metric": "STREAK_DAYS",
+        "target": 7
+      },
+      "rewardXP": 350,
+      "rewardCoins": 150,
+      "badge": "badge-getting-serious",
+      "rewardTitle": "Dedicated",
+      "isUnlocked": false,
+      "unlockedAt": null,
+      "progress": {
+        "current": 3,
+        "target": 7,
+        "percentage": 43
+      }
+    }
+  ]
+}
+```
+
+---
+
+### 9.2 Get My Achievements Summary
+Retrieves a personalized summary of the authenticated user's unlocked achievements, completion statistics, and aggregate rewards earned.
+
+* **Method:** `GET`
+* **URL:** `/api/achievements/me`
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "summary": {
+      "totalUnlocked": 3,
+      "totalAvailable": 15,
+      "completionPercentage": 20,
+      "totalXPEarned": 850,
+      "totalCoinsEarned": 420
+    },
+    "unlockedAchievements": [
+      {
+        "id": "cmty99ach100001j3xd001",
+        "code": "FIRST_BLOOD",
+        "name": "First Blood",
+        "description": "Complete your very first task.",
+        "type": "TASK",
+        "rewardXP": 100,
+        "rewardCoins": 50,
+        "badge": "badge-first-blood",
+        "rewardTitle": "Novice Initiate",
+        "unlockedAt": "2026-09-12T10:45:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 9.3 Get Achievement Details
+Retrieves details of a specific achievement by its unique ID, including the authenticated user's current progress.
+
+* **Method:** `GET`
+* **URL:** `/api/achievements/:id`
+* **Auth Required:** Optional (`Authorization: Bearer <JWT_TOKEN>`)
+* **URL Parameters:**
+  * `id` (string, required): Achievement UUID / CUID
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "cmty99ach100001j3xd001",
+    "code": "FIRST_BLOOD",
+    "name": "First Blood",
+    "description": "Complete your very first task.",
+    "type": "TASK",
+    "requirement": {
+      "metric": "TASK_COUNT",
+      "target": 1
+    },
+    "rewardXP": 100,
+    "rewardCoins": 50,
+    "badge": "badge-first-blood",
+    "rewardTitle": "Novice Initiate",
+    "isUnlocked": true,
+    "unlockedAt": "2026-09-12T10:45:00.000Z",
+    "progress": {
+      "current": 1,
+      "target": 1,
+      "percentage": 100
+    }
+  }
+}
+```
+* **Error Responses:**
+  * `404 Not Found`:
+  ```json
+  {
+    "success": false,
+    "error": {
+      "code": "ACHIEVEMENT_NOT_FOUND",
+      "message": "Achievement not found",
+      "details": null
+    }
+  }
+  ```
+
+---
+
+## 10. Common Status Codes
 
 | Status Code | Code Constant | Reason |
 |---|---|---|
@@ -1385,7 +1569,7 @@ Decomposes a broad goal into sequential phases and tasks, calculates authoritati
 | `400 Bad Request` | `VALIDATION_ERROR`, `SELF_FOLLOW_NOT_ALLOWED`, `CHALLENGE_NOT_COMPLETED` | Invalid input or invalid business action |
 | `401 Unauthorized` | `UNAUTHORIZED` | Missing, invalid, or expired JWT Bearer token |
 | `403 Forbidden` | `ACCOUNT_NOT_VERIFIED` | Action blocked until email is verified |
-| `404 Not Found` | `USER_NOT_FOUND`, `NOT_FOLLOWING`, `QUEST_NOT_FOUND`, `TASK_NOT_FOUND` | Target resource does not exist |
+| `404 Not Found` | `USER_NOT_FOUND`, `NOT_FOLLOWING`, `QUEST_NOT_FOUND`, `TASK_NOT_FOUND`, `ACHIEVEMENT_NOT_FOUND` | Target resource does not exist |
 | `409 Conflict` | `EMAIL_ALREADY_EXISTS`, `USERNAME_ALREADY_EXISTS`, `ALREADY_FOLLOWING`, `CHALLENGE_ALREADY_CLAIMED` | Uniqueness conflict or duplicate claim |
 | `429 Too Many Requests` | `RATE_LIMIT_EXCEEDED` | Rate limit threshold reached |
 | `500 Internal Server Error` | `INTERNAL_SERVER_ERROR` | Unexpected server condition |

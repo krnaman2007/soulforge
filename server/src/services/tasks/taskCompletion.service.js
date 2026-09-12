@@ -3,6 +3,7 @@ const TaskIntegrityService = require('./taskIntegrity.service');
 const LevelService = require('../rpg/level.service');
 const AttributeService = require('../rpg/attribute.service');
 const StreakService = require('../rpg/streak.service');
+const AchievementService = require('../rpg/achievement.service');
 const logger = require('../../errorlogging/logger');
 const { AppError } = require('../../utils/errors');
 
@@ -221,7 +222,53 @@ class TaskCompletionService {
         });
       }
 
-      // 9. Format response payload to match frontend contract
+      // 9. Evaluate Achievements
+      const newlyUnlockedAchievements = await AchievementService.evaluateTaskAchievements(
+        userId,
+        tx,
+        {
+          task: completedTask,
+          character: finalCharacter,
+          questCompleted,
+          streakData,
+          completionTime: new Date()
+        }
+      );
+
+      // If achievements award XP or Coins, apply authoritatively to character
+      for (const ach of newlyUnlockedAchievements) {
+        if (ach.rewardXP > 0) {
+          const achLevelData = LevelService.applyXP(
+            finalCharacter.level,
+            finalCharacter.xp,
+            ach.rewardXP
+          );
+
+          finalCharacter = await tx.character.update({
+            where: { userId },
+            data: {
+              level: achLevelData.newLevel,
+              xp: achLevelData.remainingXP,
+              coins: { increment: ach.rewardCoins }
+            }
+          });
+
+          if (achLevelData.leveledUp) {
+            finalLevelUp.leveledUp = true;
+            finalLevelUp.newLevel = achLevelData.newLevel;
+            finalLevelUp.nextLevelXP = achLevelData.nextLevelXP;
+          }
+        } else if (ach.rewardCoins > 0) {
+          finalCharacter = await tx.character.update({
+            where: { userId },
+            data: {
+              coins: { increment: ach.rewardCoins }
+            }
+          });
+        }
+      }
+
+      // 10. Format response payload to match frontend contract
       return {
         task: completedTask,
         rewards: {
@@ -260,7 +307,16 @@ class TaskCompletionService {
           longest: finalCharacter.longestStreak,
           streakIncreased: streakData.streakIncreased
         },
-        achievementsUnlocked: []
+        achievementsUnlocked: newlyUnlockedAchievements.map(a => ({
+          id: a.id,
+          code: a.code,
+          name: a.name,
+          description: a.description,
+          rewardXP: a.rewardXP,
+          rewardCoins: a.rewardCoins,
+          badge: a.badge,
+          rewardTitle: a.rewardTitle
+        }))
       };
     });
   }

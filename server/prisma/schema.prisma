@@ -144,6 +144,7 @@ enum AchievementType {
   LEVEL
   PROJECT
   ECONOMY
+  CHALLENGE
 }
 
 // =========================================================================
@@ -376,6 +377,8 @@ model Achievement {
   description String
   type        AchievementType
   requirement Json
+  badge       String?
+  rewardTitle String?
   rewardCoins Int             @default(50)
   rewardXP    Int             @default(100)
   createdAt   DateTime        @default(now())
