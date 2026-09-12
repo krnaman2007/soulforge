@@ -30,15 +30,24 @@ function sanitizeUser(user) {
   return safeUser;
 }
 
+const GOOGLE_PLAYGROUND_CLIENT_ID = '407408718192.apps.googleusercontent.com';
+
 async function verifyGoogleToken(idToken) {
   const client = getGoogleClient();
 
   try {
     // If GOOGLE_CLIENT_ID is configured, verify signature directly with audience check
     if (env.GOOGLE_CLIENT_ID) {
+      const allowedAudiences = [env.GOOGLE_CLIENT_ID];
+
+      // In development, also accept tokens generated via Google OAuth 2.0 Playground for testing
+      if (env.NODE_ENV === 'development') {
+        allowedAudiences.push(GOOGLE_PLAYGROUND_CLIENT_ID);
+      }
+
       const ticket = await client.verifyIdToken({
         idToken,
-        audience: env.GOOGLE_CLIENT_ID
+        audience: allowedAudiences
       });
       return ticket.getPayload();
     }
@@ -88,7 +97,7 @@ async function loginWithGoogle({ idToken }) {
       // Link existing user account to Google ID
       user = await prisma.user.update({
         where: { id: user.id },
-        data: { googleId },
+        data: { googleId, isVerified: true },
         include: { character: true }
       });
     }
@@ -106,7 +115,8 @@ async function loginWithGoogle({ idToken }) {
           name,
           email,
           googleId,
-          passwordHash: null
+          passwordHash: null,
+          isVerified: true
         }
       });
 
