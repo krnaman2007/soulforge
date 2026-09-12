@@ -1,5 +1,6 @@
 const prisma = require('../../db/prisma');
 const DateService = require('../utils/date.service');
+const LevelService = require('./level.service');
 const { AppError } = require('../../utils/errors');
 
 class LeaderboardService {
@@ -18,11 +19,14 @@ class LeaderboardService {
    */
   static async _buildLeaderboard(userIds = null, limit = 100, lifetime = false) {
     if (lifetime) {
-      // For Lifetime, we can just query the Character table directly
+      // For Lifetime, rank primarily by highest level, then highest remaining XP
       const where = userIds ? { userId: { in: userIds } } : {};
       const characters = await prisma.character.findMany({
         where,
-        orderBy: { xp: 'desc' },
+        orderBy: [
+          { level: 'desc' },
+          { xp: 'desc' }
+        ],
         take: limit,
         include: {
           user: { select: { id: true, username: true, name: true } }
@@ -37,16 +41,17 @@ class LeaderboardService {
           avatarId: char.avatarId,
           level: char.level
         },
-        xp: char.xp,
+        xp: LevelService.calculateTotalXP(char.level, char.xp),
+        levelXP: char.xp,
         currentStreak: char.currentStreak
       }));
     }
 
-    // For Weekly, we aggregate ActivityLog
+    // For Weekly, we aggregate ActivityLog across all reward sources
     const startOfWeek = this._getWeeklyBoundary();
     const where = {
       createdAt: { gte: startOfWeek },
-      type: { in: ['TASK_COMPLETED', 'XP_GAINED', 'PROJECT_COMPLETED', 'CHALLENGE_CLAIMED'] },
+      type: { in: ['TASK_COMPLETED', 'XP_GAINED', 'PROJECT_COMPLETED', 'CHALLENGE_CLAIMED', 'ACHIEVEMENT_UNLOCKED'] },
       xpChange: { gt: 0 }
     };
 

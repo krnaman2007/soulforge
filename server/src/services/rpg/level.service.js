@@ -57,6 +57,21 @@ class LevelService {
       };
     }
   }
+
+  /**
+   * Calculates total cumulative XP earned from level 1 up to current level and remaining XP.
+   *
+   * @param {number} level - Current character level
+   * @param {number} currentXP - Remaining progress XP within the current level
+   * @returns {number} Total lifetime cumulative XP
+   */
+  static calculateTotalXP(level, currentXP = 0) {
+    let total = Math.max(0, currentXP);
+    for (let lvl = 1; lvl < level; lvl++) {
+      total += this.getRequiredXP(lvl);
+    }
+    return total;
+  }
 }
 
 module.exports = LevelService;
