@@ -119,7 +119,9 @@ model User {
   id           String   @id @default(cuid())
   email        String   @unique
   name         String
-  passwordHash String
+  passwordHash String?
+  googleId     String?
+  isVerified   Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -130,28 +132,30 @@ model User {
   activityLogs        ActivityLog[]
   userAchievements    UserAchievement[]
   streakRecoveries    StreakRecovery[]
-  sentFriendships     Friendship[]      @relation("SentFriendships")
-  receivedFriendships Friendship[]    @relation("ReceivedFriendships")
+  sentFriendships     Friendship[]       @relation("SentFriendships")
+  receivedFriendships Friendship[]       @relation("ReceivedFriendships")
+  verificationToken   VerificationToken?
 
   @@index([email])
+  @@index([googleId])
 }
 
 model Character {
-  id             String    @id @default(cuid())
-  userId         String    @unique
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  level          Int       @default(1)
-  xp             Int       @default(0)
-  coins          Int       @default(50)
+  level Int @default(1)
+  xp    Int @default(0)
+  coins Int @default(50)
 
   // 6 Life RPG Attributes
-  strength       Int       @default(10)
-  intellect      Int       @default(10)
-  discipline     Int       @default(10)
-  health         Int       @default(10)
-  creativity     Int       @default(10)
-  social         Int       @default(10)
+  strength   Int @default(10)
+  intellect  Int @default(10)
+  discipline Int @default(10)
+  health     Int @default(10)
+  creativity Int @default(10)
+  social     Int @default(10)
 
   // Consecutive Day Tracking
   currentStreak  Int       @default(0)
@@ -159,48 +163,48 @@ model Character {
   lastActiveDate DateTime?
 
   // Equipped Cosmetics Slots
-  avatarId       String?   @default("avatar_starter")
-  themeId        String?   @default("theme_classic")
-  skinId         String?
-  frameId        String?
-  titleId        String?   @default("title_apprentice")
+  avatarId String? @default("avatar_starter")
+  themeId  String? @default("theme_classic")
+  skinId   String?
+  frameId  String?
+  titleId  String? @default("title_apprentice")
 
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
 }
 
 model Task {
-  id           String     @id @default(cuid())
-  userId       String
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  projectId    String?
-  project      Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
-  title        String
-  description  String?
-  category     Category   @default(INTELLECT)
-  priority     Priority   @default(MEDIUM)
-  difficulty   Difficulty @default(MEDIUM)
-  effort       Effort     @default(MEDIUM)
-  impact       Impact     @default(MEDIUM)
-  status       TaskStatus @default(PENDING)
+  title       String
+  description String?
+  category    Category   @default(INTELLECT)
+  priority    Priority   @default(MEDIUM)
+  difficulty  Difficulty @default(MEDIUM)
+  effort      Effort     @default(MEDIUM)
+  impact      Impact     @default(MEDIUM)
+  status      TaskStatus @default(PENDING)
 
   // Authoritative Reward Values
-  xpReward     Int        @default(25)
-  coinReward   Int        @default(10)
+  xpReward   Int @default(25)
+  coinReward Int @default(10)
 
   // AI Classification Metadata
-  aiAnalyzed   Boolean    @default(false)
-  aiFlagged    Boolean    @default(false)
+  aiAnalyzed   Boolean @default(false)
+  aiFlagged    Boolean @default(false)
   aiConfidence Float?
 
-  dueDate      DateTime?
-  completedAt  DateTime?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  dueDate     DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   activityLogs ActivityLog[]
 
@@ -211,21 +215,21 @@ model Task {
 }
 
 model Project {
-  id          String        @id @default(cuid())
-  userId      String
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   name        String
   description String?
   status      ProjectStatus @default(ACTIVE)
   progress    Float         @default(0.0)
 
-  bonusXP     Int           @default(100)
-  bonusCoins  Int           @default(50)
+  bonusXP    Int @default(100)
+  bonusCoins Int @default(50)
 
   completedAt DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   tasks        Task[]
   activityLogs ActivityLog[]
@@ -252,12 +256,12 @@ model Item {
 }
 
 model Inventory {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  itemId      String
-  item        Item     @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  itemId String
+  item   Item   @relation(fields: [itemId], references: [id], onDelete: Restrict)
 
   equipped    Boolean  @default(false)
   purchasedAt DateTime @default(now())
@@ -268,43 +272,43 @@ model Inventory {
 }
 
 model ActivityLog {
-  id         String       @id @default(cuid())
-  userId     String
-  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  type       ActivityType
+  type ActivityType
 
   // Soft links to preserved history
-  taskId     String?
-  task       Task?        @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  taskId String?
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
-  projectId  String?
-  project    Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
-  itemId     String?
-  item       Item?        @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  itemId String?
+  item   Item?   @relation(fields: [itemId], references: [id], onDelete: SetNull)
 
-  xpChange   Int          @default(0)
-  coinChange Int          @default(0)
+  xpChange   Int   @default(0)
+  coinChange Int   @default(0)
   metadata   Json?
 
-  createdAt  DateTime     @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
   @@index([userId, type])
 }
 
 model Friendship {
-  id          String           @id @default(cuid())
+  id          String @id @default(cuid())
   requesterId String
-  requester   User             @relation("SentFriendships", fields: [requesterId], references: [id], onDelete: Cascade)
+  requester   User   @relation("SentFriendships", fields: [requesterId], references: [id], onDelete: Cascade)
 
-  receiverId  String
-  receiver    User             @relation("ReceivedFriendships", fields: [receiverId], references: [id], onDelete: Cascade)
+  receiverId String
+  receiver   User   @relation("ReceivedFriendships", fields: [receiverId], references: [id], onDelete: Cascade)
 
-  status      FriendshipStatus @default(PENDING)
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  status    FriendshipStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
 
   @@unique([requesterId, receiverId])
   @@index([requesterId])
@@ -328,14 +332,14 @@ model Achievement {
 }
 
 model UserAchievement {
-  id            String      @id @default(cuid())
-  userId        String
-  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   achievementId String
   achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
 
-  unlockedAt    DateTime    @default(now())
+  unlockedAt DateTime @default(now())
 
   @@unique([userId, achievementId])
   @@index([userId])
@@ -348,4 +352,15 @@ model StreakRecovery {
   usedAt DateTime @default(now())
 
   @@index([userId, usedAt])
+}
+
+model VerificationToken {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
 }

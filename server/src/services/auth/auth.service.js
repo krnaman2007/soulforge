@@ -4,6 +4,7 @@ const prisma = require('../../db/prisma');
 const env = require('../../config/env');
 const { RPG_CONSTANTS } = require('../../config/constants');
 const { AppError } = require('../../utils/errors');
+const verificationService = require('./verification.service');
 
 const BCRYPT_SALT_ROUNDS = 12;
 const JWT_EXPIRES_IN = '7d';
@@ -35,7 +36,8 @@ async function register({ name, email, password }) {
       data: {
         name: name.trim(),
         email: normalizedEmail,
-        passwordHash
+        passwordHash,
+        isVerified: false
       }
     });
 
@@ -62,13 +64,11 @@ async function register({ name, email, password }) {
     return { user, character };
   });
 
-  const token = generateToken({
-    id: result.user.id,
-    email: result.user.email
-  });
+  // Send verification link instead of generating JWT token
+  await verificationService.generateAndSendVerificationLink(result.user);
 
   return {
-    token,
+    message: 'Registration successful. Please check your email for a verification link.',
     user: sanitizeUser(result.user),
     character: result.character
   };
@@ -89,6 +89,10 @@ async function login({ email, password }) {
   const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
   if (!isPasswordValid) {
     throw new AppError('INVALID_CREDENTIALS', 'Invalid email or password', 401);
+  }
+
+  if (!user.isVerified) {
+    throw new AppError('ACCOUNT_NOT_VERIFIED', 'Please verify your email address to log in', 403);
   }
 
   const token = generateToken({

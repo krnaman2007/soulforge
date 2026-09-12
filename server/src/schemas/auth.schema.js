@@ -11,7 +11,22 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password is required')
 });
 
+const resendVerificationSchema = z.object({
+  email: z.string().trim().email('Invalid email address').toLowerCase()
+});
+
+const verifyEmailSchema = z.object({
+  token: z.string().min(1, 'Token is required')
+});
+
+const googleAuthSchema = z.object({
+  idToken: z.string().min(1, 'Google idToken is required')
+});
+
 module.exports = {
   registerSchema,
-  loginSchema
+  loginSchema,
+  resendVerificationSchema,
+  verifyEmailSchema,
+  googleAuthSchema
 };

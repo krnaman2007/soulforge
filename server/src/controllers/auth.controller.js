@@ -32,9 +32,39 @@ async function me(req, res, next) {
   }
 }
 
+async function verifyEmail(req, res, next) {
+  try {
+    const data = await authService.verifyEmailToken(req.body.token);
+    return sendSuccess(res, data, 200);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function resendVerification(req, res, next) {
+  try {
+    const data = await authService.resendVerificationLink(req.body.email);
+    return sendSuccess(res, data, 200);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function googleLogin(req, res, next) {
+  try {
+    const data = await authService.loginWithGoogle(req.body);
+    return sendSuccess(res, data, 200);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
   logout,
-  me
+  me,
+  verifyEmail,
+  resendVerification,
+  googleLogin
 };
