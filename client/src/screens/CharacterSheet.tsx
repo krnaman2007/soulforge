@@ -7,15 +7,6 @@ import { fetchMyAchievementsSummary, fetchAllAchievements } from "../store/slice
 import XPBar from "../components/XPBar";
 import { fetchActivityStats } from "../store/slices/activitySlice";
 
-const ATTRIBUTES = [
-  { name: "Focus", value: 72, max: 100, color: "#8b5cf6", desc: "Deep work & sustained attention" },
-  { name: "Vitality", value: 58, max: 100, color: "#10e07f", desc: "Physical health & energy" },
-  { name: "Mastery", value: 85, max: 100, color: "#00f0ff", desc: "Skill depth & expertise" },
-  { name: "Discipline", value: 61, max: 100, color: "#ec4899", desc: "Consistency & habit adherence" },
-  { name: "Creativity", value: 44, max: 100, color: "#60a5fa", desc: "Novel thinking & expression" },
-  { name: "Resilience", value: 77, max: 100, color: "#f472b6", desc: "Bounce-back & adaptability" },
-];
-
 
 
 const BADGE_TIER: Record<string, { color: string; bg: string; border: string }> = {
@@ -25,7 +16,7 @@ const BADGE_TIER: Record<string, { color: string; bg: string; border: string }> 
   legendary: { color: "#8b5cf6", bg: "rgba(139,92,246,0.1)", border: "rgba(139,92,246,0.2)" },
 };
 
-function StatBar({ attr, index }: { attr: typeof ATTRIBUTES[0]; index: number }) {
+function StatBar({ attr, index }: { attr: { name: string; value: number; max: number; color: string; desc: string; }; index: number }) {
   return (
     <motion.div
       initial={{ opacity: 0, x: -20, rotateX: 10 }}
@@ -90,15 +81,15 @@ export default function CharacterSheet() {
   const xp = character?.xp || 0;
   const nextLevelXP = Math.floor(100 * Math.pow(level, 1.6));
 
-  // Derive ATTRIBUTES from character stats if available
-  const activeAttributes = character ? [
-    { name: "Strength", value: character.strength || 0, max: 100, color: "#8b5cf6", desc: "Physical power & endurance" },
-    { name: "Intellect", value: character.intellect || 0, max: 100, color: "#10e07f", desc: "Knowledge & problem solving" },
-    { name: "Discipline", value: character.discipline || 0, max: 100, color: "#ec4899", desc: "Consistency & habit adherence" },
-    { name: "Health", value: character.health || 0, max: 100, color: "#f472b6", desc: "Overall vitality" },
-    { name: "Creativity", value: character.creativity || 0, max: 100, color: "#60a5fa", desc: "Novel thinking & expression" },
-    { name: "Social", value: character.social || 0, max: 100, color: "#00f0ff", desc: "Relationships & networking" },
-  ] : ATTRIBUTES;
+  // Derive ATTRIBUTES from character stats
+  const activeAttributes = [
+    { name: "Strength", value: character?.strength || 0, max: 100, color: "#8b5cf6", desc: "Physical power & endurance" },
+    { name: "Intellect", value: character?.intellect || 0, max: 100, color: "#10e07f", desc: "Knowledge & problem solving" },
+    { name: "Discipline", value: character?.discipline || 0, max: 100, color: "#ec4899", desc: "Consistency & habit adherence" },
+    { name: "Health", value: character?.health || 0, max: 100, color: "#f472b6", desc: "Overall vitality" },
+    { name: "Creativity", value: character?.creativity || 0, max: 100, color: "#60a5fa", desc: "Novel thinking & expression" },
+    { name: "Social", value: character?.social || 0, max: 100, color: "#00f0ff", desc: "Relationships & networking" },
+  ];
 
   const allTitles = allAchievements.filter(a => Boolean(a.rewardTitle)).map(a => ({
     name: a.rewardTitle || a.name,
@@ -196,7 +187,7 @@ export default function CharacterSheet() {
               {/* Character Details */}
               <div className="flex-1 text-center sm:text-left">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
-                  <h2 className="text-3xl font-black uppercase tracking-wide text-white" style={{ fontFamily: "Rajdhani, sans-serif" }}>{user?.username || "Aiden"}</h2>
+                  <h2 className="text-3xl font-black uppercase tracking-wide text-white" style={{ fontFamily: "Rajdhani, sans-serif" }}>{user?.username || user?.name || "Player"}</h2>
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 self-center sm:self-auto"
                     style={{
                       background: "rgba(96,165,250,0.1)",
@@ -205,7 +196,9 @@ export default function CharacterSheet() {
                       boxShadow: "0 0 10px rgba(96,165,250,0.2) inset",
                     }}>
                     <span className="text-[#60a5fa] text-[10px] animate-pulse">◉</span>
-                    <span className="text-xs font-black uppercase tracking-widest text-[#60a5fa] font-['Rajdhani']">Journeyman</span>
+                    <span className="text-xs font-black uppercase tracking-widest text-[#60a5fa] font-['Rajdhani']">
+                      {activeTitles.find(t => t.equipped)?.name || "Novice"}
+                    </span>
                   </div>
                 </div>
                 
@@ -215,11 +208,11 @@ export default function CharacterSheet() {
                     borderLeft: "2px solid #00f0ff",
                   }}>
                   <span className="text-xs font-bold uppercase tracking-widest text-[#00f0ff] font-['Rajdhani']">
-                    {activeTitles.find(t => t.equipped)?.name || activeTitles.find(t => t.unlocked)?.name || "Novice"}
+                    Rank Tier {Math.min(10, Math.floor(level / 10) + 1)}
                   </span>
                 </div>
                 
-                <p className="text-[10px] uppercase tracking-[0.2em] mb-4 text-[#8b5cf6] font-bold">Tier II // Work & Learning Focused</p>
+                <div className="mb-2" />
                 
                 <XPBar current={xp} max={nextLevelXP} level={level} />
               </div>
@@ -231,7 +224,7 @@ export default function CharacterSheet() {
                 { label: "Tasks Completed", value: activityStats?.tasksCompleted ?? 0, color: "#00f0ff" },
                 { label: "Campaigns Completed", value: activityStats?.questsCompleted ?? 0, color: "#8b5cf6" },
                 { label: "Best Streak", value: `${maxStreak}d`, color: "#ec4899" },
-                { label: "Rank Tier", value: "3 / 9", color: "#60a5fa" },
+                { label: "Rank Tier", value: `${Math.min(10, Math.floor(level / 10) + 1)} / 10`, color: "#60a5fa" },
               ].map((s) => (
                 <div key={s.label} className="p-3 text-center bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]"
                   style={{ clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)" }}>
@@ -241,21 +234,6 @@ export default function CharacterSheet() {
               ))}
             </div>
 
-            {/* Streak Shield */}
-            <div className="mt-6 p-4 flex items-center gap-4 relative z-10"
-              style={{ 
-                background: "linear-gradient(90deg, rgba(16,224,127,0.1), rgba(16,224,127,0.02))", 
-                borderLeft: "3px solid #10e07f",
-                clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%)"
-              }}>
-              <div className="w-10 h-10 flex items-center justify-center text-xl bg-[rgba(16,224,127,0.2)] rounded-full text-[#10e07f] shadow-[0_0_15px_rgba(16,224,127,0.4)]">
-                🛡
-              </div>
-              <div>
-                <p className="text-sm font-black uppercase tracking-widest text-[#10e07f] font-['Rajdhani'] drop-shadow-[0_0_5px_rgba(16,224,127,0.5)]">Streak Shield — Active</p>
-                <p className="text-[10px] md:text-xs text-[rgba(232,232,240,0.5)] mt-1 font-['Inter']">1 shield available. Protects your 7-day streak from a missed day.</p>
-              </div>
-            </div>
           </motion.div>
 
           {/* Titles Section */}
