@@ -273,21 +273,7 @@ export default function Friends() {
         {/* Sidebar */}
         <div className="lg:col-span-4 flex flex-col gap-6">
           
-          {/* Party Status */}
-          <div className="p-6 bg-[rgba(139,92,246,0.05)] border border-[rgba(139,92,246,0.2)] mb-6" style={{ clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))" }}>
-            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-[#8b5cf6] font-['Rajdhani'] mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 bg-[#8b5cf6] rounded-full animate-pulse" /> Party Status
-            </h2>
-            <div className="text-center py-6 border border-dashed border-[rgba(139,92,246,0.3)] bg-[rgba(0,0,0,0.2)]">
-               <p className="text-xs font-bold text-[rgba(232,232,240,0.5)] font-['Inter'] mb-3">You are currently solo.</p>
-               <button 
-                 onClick={() => alert("Party System is still being forged in the backend. Coming soon!")}
-                 className="text-[10px] font-black uppercase tracking-widest px-4 py-2 bg-[rgba(139,92,246,0.1)] border border-[rgba(139,92,246,0.3)] text-[#8b5cf6] hover:bg-[#8b5cf6] hover:text-white transition-colors font-['Rajdhani']"
-                 style={{ clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)" }}>
-                 Create Party
-               </button>
-            </div>
-          </div>
+
           {/* Suggestions */}
           {dynamicSuggestions.length > 0 && (
             <div>
