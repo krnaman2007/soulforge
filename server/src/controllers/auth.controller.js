@@ -59,6 +59,24 @@ async function googleLogin(req, res, next) {
   }
 }
 
+async function checkUsername(req, res, next) {
+  try {
+    const data = await authService.checkUsernameAvailability(req.query.username);
+    return sendSuccess(res, data, 200);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function setUsername(req, res, next) {
+  try {
+    const data = await authService.setUsername(req.user.id, req.body.username);
+    return sendSuccess(res, data, 200);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -66,5 +84,8 @@ module.exports = {
   me,
   verifyEmail,
   resendVerification,
-  googleLogin
+  googleLogin,
+  checkUsername,
+  setUsername
 };
+

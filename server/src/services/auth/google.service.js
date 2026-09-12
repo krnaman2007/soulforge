@@ -158,7 +158,8 @@ async function loginWithGoogle({ idToken }) {
     token,
     user: sanitizeUser(user),
     character: user.character,
-    isNewUser
+    isNewUser,
+    needsUsername: !user.username
   };
 }
 

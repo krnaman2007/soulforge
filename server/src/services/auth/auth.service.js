@@ -18,15 +18,45 @@ function sanitizeUser(user) {
   return safeUser;
 }
 
-async function register({ name, email, password }) {
-  const normalizedEmail = email.toLowerCase().trim();
+const RESERVED_USERNAMES = new Set([
+  'admin',
+  'administrator',
+  'soulforge',
+  'support',
+  'system',
+  'mod',
+  'moderator',
+  'help',
+  'api',
+  'root',
+  'null',
+  'undefined'
+]);
 
-  const existingUser = await prisma.user.findUnique({
+const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,30}$/;
+
+async function register({ name, email, password, username }) {
+  const normalizedEmail = email.toLowerCase().trim();
+  const normalizedUsername = username.toLowerCase().trim();
+
+  if (RESERVED_USERNAMES.has(normalizedUsername)) {
+    throw new AppError('RESERVED_USERNAME', 'This username is reserved and cannot be used', 400);
+  }
+
+  const existingEmail = await prisma.user.findUnique({
     where: { email: normalizedEmail }
   });
 
-  if (existingUser) {
+  if (existingEmail) {
     throw new AppError('EMAIL_ALREADY_EXISTS', 'A user with this email already exists', 409);
+  }
+
+  const existingUsername = await prisma.user.findUnique({
+    where: { username: normalizedUsername }
+  });
+
+  if (existingUsername) {
+    throw new AppError('USERNAME_ALREADY_EXISTS', 'This username is already taken', 409);
   }
 
   const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
@@ -36,6 +66,7 @@ async function register({ name, email, password }) {
       data: {
         name: name.trim(),
         email: normalizedEmail,
+        username: normalizedUsername,
         passwordHash,
         isVerified: false
       }
@@ -70,7 +101,8 @@ async function register({ name, email, password }) {
   return {
     message: 'Registration successful. Please check your email for a verification link.',
     user: sanitizeUser(result.user),
-    character: result.character
+    character: result.character,
+    needsUsername: false
   };
 }
 
@@ -103,7 +135,8 @@ async function login({ email, password }) {
   return {
     token,
     user: sanitizeUser(user),
-    character: user.character
+    character: user.character,
+    needsUsername: !user.username
   };
 }
 
@@ -119,12 +152,95 @@ async function getCurrentUser(userId) {
 
   return {
     user: sanitizeUser(user),
-    character: user.character
+    character: user.character,
+    needsUsername: !user.username
+  };
+}
+
+async function checkUsernameAvailability(rawUsername) {
+  if (!rawUsername || typeof rawUsername !== 'string') {
+    throw new AppError('VALIDATION_ERROR', 'Username is required', 400);
+  }
+
+  const normalized = rawUsername.toLowerCase().trim();
+
+  if (!USERNAME_REGEX.test(normalized)) {
+    return {
+      available: false,
+      username: normalized,
+      reason: 'Username must be 3-30 characters long and contain only letters, numbers, and underscores'
+    };
+  }
+
+  if (RESERVED_USERNAMES.has(normalized)) {
+    return {
+      available: false,
+      username: normalized,
+      reason: 'This username is reserved'
+    };
+  }
+
+  const existing = await prisma.user.findUnique({
+    where: { username: normalized }
+  });
+
+  return {
+    available: !existing,
+    username: normalized,
+    reason: existing ? 'Username is already taken' : undefined
+  };
+}
+
+async function setUsername(userId, rawUsername) {
+  if (!rawUsername || typeof rawUsername !== 'string') {
+    throw new AppError('VALIDATION_ERROR', 'Username is required', 400);
+  }
+
+  const normalized = rawUsername.toLowerCase().trim();
+
+  if (!USERNAME_REGEX.test(normalized)) {
+    throw new AppError('INVALID_USERNAME', 'Username must be 3-30 characters long and contain only letters, numbers, and underscores', 400);
+  }
+
+  if (RESERVED_USERNAMES.has(normalized)) {
+    throw new AppError('RESERVED_USERNAME', 'This username is reserved and cannot be used', 400);
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { character: true }
+  });
+
+  if (!user) {
+    throw new AppError('USER_NOT_FOUND', 'User not found', 404);
+  }
+
+  const existing = await prisma.user.findUnique({
+    where: { username: normalized }
+  });
+
+  if (existing && existing.id !== userId) {
+    throw new AppError('USERNAME_ALREADY_EXISTS', 'This username is already taken', 409);
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: { username: normalized },
+    include: { character: true }
+  });
+
+  return {
+    user: sanitizeUser(updatedUser),
+    character: updatedUser.character,
+    needsUsername: false
   };
 }
 
 module.exports = {
   register,
   login,
-  getCurrentUser
+  getCurrentUser,
+  checkUsernameAvailability,
+  setUsername
 };
+
