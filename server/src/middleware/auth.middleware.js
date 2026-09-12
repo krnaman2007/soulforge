@@ -33,6 +33,35 @@ function authenticate(req, res, next) {
   }
 }
 
+function optionalAuthenticate(req, _res, next) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    req.user = null;
+    return next();
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const decoded = jwt.verify(token, env.JWT_SECRET);
+    if (decoded && decoded.id && decoded.email) {
+      req.user = {
+        id: decoded.id,
+        email: decoded.email
+      };
+    } else {
+      req.user = null;
+    }
+  } catch (_err) {
+    req.user = null;
+  }
+
+  next();
+}
+
 module.exports = {
-  authenticate
+  authenticate,
+  optionalAuthenticate
 };
+
