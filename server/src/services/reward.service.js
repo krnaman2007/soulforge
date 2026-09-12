@@ -1,5 +1,5 @@
-const prisma = require('../../db/prisma');
-const { AppError } = require('../../utils/errors');
+const prisma = require('../db/prisma');
+const { AppError } = require('../utils/errors');
 
 function generateCouponCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
