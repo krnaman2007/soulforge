@@ -9,6 +9,8 @@ import GlassCard from "../components/GlassCard";
 import TaskCard from "../components/TaskCard";
 import { ProjectDetail } from "./Projects";
 import { isProjectActive, isTaskCompleted } from "../utils/status";
+import CreateTaskModal from "../components/CreateTaskModal";
+import CreateQuestModal from "../components/CreateQuestModal";
 
 type Tab = "daily" | "projects" | "ai";
 
@@ -99,6 +101,8 @@ export default function QuestLog() {
 
   const [tab, setTab] = useState<Tab>("daily");
   const [selectedProject, setSelectedProject] = useState<any | null>(null);
+  const [showCreateTask, setShowCreateTask] = useState(false);
+  const [showCreateQuest, setShowCreateQuest] = useState(false);
 
   const handleCompleteTask = async (id: string) => {
     await dispatch(completeTask(id)).unwrap();
@@ -175,6 +179,20 @@ export default function QuestLog() {
          </div>
         <h1 className="text-4xl md:text-5xl font-black uppercase tracking-widest text-white mb-2" style={{ fontFamily: "Rajdhani, sans-serif" }}>Quest Log</h1>
         <p className="text-[10px] md:text-xs uppercase tracking-[0.1em] text-[rgba(232,232,240,0.5)] font-['Inter']">Active missions and objectives. Execute to acquire resources.</p>
+        
+        {/* Creation Buttons */}
+        <div className="absolute top-0 right-0 mt-4 md:mt-0 flex gap-2">
+          {tab === "daily" && (
+            <button onClick={() => setShowCreateTask(true)} className="px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all bg-[rgba(0,240,255,0.1)] hover:bg-[rgba(0,240,255,0.2)] text-[#00f0ff] font-['Rajdhani'] border border-[#00f0ff]" style={{ clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))" }}>
+              + Initialize Task
+            </button>
+          )}
+          {tab === "projects" && (
+            <button onClick={() => setShowCreateQuest(true)} className="px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all bg-[rgba(139,92,246,0.1)] hover:bg-[rgba(139,92,246,0.2)] text-[#c084fc] font-['Rajdhani'] border border-[#8b5cf6]" style={{ clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))" }}>
+              + Initialize Campaign
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tabs — glowing underline on active */}
@@ -243,6 +261,9 @@ export default function QuestLog() {
           )}
         </motion.div>
       </AnimatePresence>
+
+      {showCreateTask && <CreateTaskModal onClose={() => setShowCreateTask(false)} />}
+      {showCreateQuest && <CreateQuestModal onClose={() => setShowCreateQuest(false)} />}
     </div>
   );
 }

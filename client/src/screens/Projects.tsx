@@ -5,8 +5,9 @@ import { RootState, AppDispatch } from "../store/store";
 import { fetchQuests, fetchQuestById, deleteQuest } from "../store/slices/questSlice";
 import { fetchCurrentUser } from "../store/slices/authSlice";
 import { completeTask, deleteTask } from "../store/slices/taskSlice";
-import GlassCard from "../components/GlassCard";
+import XPBar from "../components/XPBar";
 import TaskCard from "../components/TaskCard";
+import CreateTaskModal from "../components/CreateTaskModal";
 import { isProjectActive, isProjectCompleted, isTaskCompleted } from "../utils/status";
 
 
@@ -39,6 +40,7 @@ function ProgressRing({ pct, color, size = 60 }: { pct: number; color: string; s
 }
 
 export function ProjectDetail({ project, onBack, onCompleteTask, onDelete, onDeleteTask }: { project: any; onBack: () => void; onCompleteTask: (id: string) => Promise<unknown>; onDelete: (id: string) => Promise<unknown>; onDeleteTask: (id: string) => Promise<unknown>; }) {
+  const [showCreateTask, setShowCreateTask] = useState(false);
   const tasks = project.tasks || [];
   const totalTasks = Number(project.totalTasks ?? project.tasks?.length ?? 0);
   const completedTasks = isProjectCompleted(project.status) ? totalTasks : Number(project.completedTasks ?? project.tasks?.filter((t: any) => isTaskCompleted(t.status)).length ?? 0);
@@ -135,6 +137,9 @@ export function ProjectDetail({ project, onBack, onCompleteTask, onDelete, onDel
                   <span className="text-[#00f0ff] animate-pulse">◈</span>
                   <h3 className="text-lg font-black uppercase tracking-widest font-['Rajdhani'] text-white">Campaign Objectives</h3>
                   <div className="flex-1 h-px bg-gradient-to-r from-[rgba(255,255,255,0.1)] to-transparent" />
+                  <button onClick={() => setShowCreateTask(true)} className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-all bg-[rgba(0,240,255,0.1)] hover:bg-[rgba(0,240,255,0.2)] text-[#00f0ff] font-['Rajdhani'] border border-[#00f0ff]" style={{ clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))" }}>
+                    + Initialize Objective
+                  </button>
                </div>
 
               {tasks.length === 0 ? (
@@ -148,6 +153,7 @@ export function ProjectDetail({ project, onBack, onCompleteTask, onDelete, onDel
           </>
         );
       })()}
+      {showCreateTask && <CreateTaskModal onClose={() => setShowCreateTask(false)} projectId={project.id} />}
     </motion.div>
   );
 }
