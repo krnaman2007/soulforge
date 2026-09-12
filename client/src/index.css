@@ -1,0 +1,250 @@
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Sora:wght@400;500;600;700;800&display=swap');
+@import 'tailwindcss';
+
+@theme inline {
+  --color-gold: #f6ad37;
+  --color-ember: #ff6b35;
+  --color-violet: #8b5cf6;
+  --color-emerald: #10e07f;
+  --color-danger: #dc2626;
+  --color-debuff: #d97706;
+  --color-obsidian: #0d0d14;
+  --color-navy: #12122e;
+  --color-glass: rgba(255, 255, 255, 0.06);
+  --color-glass-border: rgba(255, 255, 255, 0.08);
+}
+
+:root {
+  --background: #0d0d14;
+  --foreground: #e8e8f0;
+  --card: rgba(255, 255, 255, 0.06);
+  --card-foreground: #e8e8f0;
+  --primary: #f6ad37;
+  --primary-foreground: #0d0d14;
+  --secondary: rgba(139, 92, 246, 0.15);
+  --secondary-foreground: #8b5cf6;
+  --muted: rgba(255, 255, 255, 0.06);
+  --muted-foreground: rgba(232, 232, 240, 0.5);
+  --accent: #ff6b35;
+  --accent-foreground: #fff;
+  --danger: #dc2626;
+  --debuff: #d97706;
+  --border: rgba(255, 255, 255, 0.08);
+  --ring: #f6ad37;
+  --radius: 0px;
+}
+
+* { box-sizing: border-box; }
+
+html {
+  background: #0d0d14;
+  color: #e8e8f0;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body { margin: 0; overflow-x: hidden; }
+
+h1, h2, h3, h4, h5 {
+  font-family: 'Rajdhani', system-ui, sans-serif;
+  letter-spacing: 0.02em;
+}
+
+/* Tabular numerals with glow */
+.stat-num {
+  font-family: 'Rajdhani', sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-style: italic;
+  font-weight: 700;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(246,173,55,0.4); }
+
+/* ─── DIAGONAL-CUT CARD ─── */
+/* Cut: bottom-right corner 16px */
+.glass {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+  position: relative;
+}
+
+/* Cut: top-right corner only (alternate) */
+.glass-tr {
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
+}
+
+/* ─── ANIMATED GRADIENT BORDER ─── */
+@property --border-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes borderSpin {
+  to { --border-angle: 360deg; }
+}
+
+.glass-border-anim {
+  position: relative;
+  z-index: 0;
+}
+.glass-border-anim::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  background: conic-gradient(
+    from var(--border-angle),
+    #f6ad37 0deg, #ff6b35 90deg, #8b5cf6 180deg, #f6ad37 360deg
+  );
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+  animation: borderSpin 4s linear infinite;
+  z-index: -1;
+  opacity: 0.5;
+}
+.glass-border-anim > * { position: relative; z-index: 1; }
+
+/* ─── GRAIN + VIGNETTE OVERLAY ─── */
+.grain-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity: 0.35;
+}
+
+.vignette-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(ellipse 80% 70% at 50% 50%, transparent 40%, rgba(0,0,0,0.7) 100%);
+}
+
+/* ─── ENERGY LINE DIVIDER ─── */
+.energy-line {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(246,173,55,0.5), rgba(139,92,246,0.5), transparent);
+  margin: 1.5rem 0;
+  position: relative;
+}
+.energy-line::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  background: linear-gradient(90deg, transparent, rgba(246,173,55,0.2), transparent);
+  filter: blur(4px);
+}
+
+/* ─── GLOW EFFECTS ─── */
+.glow-gold { box-shadow: 0 0 20px rgba(246,173,55,0.3); }
+.glow-violet { box-shadow: 0 0 20px rgba(139,92,246,0.3); }
+.glow-ember { box-shadow: 0 0 20px rgba(255,107,53,0.3); }
+.glow-emerald { box-shadow: 0 0 20px rgba(16,224,127,0.3); }
+.glow-danger { box-shadow: 0 0 20px rgba(220,38,38,0.4); }
+
+.text-glow-gold { text-shadow: 0 0 16px rgba(246,173,55,0.7), 0 0 30px rgba(246,173,55,0.3); }
+.text-glow-violet { text-shadow: 0 0 16px rgba(139,92,246,0.7); }
+.text-glow-danger { text-shadow: 0 0 16px rgba(220,38,38,0.8); }
+
+/* ─── SKELETON SHIMMER ─── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+
+/* ─── HEXAGONAL FRAME ─── */
+.hex-clip {
+  clip-path: polygon(50% 0%, 95% 25%, 95% 75%, 50% 100%, 5% 75%, 5% 25%);
+}
+
+/* Starfield */
+#starfield { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+
+/* Streak flame */
+@keyframes flamePulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 6px #ff6b35); }
+  50% { transform: scale(1.15); filter: drop-shadow(0 0 14px #ff6b35); }
+}
+.flame-pulse { animation: flamePulse 1.5s ease-in-out infinite; }
+
+/* XP bar gradient border sweep */
+@keyframes xpShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Scanline overlay */
+.scanlines {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+}
+
+/* Rank badge glow pulse */
+@keyframes rankGlow {
+  0%, 100% { box-shadow: 0 0 8px rgba(246,173,55,0.4); }
+  50% { box-shadow: 0 0 20px rgba(246,173,55,0.8), 0 0 40px rgba(246,173,55,0.3); }
+}
+.rank-glow { animation: rankGlow 2s ease-in-out infinite; }
+
+/* Prismatic text */
+@keyframes prismatic {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.prismatic-text {
+  background: linear-gradient(90deg, #f6ad37, #ff6b35, #8b5cf6, #10e07f, #f6ad37);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: prismatic 3s ease infinite;
+}
+
+/* Screen shake */
+@keyframes screenShake {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-4px, -2px); }
+  20% { transform: translate(4px, 2px); }
+  30% { transform: translate(-3px, 3px); }
+  40% { transform: translate(3px, -3px); }
+  50% { transform: translate(-2px, 2px); }
+  60% { transform: translate(2px, -1px); }
+  70% { transform: translate(-1px, 2px); }
+  80% { transform: translate(2px, -2px); }
+  90% { transform: translate(-1px, 1px); }
+}
+.screen-shake { animation: screenShake 0.4s ease-out; }
+
+/* Progress ring */
+.progress-ring { transform: rotate(-90deg); }
+
+/* Digit roll */
+@keyframes digitRoll {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.digit-roll { animation: digitRoll 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
