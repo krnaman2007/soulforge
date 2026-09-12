@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "../store/store";
-import { generateQuestCampaign, createQuestCampaign, clearCampaignStatus } from "../store/slices/aiSlice";
+import { generateQuestCampaign, createQuestCampaign, clearCampaignStatus, clearAllAiStates } from "../store/slices/aiSlice";
 import { fetchQuests } from "../store/slices/questSlice";
 import GlassCard from "../components/GlassCard";
 
@@ -51,7 +51,7 @@ export default function AIPlanner() {
 
   useEffect(() => {
     return () => {
-      dispatch(clearCampaignStatus());
+      dispatch(clearAllAiStates());
     };
   }, [dispatch]);
 
@@ -61,7 +61,12 @@ export default function AIPlanner() {
   const handleGenerate = async () => {
     if (!goal.trim()) return;
     setAccepted(false);
-    await dispatch(generateQuestCampaign({ goal, autoCreate: false })).unwrap();
+    dispatch(clearAllAiStates());
+    try {
+      await dispatch(generateQuestCampaign({ goal, autoCreate: false })).unwrap();
+    } catch {
+      // Handled by Redux
+    }
   };
 
   const handleConfirm = async () => {

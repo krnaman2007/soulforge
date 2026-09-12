@@ -109,9 +109,11 @@ const aiSlice = createSlice({
       // analyzeTask
       .addCase(analyzeTask.pending, (state) => {
         state.status = 'loading';
+        state.error = null;
       })
       .addCase(analyzeTask.fulfilled, (state, action) => {
         state.status = 'succeeded';
+        state.error = null;
         state.analysisResult = action.payload;
       })
       .addCase(analyzeTask.rejected, (state, action) => {
@@ -121,9 +123,11 @@ const aiSlice = createSlice({
       // planProject
       .addCase(planProject.pending, (state) => {
         state.status = 'loading';
+        state.error = null;
       })
       .addCase(planProject.fulfilled, (state, action) => {
         state.status = 'succeeded';
+        state.error = null;
         state.projectPlan = action.payload;
       })
       .addCase(planProject.rejected, (state, action) => {
@@ -133,21 +137,25 @@ const aiSlice = createSlice({
       // planHabit
       .addCase(planHabit.pending, (state) => {
         state.status = 'loading';
+        state.error = null;
       })
       .addCase(planHabit.fulfilled, (state, action) => {
         state.status = 'succeeded';
+        state.error = null;
         state.habitPlan = action.payload;
       })
       .addCase(planHabit.rejected, (state, action) => {
         state.status = 'failed';
         state.error = action.payload as string;
       })
+      // createQuestCampaign
       .addCase(createQuestCampaign.pending, (state) => {
         state.status = 'loading';
         state.error = null;
       })
       .addCase(createQuestCampaign.fulfilled, (state, action) => {
         state.status = 'succeeded';
+        state.error = null;
         state.campaignStatus = action.payload;
       })
       .addCase(createQuestCampaign.rejected, (state, action) => {
@@ -157,9 +165,11 @@ const aiSlice = createSlice({
       // generateQuestCampaign
       .addCase(generateQuestCampaign.pending, (state) => {
         state.status = 'loading';
+        state.error = null;
       })
       .addCase(generateQuestCampaign.fulfilled, (state, action) => {
         state.status = 'succeeded';
+        state.error = null;
         state.campaignStatus = action.payload;
       })
       .addCase(generateQuestCampaign.rejected, (state, action) => {
