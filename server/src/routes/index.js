@@ -9,6 +9,7 @@ const leaderboardRoutes = require('./leaderboard.routes');
 const activityRoutes = require('./activity.routes');
 const shopRoutes = require('./shop.routes');
 const inventoryRoutes = require('./inventory.routes');
+const streakRoutes = require('./streak.routes');
 
 const apiRouter = Router();
 
@@ -24,6 +25,7 @@ apiRouter.use('/leaderboard', leaderboardRoutes);
 apiRouter.use('/activity', activityRoutes);
 apiRouter.use('/shop', shopRoutes);
 apiRouter.use('/inventory', inventoryRoutes);
+apiRouter.use('/streak', streakRoutes);
 
 module.exports = apiRouter;
 

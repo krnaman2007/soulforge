@@ -1,12 +1,35 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState, AppDispatch } from "../store/store";
+import { fetchActivityStats, fetchActivityFeed } from "../store/slices/activitySlice";
+import { fetchCurrentUser } from "../store/slices/authSlice";
 import { motion } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine, CartesianGrid } from "recharts";
-import { useSelector } from "react-redux";
-import { RootState } from "../store/store";
-import api from "../api/axiosConfig";
+import GlassCard from "../components/GlassCard";
 import { RANKS } from "./ProgressionPath";
 
+const XP_DATA = [
+  { day: "Sep 1", xp: 120 }, { day: "Sep 2", xp: 120 }, { day: "Sep 3", xp: 320 },
+  { day: "Sep 4", xp: 500 }, { day: "Sep 5", xp: 840 }, { day: "Sep 6", xp: 1120 },
+  { day: "Sep 7", xp: 1540 }, { day: "Sep 8", xp: 1920 }, { day: "Sep 9", xp: 2420 },
+  { day: "Sep 10", xp: 2880 }, { day: "Sep 11", xp: 3200 }, { day: "Sep 12", xp: 3400 },
+];
+
+const CALENDAR = [
+  [1, 1, 0, 1, 1, 1, 1],
+  [1, 1, 1, 0, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 0],
+  [0, 1, 1, 1, 1, 1, 1],
+  [1, 1, null, null, null, null, null],
+];
+
 const HEAT_MAX = 500;
+const HEAT_DATA: number[] = [
+  120, 0, 200, 180, 340, 280, 420,
+  380, 500, 460, 320, 200, 0, 0,
+  150, 280, 340, 400, 320, 180, 90,
+  460, 500, 380, 200, 120, 300, 420,
+];
 
 function heatColor(val: number) {
   if (val === 0) return "rgba(255,255,255,0.02)";
@@ -75,137 +98,22 @@ const CustomReferenceLabel = (props: any) => {
 };
 
 export default function Stats() {
-  const [hoveredRank, setHoveredRank] = useState<{ rank: any, x: number, y: number } | null>(null);
-  const [activities, setActivities] = useState<any[]>([]);
-  const [globalStats, setGlobalStats] = useState<any>(null);
-  
+  const dispatch = useDispatch<AppDispatch>();
+  const { stats } = useSelector((state: RootState) => state.activity);
   const { character } = useSelector((state: RootState) => state.auth);
 
   useEffect(() => {
-    // Fetch stats and activity log
-    const fetchStats = async () => {
-      try {
-        const [statsRes, activityRes] = await Promise.all([
-          api.get('/activity/stats?period=all'),
-          api.get('/activity?limit=100') // Get up to 100 recent activities to build charts
-        ]);
-        
-        if (statsRes.data.success) {
-          setGlobalStats(statsRes.data.data);
-        }
-        if (activityRes.data.success) {
-          setActivities(activityRes.data.data.activities || []);
-        }
-      } catch (err) {
-        console.error("Failed to load stats", err);
-      }
-    };
-    fetchStats();
-  }, []);
+    dispatch(fetchCurrentUser());
+    dispatch(fetchActivityStats('all'));
+  }, [dispatch]);
 
-  // Process XP Data for the last 12 days
-  const xpData = useMemo(() => {
-    const data = [];
-    const today = new Date();
-    
-    // Initialize last 12 days
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const dayStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      data.push({ day: dayStr, xp: 0, dateStr: d.toISOString().split('T')[0] });
-    }
+  const [hoveredRank, setHoveredRank] = useState<{ rank: any, x: number, y: number } | null>(null);
 
-    // Add cumulative or daily XP based on UI preference.
-    // Assuming UI shows cumulative XP trajectory for the line chart
-    // First, calculate daily gains
-    const dailyGains: Record<string, number> = {};
-    activities.forEach(act => {
-      const actDate = new Date(act.createdAt).toISOString().split('T')[0];
-      if (!dailyGains[actDate]) dailyGains[actDate] = 0;
-      dailyGains[actDate] += (act.xp || 0);
-    });
-    
-    // Assign to data points (just showing daily XP gained on that day)
-    data.forEach(point => {
-      point.xp = dailyGains[point.dateStr] || 0;
-    });
-
-    // Make it cumulative over the 12 days to look like a trajectory
-    let cumulative = 0; // Ideally should start from totalXP - sum of these 12 days
-    
-    // Quick approximation:
-    const recentSum = data.reduce((sum, p) => sum + p.xp, 0);
-    const startXP = Math.max(0, (character?.xp || 0) - recentSum);
-    
-    cumulative = startXP;
-    data.forEach(point => {
-      cumulative += point.xp;
-      point.xp = cumulative;
-    });
-
-    return data;
-  }, [activities, character?.xp]);
-
-  // Process Heatmap Data (last 28 days)
-  const heatData = useMemo(() => {
-    const data = [];
-    const today = new Date();
-    
-    // Build daily gains map
-    const dailyGains: Record<string, number> = {};
-    activities.forEach(act => {
-      const actDate = new Date(act.createdAt).toISOString().split('T')[0];
-      if (!dailyGains[actDate]) dailyGains[actDate] = 0;
-      dailyGains[actDate] += (act.xp || 0);
-    });
-
-    for (let i = 27; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
-      data.push(dailyGains[dateStr] || 0);
-    }
-    return data;
-  }, [activities]);
-
-  // Process Calendar Data (current month binary)
-  const calendarData = useMemo(() => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const firstDay = new Date(year, month, 1).getDay(); // 0-6
-    
-    // Get unique active dates
-    const activeDates = new Set(activities.map(act => new Date(act.createdAt).getDate()));
-    
-    const weeks = [];
-    let currentWeek = Array(7).fill(null);
-    let dayCounter = 1;
-    
-    for (let i = 0; i < 6; i++) { // Up to 6 weeks
-      for (let j = 0; j < 7; j++) {
-        if (i === 0 && j < firstDay) {
-          currentWeek[j] = null;
-        } else if (dayCounter <= daysInMonth) {
-          currentWeek[j] = activeDates.has(dayCounter) ? 1 : 0;
-          dayCounter++;
-        } else {
-          currentWeek[j] = null;
-        }
-      }
-      weeks.push([...currentWeek]);
-      if (dayCounter > daysInMonth) break;
-      currentWeek = Array(7).fill(null);
-    }
-    return weeks;
-  }, [activities]);
-
+  // Use real data where possible
   const maxStreak = character?.longestStreak || 0;
-  const missionsCleared = globalStats?.tasksCompleted || 0;
-  const peakVelocity = Math.max(...heatData) || 0;
-  const totalYield = ((globalStats?.totalXP || 0) + (globalStats?.totalCoins || 0));
+  const totalQuests = stats?.questsCompleted || 0;
+  const totalTasks = stats?.tasksCompleted || 0;
+  const totalXP = stats?.totalXP || 0;
 
   return (
     <div className="p-6 md:p-8 max-w-5xl mx-auto min-h-screen bg-transparent relative overflow-hidden">
@@ -253,9 +161,9 @@ export default function Stats() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8 relative z-10">
         {[
           { label: "Max Streak", value: `${maxStreak} DAYS`, icon: "🔥", color: "#ec4899", glow: "rgba(236,72,153,0.2)" },
-          { label: "Missions Cleared", value: `${missionsCleared}`, icon: "⚔", color: "#00f0ff", glow: "rgba(0,240,255,0.2)" },
-          { label: "Peak Velocity", value: `${peakVelocity} XP`, icon: "✦", color: "#8b5cf6", glow: "rgba(139,92,246,0.2)" },
-          { label: "Total Yield", value: totalYield >= 1000 ? `${(totalYield/1000).toFixed(1)}K` : totalYield.toString(), icon: "◈", color: "#10e07f", glow: "rgba(16,224,127,0.2)" },
+          { label: "Missions Cleared", value: (totalTasks + totalQuests).toString(), icon: "⚔", color: "#00f0ff", glow: "rgba(0,240,255,0.2)" },
+          { label: "Peak Velocity", value: "500 XP", icon: "✦", color: "#8b5cf6", glow: "rgba(139,92,246,0.2)" },
+          { label: "Total Yield", value: totalXP > 1000 ? `${(totalXP / 1000).toFixed(1)}K` : totalXP.toString(), icon: "◈", color: "#10e07f", glow: "rgba(16,224,127,0.2)" },
         ].map((r, i) => (
           <motion.div
             key={r.label}
@@ -308,7 +216,7 @@ export default function Stats() {
                   <h2 className="text-sm md:text-base font-black uppercase tracking-[0.2em] font-['Rajdhani'] flex items-center gap-2" style={{ color: "#e8e8f0" }}>
                      <span className="text-[#8b5cf6]">✦</span> Progression Trajectory
                   </h2>
-                  <p className="text-[9px] uppercase tracking-widest text-[rgba(232,232,240,0.4)] mt-1 font-['Inter']">Cumulative XP Gains — Last 12 Days</p>
+                  <p className="text-[9px] uppercase tracking-widest text-[rgba(232,232,240,0.4)] mt-1 font-['Inter']">XP Accumulation — Last 12 Days</p>
                </div>
                
                <div className="px-3 py-1.5 bg-[rgba(139,92,246,0.1)] border border-[rgba(139,92,246,0.2)] text-[9px] font-black uppercase tracking-widest text-[#c084fc]" style={{ clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))" }}>
@@ -318,7 +226,7 @@ export default function Stats() {
              
              <div style={{ height: 280 }} className="relative z-10 w-full">
                <ResponsiveContainer width="100%" height="100%">
-                 <AreaChart data={xpData} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
+                 <AreaChart data={XP_DATA} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
                    <defs>
                      <linearGradient id="xpGrad" x1="0" y1="0" x2="0" y2="1">
                        <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.6} />
@@ -398,7 +306,7 @@ export default function Stats() {
                 </h2>
                 
                 <div className="flex flex-wrap gap-1.5 md:gap-2 justify-center">
-                  {heatData.map((val, i) => (
+                  {HEAT_DATA.map((val, i) => (
                     <motion.div
                       key={i}
                       initial={{ opacity: 0, scale: 0 }}
@@ -451,7 +359,7 @@ export default function Stats() {
                 <h2 className="text-xs font-black mb-1 uppercase tracking-[0.2em] font-['Rajdhani'] flex items-center gap-2" style={{ color: "#e8e8f0" }}>
                    <span className="text-[#00f0ff]">★</span> Operational Matrix
                 </h2>
-                <p className="text-[9px] uppercase tracking-widest text-[rgba(232,232,240,0.4)] mb-5 font-['Inter']">Current Month</p>
+                <p className="text-[9px] uppercase tracking-widest text-[rgba(232,232,240,0.4)] mb-5 font-['Inter']">September 2026</p>
                 
                 <div className="grid grid-cols-7 gap-1.5 mb-2">
                   {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
@@ -460,10 +368,10 @@ export default function Stats() {
                 </div>
                 
                 <div className="space-y-1.5">
-                  {calendarData.map((week, wi) => (
+                  {CALENDAR.map((week, wi) => (
                     <div key={wi} className="grid grid-cols-7 gap-1.5">
                       {week.map((day, di) => {
-                        const dayNum = wi * 7 + di + 1 - new Date(new Date().getFullYear(), new Date().getMonth(), 1).getDay();
+                        const dayNum = wi * 7 + di + 1;
                         return (
                           <div key={di} className="aspect-square flex items-center justify-center text-[10px] font-black transition-all duration-300 relative group/day"
                             style={{
@@ -491,12 +399,12 @@ export default function Stats() {
                 
                 <div className="flex items-center gap-4 mt-6 pt-4 border-t border-[rgba(255,255,255,0.05)] text-[9px] uppercase tracking-widest font-black" style={{ color: "rgba(232,232,240,0.4)" }}>
                   <div className="flex items-center gap-1.5">
-                     <div className="w-2.5 h-2.5" style={{ background: "rgba(0,240,255,0.15)", border: "1px solid rgba(0,240,255,0.5)", clipPath: "polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))" }} />
-                     <span>Active</span>
+                    <div className="w-2.5 h-2.5" style={{ background: "rgba(0,240,255,0.15)", border: "1px solid rgba(0,240,255,0.5)", clipPath: "polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))" }} />
+                    <span>Active</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                     <div className="w-2.5 h-2.5" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", clipPath: "polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))" }} />
-                     <span>Dormant</span>
+                    <div className="w-2.5 h-2.5" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", clipPath: "polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))" }} />
+                    <span>Dormant</span>
                   </div>
                 </div>
               </div>

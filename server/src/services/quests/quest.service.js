@@ -88,7 +88,7 @@ class QuestService {
         });
 
         return created;
-      });
+      }, { timeout: 15000, maxWait: 10000 });
 
       return this.formatQuest(quest);
     } catch (error) {

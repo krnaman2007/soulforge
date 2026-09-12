@@ -1,22 +1,28 @@
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
-import { useSelector, useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "../store/store";
+import { fetchRecentActivities, fetchActivityStats } from "../store/slices/activitySlice";
+import { fetchDailyChallenge } from "../store/slices/challengeSlice";
 import { fetchCurrentUser } from "../store/slices/authSlice";
-import api from "../api/axiosConfig";
 import XPBar from "../components/XPBar";
 import LevelUpModal from "../components/LevelUpModal";
 import PenaltyModal from "../components/PenaltyModal";
 import RankUpModal from "../components/RankUpModal";
 
-interface Task {
-  id: string;
-  title: string;
-  status: string;
-  xpReward: number;
-  coinReward: number;
-  dueDate: string | null;
-}
+const STATS = [
+  { label: "Focus", value: 72, color: "#8b5cf6" },
+  { label: "Vitality", value: 58, color: "#10e07f" },
+  { label: "Mastery", value: 85, color: "#00f0ff" },
+  { label: "Discipline", value: 61, color: "#ec4899" },
+];
+
+const RECENT_QUESTS = [
+  { title: "Complete project architecture doc", xp: 120, coins: 45, done: true, overdue: false },
+  { title: "30-minute morning run", xp: 80, coins: 30, done: true, overdue: false },
+  { title: "Read 20 pages of Deep Work", xp: 60, coins: 25, done: false, overdue: false },
+  { title: "Weekly progress review", xp: 90, coins: 35, done: false, overdue: true, minutesLeft: 0 },
+];
 
 const stagger = {
   hidden: {},
@@ -28,62 +34,30 @@ const fadeUp = {
 };
 
 export default function Dashboard() {
+  const dispatch = useDispatch<AppDispatch>();
+  const { user, character } = useSelector((state: RootState) => state.auth);
+  const { recent, stats } = useSelector((state: RootState) => state.activity);
+  const { dailyChallenge } = useSelector((state: RootState) => state.challenges);
+
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [showPenalty, setShowPenalty] = useState(false);
   const [showRankUp, setShowRankUp] = useState(false);
-  const [debuffActive] = useState(false);
-
-  const { user, character } = useSelector((state: RootState) => state.auth);
-  const dispatch = useDispatch<AppDispatch>();
-
-  const [recentTasks, setRecentTasks] = useState<Task[]>([]);
-  const [stats, setStats] = useState({ completed: 0, total: 0 });
-
-  useEffect(() => {
-    const fetchDashboardTasks = async () => {
-      try {
-        const res = await api.get('/tasks');
-        if (res.data.success) {
-          const allTasks: Task[] = res.data.data.tasks || [];
-          // Simple logic: grab pending tasks for today + some recently completed
-          const pending = allTasks.filter(t => t.status === "PENDING").slice(0, 3);
-          const done = allTasks.filter(t => t.status === "COMPLETED").slice(0, 1);
-          setRecentTasks([...pending, ...done]);
-          setStats({
-            completed: allTasks.filter(t => t.status === "COMPLETED").length,
-            total: allTasks.length
-          });
-        }
-      } catch (err) {
-        console.error("Failed to load dashboard tasks", err);
-      }
-    };
-    fetchDashboardTasks();
-  }, []);
-
-  const handleTaskCheck = async (taskId: string) => {
-    try {
-      await api.post(`/tasks/${taskId}/complete`);
-      setRecentTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: "COMPLETED" } : t));
-      dispatch(fetchCurrentUser());
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
+  
+  // Use real character data or fallback
   const streak = character?.currentStreak || 0;
   const coins = character?.coins || 0;
   const level = character?.level || 1;
-  const xp = character?.xp || 0;
-  const name = user?.username || user?.name || "Adventurer";
+  const currentXp = character?.xp || 0;
+  
+  // Placeholder debuff logic
+  const [debuffActive] = useState(false);
 
-  // Map backend stats to UI
-  const STATS = [
-    { label: "Focus", value: character?.intellect || 10, color: "#8b5cf6" },
-    { label: "Vitality", value: character?.health || 10, color: "#10e07f" },
-    { label: "Mastery", value: character?.creativity || 10, color: "#00f0ff" },
-    { label: "Discipline", value: character?.discipline || 10, color: "#ec4899" },
-  ];
+  useEffect(() => {
+    dispatch(fetchCurrentUser());
+    dispatch(fetchRecentActivities(4));
+    dispatch(fetchActivityStats('today'));
+    dispatch(fetchDailyChallenge());
+  }, [dispatch]);
 
   return (
     <div className="relative min-h-screen pb-20 pt-8 px-4 md:px-8 max-w-7xl mx-auto selection:bg-[#00f0ff] selection:text-[#0a0a12]">
@@ -93,7 +67,7 @@ export default function Dashboard() {
         <div className="absolute w-full h-full bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSJub25lIi8+CjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wMikiLz4KPC9zdmc+')] z-2 pointer-events-none" />
       </div>
 
-      {showLevelUp && <LevelUpModal level={level + 1} onClose={() => setShowLevelUp(false)} />}
+      {showLevelUp && <LevelUpModal level={8} onClose={() => setShowLevelUp(false)} />}
       {showPenalty && (
         <PenaltyModal
           xpLost={45}
@@ -177,12 +151,12 @@ export default function Dashboard() {
                   clipPath: "polygon(50% 0%, 95% 25%, 95% 75%, 50% 100%, 5% 75%, 5% 25%)",
                   boxShadow: "0 0 15px rgba(0,240,255,0.5)"
                 }}>
-                {level}
+                7
               </div>
             </div>
 
             <div className="text-center mb-6 relative z-10">
-              <h3 className="font-black text-2xl uppercase tracking-wide text-white" style={{ fontFamily: "Rajdhani, sans-serif" }}>{name}</h3>
+              <h3 className="font-black text-2xl uppercase tracking-wide text-white" style={{ fontFamily: "Rajdhani, sans-serif" }}>{user?.name || "Player"}</h3>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 mt-2"
                 style={{
                   background: "rgba(96,165,250,0.1)",
@@ -190,13 +164,13 @@ export default function Dashboard() {
                   clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))",
                 }}>
                 <span className="text-[#60a5fa] text-[10px] animate-pulse">◉</span>
-                <span className="text-xs font-black uppercase tracking-widest text-[#60a5fa] font-['Rajdhani']">Journeyman</span>
+                <span className="text-xs font-black uppercase tracking-widest text-[#60a5fa] font-['Rajdhani']">Level {level}</span>
               </div>
               <p className="text-[10px] uppercase tracking-[0.2em] mt-3 text-[#8b5cf6] font-bold">The Architect // Tier II</p>
             </div>
 
             <div className="mb-6 relative z-10">
-              <XPBar current={xp} max={level * 1000} level={level} className="w-full" />
+              <XPBar current={currentXp} max={level * 1000} level={level} className="w-full" />
             </div>
 
             {/* Debuff indicator */}
@@ -218,7 +192,12 @@ export default function Dashboard() {
 
             {/* Stat mini bars */}
             <div className="grid grid-cols-2 gap-3 w-full mt-auto relative z-10">
-              {STATS.map((s, i) => (
+              {[
+                { label: "Strength", value: character?.strength || 10, color: "#8b5cf6" },
+                { label: "Intellect", value: character?.intellect || 10, color: "#10e07f" },
+                { label: "Discipline", value: character?.discipline || 10, color: "#00f0ff" },
+                { label: "Health", value: character?.health || 10, color: "#ec4899" },
+              ].map((s, i) => (
                 <div key={s.label} className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] transition-colors hover:border-[rgba(255,255,255,0.1)]" style={{ clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))" }}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[10px] uppercase font-bold tracking-widest text-[rgba(232,232,240,0.5)] font-['Rajdhani']">{s.label}</span>
@@ -227,7 +206,7 @@ export default function Dashboard() {
                   <div className="h-1.5 w-full bg-[rgba(0,0,0,0.5)] border border-[rgba(255,255,255,0.1)]" style={{ clipPath: "polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 0 100%)" }}>
                     <motion.div
                       initial={{ width: 0 }}
-                      animate={{ width: `${Math.min((s.value / 100) * 100, 100)}%` }}
+                      animate={{ width: `${Math.min(100, s.value * 2)}%` }}
                       transition={{ type: "spring", stiffness: 60, damping: 20, delay: 0.5 + i * 0.1 }}
                       className="h-full"
                       style={{ background: `linear-gradient(90deg, ${s.color}66, ${s.color})`, boxShadow: `0 0 5px ${s.color}`, clipPath: "polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 0 100%)" }}
@@ -235,6 +214,22 @@ export default function Dashboard() {
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* Demo modal buttons */}
+            <div className="w-full mt-6 grid grid-cols-3 gap-2 relative z-10">
+              <button onClick={() => setShowLevelUp(true)} className="py-2 text-[10px] md:text-xs font-black uppercase tracking-widest transition-all hover:bg-[rgba(0,240,255,0.15)]"
+                style={{ background: "rgba(0,240,255,0.05)", border: "1px solid rgba(0,240,255,0.3)", color: "#00f0ff", clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))", fontFamily: "Rajdhani, sans-serif" }}>
+                Level Up
+              </button>
+              <button onClick={() => setShowRankUp(true)} className="py-2 text-[10px] md:text-xs font-black uppercase tracking-widest transition-all hover:bg-[rgba(96,165,250,0.15)]"
+                style={{ background: "rgba(96,165,250,0.05)", border: "1px solid rgba(96,165,250,0.3)", color: "#60a5fa", clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))", fontFamily: "Rajdhani, sans-serif" }}>
+                Rank Up
+              </button>
+              <button onClick={() => setShowPenalty(true)} className="py-2 text-[10px] md:text-xs font-black uppercase tracking-widest transition-all hover:bg-[rgba(220,38,38,0.15)]"
+                style={{ background: "rgba(220,38,38,0.05)", border: "1px solid rgba(220,38,38,0.3)", color: "#dc2626", clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))", fontFamily: "Rajdhani, sans-serif" }}>
+                Penalty
+              </button>
             </div>
           </div>
         </motion.div>
@@ -255,14 +250,14 @@ export default function Dashboard() {
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[rgba(16,224,127,0.1)] border border-[rgba(16,224,127,0.3)] self-start sm:self-auto"
                   style={{ clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)" }}>
                   <span className="text-[10px] font-black uppercase tracking-widest text-[#10e07f] font-['Rajdhani']">Quests:</span>
-                  <span className="text-sm font-black text-white stat-num">{stats.completed} <span className="text-[#10e07f]">/ {stats.total}</span></span>
+                  <span className="text-sm font-black text-white stat-num">2 <span className="text-[#10e07f]">/ 4</span></span>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
-                  { label: "Level Progress", value: `${Math.round((xp / (level * 1000)) * 100)}%`, color: "#00f0ff", icon: "✦" },
-                  { label: "Available Quests", value: stats.total - stats.completed, color: "#00f0ff", icon: "◈" },
+                  { label: "XP Yield", value: stats?.totalXP || 0, color: "#00f0ff", icon: "✦" },
+                  { label: "Loot Gained", value: `+${stats?.totalCoins || 0}`, color: "#00f0ff", icon: "◈" },
                   { label: "Active Streak", value: `${streak}d`, color: "#ec4899", icon: "🔥" },
                 ].map((s, i) => (
                   <motion.div 
@@ -291,43 +286,79 @@ export default function Dashboard() {
                 <div className="flex items-center gap-3">
                   <h2 className="font-black text-lg md:text-xl uppercase tracking-widest text-white font-['Rajdhani']">Quest Matrix</h2>
                 </div>
+                <button className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00f0ff] hover:text-white transition-colors flex items-center gap-1 font-['Rajdhani']">
+                  View Database <span className="text-sm">→</span>
+                </button>
               </div>
               
               <div className="space-y-3">
-                {recentTasks.length === 0 ? (
-                   <div className="text-center p-8 border border-[rgba(255,255,255,0.05)] bg-[rgba(15,15,22,0.5)]" style={{ clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))" }}>
-                     <p className="text-[rgba(232,232,240,0.5)] font-['Rajdhani'] font-bold uppercase tracking-widest">No Recent Activity</p>
-                   </div>
-                ) : (
-                  recentTasks.map((q, i) => (
-                    <QuestItem key={q.id} quest={q} index={i} onCheck={() => handleTaskCheck(q.id)} />
-                  ))
-                )}
+                {recent.length > 0 ? recent.map((r, i) => (
+                  <QuestItem key={r.id || i} activity={r} index={i} />
+                )) : RECENT_QUESTS.map((q, i) => (
+                  <QuestItem key={i} quest={q} index={i} />
+                ))}
               </div>
             </div>
           </motion.div>
+        </div>
+      </motion.div>
+
+      <div className="my-10 h-px w-full bg-gradient-to-r from-transparent via-[rgba(139,92,246,0.3)] to-transparent" />
+
+      {/* AI insight */}
+      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="preserve-3d">
+        <div className="relative p-6 md:p-8 bg-[rgba(10,10,15,0.8)] backdrop-blur-xl border border-[rgba(139,92,246,0.3)] overflow-hidden group"
+          style={{ clipPath: "polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))" }}>
+          
+          <div className="absolute inset-0 bg-gradient-to-r from-[rgba(139,92,246,0.1)] to-transparent opacity-50" />
+          
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-6 relative z-10">
+            <div className="w-12 h-12 flex items-center justify-center text-xl flex-shrink-0 animate-pulse"
+              style={{ 
+                background: "linear-gradient(135deg, rgba(139,92,246,0.2), transparent)", 
+                border: "1px solid rgba(139,92,246,0.5)", 
+                color: "#c084fc",
+                clipPath: "polygon(50% 0%, 95% 25%, 95% 75%, 50% 100%, 5% 75%, 5% 25%)",
+                boxShadow: "0 0 15px rgba(139,92,246,0.3) inset"
+              }}>
+              ✦
+            </div>
+            <div className="flex-1">
+              <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] mb-2 text-[#8b5cf6] font-['Rajdhani'] flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-[#8b5cf6] rounded-full" />
+                Soulforge AI // Strategic Insight
+              </p>
+              <p className="text-sm md:text-base font-['Inter'] text-[rgba(232,232,240,0.8)] leading-relaxed">
+                You've completed 85% of Learning quests this week. Consider initializing a <strong className="text-white">Mastery Challenge</strong> quest — your parameters indicate readiness for increased difficulty and higher XP yields.
+              </p>
+            </div>
+            <button className="px-6 py-2 bg-[rgba(139,92,246,0.1)] border border-[#8b5cf6] text-[#8b5cf6] text-[10px] md:text-xs font-black uppercase tracking-[0.2em] hover:bg-[#8b5cf6] hover:text-white transition-colors font-['Rajdhani']"
+              style={{ clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)" }}>
+              Generate Challenge
+            </button>
+          </div>
         </div>
       </motion.div>
     </div>
   );
 }
 
-function QuestItem({ quest, index, onCheck }: { quest: Task; index: number; onCheck: () => void }) {
-  const [done, setDone] = useState(quest.status === "COMPLETED");
+function QuestItem({ quest, activity, index }: { quest?: any; activity?: any; index: number }) {
+  const isActivity = !!activity;
+  const title = isActivity ? (activity.task?.title || activity.description) : quest.title;
+  const xp = isActivity ? activity.xp : quest.xp;
+  const coins = isActivity ? activity.coins : quest.coins;
+  const isDone = isActivity ? true : quest.done;
+  const isOverdue = isActivity ? false : quest.overdue;
+
+  const [done, setDone] = useState(isDone);
   const [verifying, setVerifying] = useState(false);
-  const overdue = quest.dueDate ? new Date(quest.dueDate) < new Date() && !done : false;
 
   const handleCheck = () => {
-    if (done || overdue || verifying) return;
+    if (done || isOverdue || isActivity) return;
     setVerifying(true);
-    onCheck(); // Parent will handle api call
+    setTimeout(() => { setVerifying(false); setDone(true); }, 1800);
   };
-
-  // Sync state if parent changes
-  useEffect(() => {
-    setDone(quest.status === "COMPLETED");
-    if (quest.status === "COMPLETED") setVerifying(false);
-  }, [quest.status]);
 
   return (
     <motion.div
@@ -336,10 +367,10 @@ function QuestItem({ quest, index, onCheck }: { quest: Task; index: number; onCh
       transition={{ delay: index * 0.1, type: "spring" }}
       className="group relative flex items-center gap-4 p-4 transition-all duration-300"
       style={{
-        background: overdue
+        background: isOverdue
           ? "rgba(220,38,38,0.05)"
           : done ? "rgba(16,224,127,0.03)" : "rgba(255,255,255,0.02)",
-        border: `1px solid ${overdue ? "rgba(220,38,38,0.3)" : done ? "rgba(16,224,127,0.15)" : "rgba(255,255,255,0.05)"}`,
+        border: `1px solid ${isOverdue ? "rgba(220,38,38,0.3)" : done ? "rgba(16,224,127,0.15)" : "rgba(255,255,255,0.05)"}`,
         clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))",
       }}
     >
@@ -348,12 +379,12 @@ function QuestItem({ quest, index, onCheck }: { quest: Task; index: number; onCh
         className="w-6 h-6 flex items-center justify-center flex-shrink-0 transition-all cursor-pointer relative"
         style={{
           background: done ? "#10e07f" : "rgba(0,0,0,0.5)",
-          border: `1px solid ${done ? "#10e07f" : overdue ? "rgba(220,38,38,0.5)" : "rgba(255,255,255,0.3)"}`,
+          border: `1px solid ${done ? "#10e07f" : isOverdue ? "rgba(220,38,38,0.5)" : "rgba(255,255,255,0.3)"}`,
           clipPath: "polygon(50% 0%, 95% 25%, 95% 75%, 50% 100%, 5% 75%, 5% 25%)",
           boxShadow: done ? "0 0 10px rgba(16,224,127,0.5)" : "none"
         }}
       >
-        {!done && !overdue && <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity" />}
+        {!done && !isOverdue && <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity" />}
         {done && (
           <motion.svg initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 400, damping: 15 }}
             width="12" height="10" viewBox="0 0 10 8" fill="none">
@@ -369,26 +400,26 @@ function QuestItem({ quest, index, onCheck }: { quest: Task; index: number; onCh
         </div>
       ) : (
         <div className="flex-1">
-          <p className="text-sm md:text-base font-bold transition-colors line-clamp-1" style={{
-            color: overdue ? "#dc2626" : done ? "rgba(232,232,240,0.4)" : "white",
+          <p className="text-sm md:text-base font-bold transition-colors" style={{
+            color: isOverdue ? "#dc2626" : done ? "rgba(232,232,240,0.4)" : "white",
             textDecoration: done ? "line-through" : "none",
             fontFamily: "Inter, sans-serif"
           }}>
-            {quest.title}
+            {title}
           </p>
         </div>
       )}
 
       {!verifying && (
         <div className="flex items-center gap-3 md:gap-6 flex-shrink-0">
-          {overdue ? (
+          {isOverdue ? (
             <span className="text-[10px] md:text-xs font-black uppercase tracking-widest px-2 py-1 bg-[rgba(220,38,38,0.1)] border border-[rgba(220,38,38,0.3)] text-[#dc2626] font-['Rajdhani']">Failed</span>
           ) : done ? (
             <span className="text-[10px] md:text-xs font-black uppercase tracking-widest px-2 py-1 bg-[rgba(16,224,127,0.1)] border border-[rgba(16,224,127,0.3)] text-[#10e07f] font-['Rajdhani']">Cleared</span>
           ) : (
             <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-3 text-right">
-              <span className="text-xs font-black uppercase tracking-widest text-[#00f0ff] font-['Rajdhani'] drop-shadow-[0_0_5px_rgba(0,240,255,0.4)]">+{quest.xpReward} XP</span>
-              <span className="text-xs font-black uppercase tracking-widest text-[#ec4899] font-['Rajdhani']">◈ {quest.coinReward}</span>
+              <span className="text-xs font-black uppercase tracking-widest text-[#00f0ff] font-['Rajdhani'] drop-shadow-[0_0_5px_rgba(0,240,255,0.4)]">+{xp} XP</span>
+              <span className="text-xs font-black uppercase tracking-widest text-[#ec4899] font-['Rajdhani']">◈ {coins}</span>
             </div>
           )}
         </div>

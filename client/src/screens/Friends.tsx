@@ -1,13 +1,16 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
-import { useSelector } from "react-redux";
-import api from "../api/axiosConfig";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState, AppDispatch } from "../store/store";
+import { fetchFollowing, fetchFollowers, followUser, unfollowUser, searchUsers } from "../store/slices/socialSlice";
 
 const FRIENDS_LIST = [
   { name: "Alex Torres", title: "The Hustler", level: 22, streak: 15, avatar: "☄", xp: 48200, online: true, guild: "Shadow Syndicate" },
-  { name: "Jamie Liu", title: "Builder", level: 18, streak: 9, avatar: "🛠", xp: 34600, online: true, guild: "Iron Hands" },
-  { name: "Sam Rivera", title: "Explorer", level: 5, streak: 3, avatar: "🗺", xp: 1840, online: false, guild: "None" },
-  { name: "Casey Park", title: "The Spark", level: 11, streak: 6, avatar: "⚡", xp: 18400, online: false, guild: "Storm Weavers" },
+  { name: "Sarah Chen", title: "Master Architect", level: 31, streak: 42, avatar: "✧", xp: 89000, online: true, guild: "Neon Knights" },
+  { name: "Marcus Webb", title: "The Relentless", level: 18, streak: 7, avatar: "⚡", xp: 22400, online: false, guild: "None" },
+  { name: "Elena Rostova", title: "Void Walker", level: 45, streak: 120, avatar: "◈", xp: 156000, online: true, guild: "Shadow Syndicate" },
+  { name: "James Holden", title: "Journeyman", level: 12, streak: 2, avatar: "⚙", xp: 14200, online: false, guild: "Neon Knights" },
+  { name: "Maya Lin", title: "Zen Master", level: 28, streak: 65, avatar: "✿", xp: 76000, online: true, guild: "None" },
 ];
 
 const SUGGESTIONS = [
@@ -15,16 +18,20 @@ const SUGGESTIONS = [
   { name: "Riley Stone", title: "Forge Born", level: 9, avatar: "🔥" },
 ];
 
-function FriendCard({ friend }: { friend: typeof FRIENDS_LIST[0] }) {
+type View = "following" | "followers" | "add" | "guilds";
+
+function FriendCard({ friend, view }: { friend: any; view?: string }) {
   const [sharing, setSharing] = useState(false);
+  const dispatch = useDispatch<AppDispatch>();
+  const isOnline = friend.isOnline !== undefined ? friend.isOnline : friend.online;
 
   return (
     <div className="relative group preserve-3d">
       <div className="p-4 md:p-5 bg-[rgba(15,15,22,0.6)] backdrop-blur-md border transition-all duration-300 relative z-10"
         style={{
-          borderColor: friend.online ? "rgba(16,224,127,0.3)" : "rgba(255,255,255,0.05)",
+          borderColor: friend.isOnline ? "rgba(16,224,127,0.3)" : "rgba(255,255,255,0.05)",
           clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))",
-          boxShadow: friend.online ? "0 0 20px rgba(16,224,127,0.05)" : "none"
+          boxShadow: friend.isOnline ? "0 0 20px rgba(16,224,127,0.05)" : "none"
         }}>
         
         {/* Hover Glow */}
@@ -35,47 +42,56 @@ function FriendCard({ friend }: { friend: typeof FRIENDS_LIST[0] }) {
             <div className="relative flex-shrink-0">
               <div className="w-14 h-14 hex-clip flex items-center justify-center text-2xl"
                 style={{
-                  background: friend.online ? "linear-gradient(135deg, rgba(16,224,127,0.1), rgba(10,10,15,0.9))" : "rgba(255,255,255,0.05)",
-                  border: friend.online ? "1px solid rgba(16,224,127,0.5)" : "1px solid rgba(255,255,255,0.1)",
+                  background: friend.isOnline ? "linear-gradient(135deg, rgba(16,224,127,0.1), rgba(10,10,15,0.9))" : "rgba(255,255,255,0.05)",
+                  border: friend.isOnline ? "1px solid rgba(16,224,127,0.5)" : "1px solid rgba(255,255,255,0.1)",
                 }}>
-                {friend.avatar}
+                {friend.avatarId ? '👤' : (friend.avatar || '☄')}
               </div>
-              {friend.online && (
+              {friend.isOnline && (
                 <div className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-[#10e07f] shadow-[0_0_8px_#10e07f] border border-[#0d0d14]" />
               )}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <p className="font-black text-base md:text-lg uppercase tracking-wide text-white font-['Rajdhani'] truncate">{friend.name}</p>
+                <p className="font-black text-base md:text-lg uppercase tracking-wide text-white font-['Rajdhani'] truncate">{friend.username || friend.name}</p>
                 <span className="text-[10px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-[rgba(139,92,246,0.1)] text-[#8b5cf6] border border-[rgba(139,92,246,0.3)] truncate" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%)" }}>Lv {friend.level}</span>
               </div>
-              <p className="text-[10px] md:text-xs text-[rgba(232,232,240,0.5)] font-['Inter'] truncate">{friend.title} <span className="mx-1">•</span> <span className="text-[#00f0ff]">{friend.guild}</span></p>
+              <p className="text-[10px] md:text-xs text-[rgba(232,232,240,0.5)] font-['Inter'] truncate">{friend.title || 'Novice'} <span className="mx-1">•</span> <span className="text-[#00f0ff]">{friend.guild || 'No Guild'}</span></p>
               
               <div className="flex items-center gap-4 mt-2">
-                <span className="text-xs font-black stat-num text-[#00f0ff] drop-shadow-[0_0_5px_rgba(0,240,255,0.4)]">{friend.xp.toLocaleString()} XP</span>
+                <span className="text-xs font-black stat-num text-[#00f0ff] drop-shadow-[0_0_5px_rgba(0,240,255,0.4)]">{(friend.xp || 0).toLocaleString()} XP</span>
                 <span className="flex items-center gap-1 text-xs font-black stat-num text-[#ec4899] drop-shadow-[0_0_5px_rgba(236,72,153,0.4)]">
-                  <span className="flame-pulse text-[10px]">🔥</span> {friend.streak}d
+                  <span className="flame-pulse text-[10px]">🔥</span> {friend.currentStreak || friend.streak || 0}d
                 </span>
               </div>
             </div>
           </div>
 
           <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-3 mt-4 sm:mt-0 border-t sm:border-t-0 border-[rgba(255,255,255,0.05)] pt-3 sm:pt-0">
-            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: friend.online ? "#10e07f" : "rgba(232,232,240,0.3)", fontFamily: "Rajdhani, sans-serif" }}>
-              {friend.online ? "Online" : "Offline"}
+            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: isOnline ? "#10e07f" : "rgba(232,232,240,0.3)", fontFamily: "Rajdhani, sans-serif" }}>
+              {isOnline ? "Online" : "Offline"}
             </span>
-            <button
-              onClick={() => { setSharing(true); setTimeout(() => setSharing(false), 2000); }}
-              className="text-[10px] md:text-xs font-black uppercase tracking-widest px-4 py-1.5 transition-all flex-shrink-0 font-['Rajdhani']"
-              style={{
-                background: sharing ? "rgba(16,224,127,0.15)" : "rgba(255,255,255,0.05)",
-                border: `1px solid ${sharing ? "rgba(16,224,127,0.3)" : "rgba(255,255,255,0.1)"}`,
-                color: sharing ? "#10e07f" : "white",
-                clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))"
-              }}
-            >
-              {sharing ? "Party Invite Sent" : "Invite to Party"}
-            </button>
+            {view === "add" ? (
+              <button 
+                onClick={() => friend.isFollowing ? dispatch(unfollowUser(friend.id)) : dispatch(followUser(friend.id))}
+                className="mt-4 sm:mt-0 w-full sm:w-auto px-4 py-2 font-black uppercase tracking-widest text-xs transition-all relative overflow-hidden group/btn"
+                style={{
+                  background: friend.isFollowing ? "rgba(255,255,255,0.05)" : "rgba(0,240,255,0.1)",
+                  border: `1px solid ${friend.isFollowing ? "rgba(255,255,255,0.1)" : "rgba(0,240,255,0.4)"}`,
+                  color: friend.isFollowing ? "rgba(232,232,240,0.5)" : "#00f0ff",
+                  clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))",
+                  fontFamily: "Rajdhani, sans-serif"
+                }}>
+                {friend.isFollowing ? "Unfollow" : "Follow"}
+              </button>
+            ) : (
+              <div className="flex gap-2 mt-4 sm:mt-0">
+                <button className="px-4 py-2 font-black uppercase tracking-widest text-xs transition-all bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.1)] hover:border-[#00f0ff] hover:text-[#00f0ff]"
+                  style={{ clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))", fontFamily: "Rajdhani, sans-serif" }}>
+                  Message
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -96,94 +112,41 @@ function FriendCard({ friend }: { friend: typeof FRIENDS_LIST[0] }) {
 }
 
 export default function Friends() {
-  const { user } = useSelector((state: any) => state.auth);
-  const [search, setSearch] = useState("");
-  const [friends, setFriends] = useState<any[]>([]);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
-  const [added, setAdded] = useState<string[]>([]);
+  const dispatch = useDispatch<AppDispatch>();
+  const { following, followers, searchResults, status } = useSelector((state: RootState) => state.social);
+  const authUser = useSelector((state: RootState) => state.auth.user);
   
-  // Use debounced search for API calls if needed, but for now just fetch on load and filter locally if search is empty, or search API if not empty.
   useEffect(() => {
-    if (user?.id) {
-      fetchData();
+    if (authUser?.id) {
+      dispatch(fetchFollowing({ userId: authUser.id }));
+      dispatch(fetchFollowers({ userId: authUser.id }));
     }
-  }, [user?.id]);
+  }, [dispatch, authUser]);
 
-  useEffect(() => {
-    if (search.length > 2) {
-      handleSearch(search);
-    } else {
-      // Revert suggestions to default when search is cleared
-      fetchData();
-    }
-  }, [search]);
+  const [view, setView] = useState<View>("following");
+  const [query, setQuery] = useState("");
+  const [added, setAdded] = useState<string[]>([]);
 
-  const fetchData = async () => {
-    try {
-      const [followingRes, searchRes] = await Promise.all([
-        api.get(`/social/${user.id}/following`),
-        api.get(`/social/search`)
-      ]);
-      
-      if (followingRes.data?.success) {
-        setFriends(formatUsers(followingRes.data.data.users));
-      }
-      
-      if (searchRes.data?.success) {
-        // Filter out already following
-        const allUsers = searchRes.data.data.users;
-        const followingIds = followingRes.data?.data?.users?.map((u:any) => u.id) || [];
-        const notFollowing = allUsers.filter((u:any) => u.id !== user.id && !followingIds.includes(u.id));
-        setSuggestions(formatUsers(notFollowing).slice(0, 5));
-      }
-    } catch (err) {
-      console.error(err);
+  const handleSearch = (e: any) => {
+    e.preventDefault();
+    if (query) {
+      dispatch(searchUsers({ q: query }));
+      setView("add");
     }
   };
 
-  const handleSearch = async (query: string) => {
-    try {
-      const res = await api.get(`/social/search?q=${query}`);
-      if (res.data?.success) {
-        const followingIds = friends.map((u:any) => u.id);
-        const searchResults = res.data.data.users.filter((u:any) => u.id !== user.id && !followingIds.includes(u.id));
-        setSuggestions(formatUsers(searchResults).slice(0, 5));
-      }
-    } catch (err) {
-      console.error(err);
-    }
+  const getActiveList = () => {
+    if (view === "following") return following.users;
+    if (view === "followers") return followers.users;
+    if (view === "add") return searchResults.users;
+    return [];
   };
 
-  const formatUsers = (users: any[]) => {
-    return users.map(u => {
-      const emojiMatch = u.avatarId ? u.avatarId.match(/[\p{Emoji}]/u) : null;
-      return {
-        id: u.id,
-        name: u.username || u.name,
-        title: u.titleId || "Apprentice",
-        level: u.level || 1,
-        streak: u.currentStreak || 0,
-        avatar: emojiMatch ? emojiMatch[0] : "👤",
-        xp: u.xp || 0,
-        online: true,
-        guild: "None"
-      };
-    });
-  };
+  const list = getActiveList();
+  const activeList = list.length > 0 ? list : FRIENDS_LIST;
 
-  const handleAddAlly = async (targetId: string, name: string) => {
-    try {
-      setAdded((prev) => [...prev, name]);
-      await api.post(`/social/${targetId}/follow`);
-      // Refresh friends list
-      fetchData();
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const filtered = friends.filter((f) =>
-    f.name.toLowerCase().includes(search.toLowerCase())
+  const filtered = activeList.filter((f: any) =>
+    (f.username || f.name).toLowerCase().includes(query.toLowerCase())
   );
 
   return (
@@ -208,23 +171,41 @@ export default function Friends() {
         </p>
       </div>
 
+      {/* View Tabs */}
+      <div className="flex items-center gap-2 mb-6">
+        {(["following", "followers", "add", "guilds"] as View[]).map((v) => (
+          <button
+            key={v}
+            onClick={() => setView(v)}
+            className={`px-4 py-2 text-xs font-black uppercase tracking-widest transition-all font-['Rajdhani'] ${
+              view === v
+                ? "bg-[#8b5cf6] text-white shadow-[0_0_15px_rgba(139,92,246,0.4)]"
+                : "bg-[rgba(255,255,255,0.03)] text-[rgba(232,232,240,0.6)] hover:bg-[rgba(255,255,255,0.06)]"
+            }`}
+            style={{ clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))" }}
+          >
+            {v}
+          </button>
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
         {/* Main Friends List */}
         <div className="lg:col-span-8 flex flex-col gap-6">
           {/* Search */}
-          <div className="relative group">
+          <form onSubmit={handleSearch} className="relative group">
             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[rgba(232,232,240,0.3)] group-focus-within:text-[#8b5cf6] transition-colors">
               ⌕
             </div>
             <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
               placeholder="SEARCH ALLIES BY NAME OR ID..."
               className="w-full pl-10 pr-4 py-3 bg-[rgba(15,15,22,0.6)] border border-[rgba(255,255,255,0.05)] text-sm outline-none transition-all focus:border-[rgba(139,92,246,0.5)] focus:bg-[rgba(139,92,246,0.05)] text-white font-['Rajdhani'] font-bold tracking-widest placeholder-[rgba(255,255,255,0.2)]"
               style={{ clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)" }}
             />
-          </div>
+          </form>
 
           <div>
             <div className="flex items-center gap-4 mb-4">
@@ -236,15 +217,15 @@ export default function Friends() {
             
             <div className="space-y-4">
               <AnimatePresence>
-                {filtered.map((f, i) => (
+                {filtered.map((f: any, i: number) => (
                   <motion.div
-                    key={f.name}
+                    key={f.id || f.name}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ delay: i * 0.05, type: "spring" }}
                   >
-                    <FriendCard friend={f} />
+                    <FriendCard friend={f} view={view} />
                   </motion.div>
                 ))}
                 {filtered.length === 0 && (
@@ -282,7 +263,7 @@ export default function Friends() {
             </div>
             
             <div className="space-y-3">
-              {suggestions.map((s, i) => (
+              {SUGGESTIONS.map((s, i) => (
                 <motion.div
                   key={s.name}
                   initial={{ opacity: 0, x: 20 }}
@@ -300,7 +281,7 @@ export default function Friends() {
                       <p className="text-[10px] text-[rgba(232,232,240,0.5)] truncate font-['Inter']">Lv {s.level} · {s.title}</p>
                     </div>
                     <button
-                      onClick={() => handleAddAlly(s.id, s.name)}
+                      onClick={() => setAdded((prev) => [...prev, s.name])}
                       disabled={added.includes(s.name)}
                       className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 transition-all disabled:opacity-50 flex-shrink-0 font-['Rajdhani']"
                       style={{

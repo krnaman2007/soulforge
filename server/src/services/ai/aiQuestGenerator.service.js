@@ -120,7 +120,7 @@ class AiQuestGeneratorService {
             tasks: true
           }
         });
-      });
+      }, { timeout: 15000, maxWait: 10000 });
 
       return QuestService.formatQuest(createdQuest);
     } catch (error) {

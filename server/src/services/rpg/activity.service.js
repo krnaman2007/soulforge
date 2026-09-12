@@ -76,7 +76,18 @@ class ActivityService {
         break;
       }
       case 'XP_GAINED': {
-        description = log.metadata?.reason || 'Earned experience points';
+        const source = log.metadata?.source;
+        if (source === 'TASK_COMPLETED') {
+          description = log.task?.title ? `Earned ${log.xpChange} XP from task: ${log.task.title}` : 'Earned XP from task completion';
+        } else if (source === 'PROJECT_COMPLETED') {
+          description = log.project?.name ? `Earned ${log.xpChange} XP from quest: ${log.project.name}` : 'Earned XP from quest completion';
+        } else if (source === 'CHALLENGE_CLAIMED') {
+          description = `Earned ${log.xpChange} XP from challenge reward`;
+        } else if (source === 'ACHIEVEMENT_UNLOCKED') {
+          description = `Earned ${log.xpChange} XP from achievement unlock`;
+        } else {
+          description = log.metadata?.reason || 'Earned experience points';
+        }
         break;
       }
       default:
@@ -88,8 +99,16 @@ class ActivityService {
       id: log.id,
       type: log.type,
       description,
-      xp: log.xpChange,
-      coins: log.coinChange,
+      xp: log.type === 'TASK_COMPLETED' ? (log.metadata?.xpEarned ?? log.xpChange) :
+          log.type === 'PROJECT_COMPLETED' ? (log.metadata?.bonusXP ?? log.xpChange) :
+          log.type === 'CHALLENGE_CLAIMED' ? (log.metadata?.xpReward ?? log.xpChange) :
+          log.type === 'ACHIEVEMENT_UNLOCKED' ? (log.metadata?.rewardXP ?? log.xpChange) :
+          log.xpChange,
+      coins: log.type === 'TASK_COMPLETED' ? (log.metadata?.coinsEarned ?? log.coinChange) :
+             log.type === 'PROJECT_COMPLETED' ? (log.metadata?.bonusCoins ?? log.coinChange) :
+             log.type === 'CHALLENGE_CLAIMED' ? (log.metadata?.coinReward ?? log.coinChange) :
+             log.type === 'ACHIEVEMENT_UNLOCKED' ? (log.metadata?.rewardCoins ?? log.coinChange) :
+             log.coinChange,
       metadata: log.metadata || null,
       createdAt: log.createdAt
     };
@@ -214,15 +233,23 @@ class ActivityService {
       where.createdAt = { gte: startOfMonth };
     }
 
-    const [aggregations, typeCounts] = await Promise.all([
+    const [aggregations, xpAggregation, typeCounts] = await Promise.all([
       prisma.activityLog.aggregate({
         where,
         _sum: {
-          xpChange: true,
           coinChange: true
         },
         _count: {
           id: true
+        }
+      }),
+      prisma.activityLog.aggregate({
+        where: {
+          ...where,
+          type: 'XP_GAINED'
+        },
+        _sum: {
+          xpChange: true
         }
       }),
       prisma.activityLog.groupBy({
@@ -242,7 +269,7 @@ class ActivityService {
     for (const item of typeCounts) {
       breakdown[item.type] = {
         count: item._count.id,
-        xp: item._sum.xpChange || 0,
+        xp: item.type === 'XP_GAINED' ? (item._sum.xpChange || 0) : 0,
         coins: item._sum.coinChange || 0
       };
     }
@@ -250,7 +277,7 @@ class ActivityService {
     return {
       period,
       totalActivities: aggregations._count.id || 0,
-      totalXP: aggregations._sum.xpChange || 0,
+      totalXP: xpAggregation._sum.xpChange || 0,
       totalCoins: aggregations._sum.coinChange || 0,
       tasksCompleted: breakdown.TASK_COMPLETED?.count || 0,
       questsCompleted: breakdown.PROJECT_COMPLETED?.count || 0,

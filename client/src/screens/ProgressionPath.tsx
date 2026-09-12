@@ -1,5 +1,8 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState, AppDispatch } from "../store/store";
+import { fetchCurrentUser } from "../store/slices/authSlice";
 import GlassCard from "../components/GlassCard";
 import Starfield from "../components/Starfield";
 
@@ -14,6 +17,8 @@ export const RANKS = [
   { id: "grandmaster", name: "Grand Master", xpMin: 120000, xpMax: 250000, tier: 8, color: "#00f0ff", icon: "✦", desc: "Few reach this height. Your legacy is being forged into legend." },
   { id: "enlightened", name: "Enlightened", xpMin: 250000, xpMax: Infinity, tier: 9, color: "#a78bfa", icon: "◈", desc: "Beyond rank. Beyond limit. Total mastery and inner peace." },
 ];
+
+// CURRENT_XP and CURRENT_RANK are now derived in the component
 
 // Defining organic positions and scaling for the journey
 const JOURNEY_STAGES = [
@@ -37,7 +42,7 @@ const NODE_POSITIONS = JOURNEY_STAGES.map((stage) => {
 
 const TOTAL_HEIGHT = currentY + 500; // Extra space at bottom
 
-function JourneyNode({ rank, index, isCurrent, isCompleted, currentXp }: { rank: typeof RANKS[0]; index: number; isCurrent: boolean; isCompleted: boolean; currentXp: number }) {
+function JourneyNode({ rank, index, isCurrent, isCompleted, currentXP }: { rank: typeof RANKS[0]; index: number; isCurrent: boolean; isCompleted: boolean; currentXP: number }) {
   const stage = NODE_POSITIONS[index];
   const isFuture = !isCurrent && !isCompleted;
   const nodeColor = rank.color;
@@ -253,7 +258,7 @@ function JourneyNode({ rank, index, isCurrent, isCompleted, currentXp }: { rank:
                     <div className="flex justify-between items-center text-xs font-semibold">
                       <span className="text-gray-500 uppercase tracking-wider text-[11px]">Progress</span>
                       <span style={{ color: isCurrent ? "#0ea5e9" : "#10e07f" }}>
-                        {isCompleted ? "100%" : `${Math.floor(((currentXp - rank.xpMin) / (rank.xpMax - rank.xpMin)) * 100)}%`}
+                        {isCompleted ? "100%" : `${Math.floor(Math.max(0, Math.min(100, ((currentXP - rank.xpMin) / (rank.xpMax - rank.xpMin)) * 100)))}%`}
                       </span>
                     </div>
                   ) : (
@@ -278,14 +283,17 @@ function JourneyNode({ rank, index, isCurrent, isCompleted, currentXp }: { rank:
   );
 }
 
-import { useSelector } from "react-redux";
-import { RootState } from "../store/store";
-
 export default function ProgressionPath() {
-  const { character } = useSelector((state: RootState) => state.auth);
-  const currentXp = character?.xp || 0;
-  const currentRank = RANKS.find((r) => currentXp >= r.xpMin && (currentXp < r.xpMax || r.xpMax === Infinity)) || RANKS[0];
-  const currentIndex = RANKS.findIndex((r) => r.id === currentRank.id);
+  const dispatch = useDispatch<AppDispatch>();
+  const { user, character } = useSelector((state: RootState) => state.auth);
+
+  useEffect(() => {
+    if (!user) dispatch(fetchCurrentUser());
+  }, [dispatch, user]);
+
+  const CURRENT_XP = character?.xp || 0;
+  const CURRENT_RANK = RANKS.find((r) => CURRENT_XP >= r.xpMin && (CURRENT_XP < r.xpMax || r.xpMax === Infinity)) || RANKS[0];
+  const currentIndex = RANKS.findIndex((r) => r.id === CURRENT_RANK.id);
   
   // Create continuous SVG Path data using calculated absolute coordinates
   const generatePath = (count: number) => {
@@ -430,8 +438,8 @@ export default function ProgressionPath() {
               rank={rank} 
               index={i} 
               isCurrent={i === currentIndex} 
-              isCompleted={i < currentIndex} 
-              currentXp={currentXp}
+              isCompleted={i < currentIndex}
+              currentXP={CURRENT_XP}
             />
           ))}
         </div>
@@ -449,7 +457,7 @@ export default function ProgressionPath() {
             <div className="flex flex-col items-center md:items-end">
               <span className="text-base uppercase tracking-widest font-bold text-gray-500 mb-2">Total XP Forged</span>
               <span className="text-5xl md:text-6xl font-black text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.3)]" style={{ fontFamily: "Rajdhani, sans-serif" }}>
-                {currentXp.toLocaleString()} <span className="text-2xl text-[#0ea5e9]">XP</span>
+                {CURRENT_XP.toLocaleString()} <span className="text-2xl text-[#0ea5e9]">XP</span>
               </span>
             </div>
             <div className="hidden md:block w-px h-24 bg-gradient-to-b from-transparent via-white/20 to-transparent" />

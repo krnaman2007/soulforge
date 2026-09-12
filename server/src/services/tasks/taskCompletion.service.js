@@ -49,7 +49,7 @@ class TaskCompletionService {
 
       // 3. Mark Task as Completed with Optimistic Concurrency Control
       const updateResult = await tx.task.updateMany({
-        where: { id: taskId, userId, status: 'PENDING' },
+        where: { id: taskId, userId, status: { in: ['PENDING', 'IN_PROGRESS'] } },
         data: {
           status: 'COMPLETED',
           completedAt: new Date()
@@ -62,7 +62,28 @@ class TaskCompletionService {
 
       const completedTask = await tx.task.findUnique({ where: { id: taskId } });
 
-      // 4. Authoritative Reward Engine: Grant Task Rewards
+      // 4. Record TASK_COMPLETED action event in ActivityLog
+      // xpChange is 0 because canonical economic XP is recorded as XP_GAINED by RewardService
+      await tx.activityLog.create({
+        data: {
+          userId,
+          type: 'TASK_COMPLETED',
+          taskId: task.id,
+          projectId: task.projectId || null,
+          xpChange: 0,
+          coinChange: 0,
+          metadata: {
+            taskTitle: task.title,
+            primaryAttribute: task.primaryAttribute,
+            difficulty: task.difficulty,
+            xpEarned: finalXP,
+            coinsEarned: finalCoins,
+            integrityReason: integrity.reason
+          }
+        }
+      });
+
+      // 5. Authoritative Reward Engine: Grant Task Rewards (writes canonical XP_GAINED log)
       const taskRewardResult = await RewardService.grantRewards(userId, tx, {
         xp: finalXP,
         coins: finalCoins,
@@ -77,7 +98,7 @@ class TaskCompletionService {
         }
       });
 
-      // 5. Streak Evaluation with User Timezone
+      // 6. Streak Evaluation with User Timezone
       const streakData = StreakService.calculateStreak(
         taskRewardResult.character.currentStreak,
         taskRewardResult.character.longestStreak,
@@ -86,13 +107,20 @@ class TaskCompletionService {
         user.timezone || 'UTC'
       );
 
+      const streakUpdateData = {
+        currentStreak: streakData.currentStreak,
+        longestStreak: streakData.longestStreak,
+        lastActiveDate: streakData.lastActiveDate
+      };
+
+      // When streak breaks, preserve old streak in previousStreak so user can recover it
+      if (streakData.streakBroken) {
+        streakUpdateData.previousStreak = taskRewardResult.character.currentStreak;
+      }
+
       await tx.character.update({
         where: { userId },
-        data: {
-          currentStreak: streakData.currentStreak,
-          longestStreak: streakData.longestStreak,
-          lastActiveDate: streakData.lastActiveDate
-        }
+        data: streakUpdateData
       });
 
       // 6. Handle Project / Quest Progress (Zero-task proof & exactly-once bonus)
@@ -122,7 +150,24 @@ class TaskCompletionService {
               }
             });
 
-            // Grant Quest Bonus authoritatively via RewardService
+            // Record PROJECT_COMPLETED action event in ActivityLog
+            await tx.activityLog.create({
+              data: {
+                userId,
+                type: 'PROJECT_COMPLETED',
+                projectId: project.id,
+                xpChange: 0,
+                coinChange: 0,
+                metadata: {
+                  questName: project.name,
+                  category: project.category,
+                  bonusXP: project.bonusXP,
+                  bonusCoins: project.bonusCoins
+                }
+              }
+            });
+
+            // Grant Quest Bonus authoritatively via RewardService (writes canonical XP_GAINED log)
             const questRewardResult = await RewardService.grantRewards(userId, tx, {
               xp: project.bonusXP,
               coins: project.bonusCoins,
@@ -233,7 +278,7 @@ class TaskCompletionService {
           rewardTitle: a.rewardTitle
         }))
       };
-    });
+    }, { timeout: 15000, maxWait: 10000 });
   }
 }
 

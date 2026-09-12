@@ -1,27 +1,12 @@
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
-import { useSelector } from "react-redux";
-import api from "../api/axiosConfig";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState, AppDispatch } from "../store/store";
+import { fetchGlobalLeaderboard, fetchFriendsLeaderboard, fetchMyLeaderboardRank } from "../store/slices/leaderboardSlice";
 
 type View = "global" | "friends";
 
-const GLOBAL = [
-  { rank: 1, name: "Zara Chen", rankTitle: "Grand Master", tier: 8, level: 42, xp: 128400, streak: 87, change: 0, avatar: "🦅", you: false, guild: "Apex" },
-  { rank: 2, name: "Marcus Webb", rankTitle: "Grand Master", tier: 8, level: 39, xp: 118200, streak: 61, change: 2, avatar: "⚡", you: false, guild: "Storm" },
-  { rank: 3, name: "Priya Nair", rankTitle: "Master", tier: 7, level: 37, xp: 109600, streak: 44, change: -1, avatar: "🌙", you: false, guild: "Night Owls" },
-  { rank: 4, name: "Devon Asher", rankTitle: "Expert", tier: 6, level: 35, xp: 98100, streak: 33, change: 1, avatar: "🔥", you: false, guild: "Inferno" },
-  { rank: 5, name: "Sofia Reyes", rankTitle: "Specialist", tier: 5, level: 33, xp: 87300, streak: 29, change: -2, avatar: "🚀", you: false, guild: "Cosmos" },
-  { rank: 6, name: "Kira Stone", rankTitle: "Adept", tier: 4, level: 31, xp: 76400, streak: 18, change: 3, avatar: "🌟", you: false, guild: "Lumina" },
-  { rank: 7, name: "James Park", rankTitle: "Adept", tier: 4, level: 28, xp: 64200, streak: 22, change: 0, avatar: "💎", you: false, guild: "Crystal" },
-  { rank: 8, name: "Aiden", rankTitle: "Journeyman", tier: 3, level: 7, xp: 3420, streak: 7, change: 0, avatar: "⚔️", you: true, guild: "None" },
-];
-
-const FRIENDS = [
-  { rank: 1, name: "Alex Torres", rankTitle: "Journeyman", tier: 3, level: 22, xp: 48200, streak: 15, change: 0, avatar: "☄", you: false, guild: "Shadow" },
-  { rank: 2, name: "Jamie Liu", rankTitle: "Apprentice", tier: 2, level: 18, xp: 34600, streak: 9, change: 1, avatar: "🛠", you: false, guild: "Iron Hands" },
-  { rank: 3, name: "Aiden", rankTitle: "Journeyman", tier: 3, level: 7, xp: 3420, streak: 7, change: 1, avatar: "⚔️", you: true, guild: "None" },
-  { rank: 4, name: "Sam Rivera", rankTitle: "Novice", tier: 1, level: 5, xp: 1840, streak: 3, change: -1, avatar: "🗺", you: false, guild: "None" },
-];
+// Static data removed in favor of Redux state
 
 // Tier → color map
 const TIER_COLORS: Record<number, string> = {
@@ -36,7 +21,7 @@ const PODIUM_CONFIG = [
   { bg: "rgba(205,127,50,0.1)", border: "rgba(205,127,50,0.3)", color: "#cd7f32", glow: "rgba(205,127,50,0.15)", label: "III", scale: 0.85, zIndex: 10 },
 ];
 
-function Podium({ entries }: { entries: typeof GLOBAL }) {
+function Podium({ entries }: { entries: any[] }) {
   const top3 = entries.slice(0, 3);
   // Order: 2nd, 1st, 3rd
   const ordered = [top3[1], top3[0], top3[2]];
@@ -125,7 +110,7 @@ function Podium({ entries }: { entries: typeof GLOBAL }) {
   );
 }
 
-function LeaderRow({ entry, index }: { entry: typeof GLOBAL[0]; index: number }) {
+function LeaderRow({ entry, index }: { entry: any; index: number }) {
   const tc = TIER_COLORS[entry.tier] || "#9ca3af";
   const isTop3 = entry.rank <= 3;
 
@@ -222,71 +207,36 @@ function LeaderRow({ entry, index }: { entry: typeof GLOBAL[0]; index: number })
 }
 
 export default function Leaderboard() {
-  const [view, setView] = useState<View>("global");
-  const [globalData, setGlobalData] = useState<any[]>([]);
-  const [friendsData, setFriendsData] = useState<any[]>([]);
-  const { user } = useSelector((state: any) => state.auth);
+  const dispatch = useDispatch<AppDispatch>();
+  const { global, friends, me } = useSelector((state: RootState) => state.leaderboard);
+  const authUser = useSelector((state: RootState) => state.auth.user);
 
   useEffect(() => {
-    fetchLeaderboards();
-  }, []);
+    dispatch(fetchGlobalLeaderboard(100));
+    dispatch(fetchFriendsLeaderboard(100));
+    dispatch(fetchMyLeaderboardRank());
+  }, [dispatch]);
 
-  const fetchLeaderboards = async () => {
-    try {
-      const [globalRes, friendsRes] = await Promise.all([
-        api.get("/leaderboard/global"),
-        api.get("/leaderboard/friends")
-      ]);
+  const [view, setView] = useState<View>("global");
+  
+  const mapEntry = (e: any, index: number) => ({
+    rank: e.rank || index + 1,
+    name: e.user?.username || "Unknown",
+    rankTitle: "Journeyman", // Placeholder until title is added to state
+    tier: 3, // Placeholder
+    level: e.user?.level || 1,
+    xp: e.xp || 0,
+    streak: e.currentStreak || 0,
+    change: 0,
+    avatar: e.user?.avatarId ? "👤" : "🌟",
+    you: e.user?.id === authUser?.id,
+    guild: "None", // Placeholder
+  });
 
-      if (globalRes.data?.success) {
-        setGlobalData(formatData(globalRes.data.data));
-      }
-      if (friendsRes.data?.success) {
-        setFriendsData(formatData(friendsRes.data.data));
-      }
-    } catch (err) {
-      console.error("Failed to fetch leaderboards", err);
-    }
-  };
-
-  const getRankTier = (xp: number) => {
-    if (xp >= 120000) return { title: "Grand Master", tier: 8 };
-    if (xp >= 60000) return { title: "Master", tier: 7 };
-    if (xp >= 30000) return { title: "Expert", tier: 6 };
-    if (xp >= 15000) return { title: "Specialist", tier: 5 };
-    if (xp >= 6000) return { title: "Adept", tier: 4 };
-    if (xp >= 2000) return { title: "Journeyman", tier: 3 };
-    if (xp >= 1000) return { title: "Apprentice", tier: 2 };
-    return { title: "Novice", tier: 1 };
-  };
-
-  const formatData = (items: any[]) => {
-    return items.map((item, index) => {
-      const xpVal = item.xp || item.weeklyXP || 0;
-      const { title, tier } = getRankTier(xpVal);
-      // Try to parse an emoji from avatarId if it looks like one, else default to sword
-      const emojiMatch = item.user?.avatarId ? item.user.avatarId.match(/[\p{Emoji}]/u) : null;
-      const avatar = emojiMatch ? emojiMatch[0] : "⚔️";
-
-      return {
-        rank: item.rank || index + 1,
-        name: item.user?.username || "Unknown",
-        rankTitle: title,
-        tier: tier,
-        level: item.user?.level || 1,
-        xp: xpVal,
-        streak: item.currentStreak || 0,
-        change: 0,
-        avatar: avatar,
-        you: item.user?.id === user?.id,
-        guild: "None"
-      };
-    });
-  };
-
-  const currentData = view === "global" ? (globalData.length > 0 ? globalData : GLOBAL) : (friendsData.length > 0 ? friendsData : FRIENDS);
-  const youEntry = currentData.find((e) => e.you);
-  const remaining = currentData.slice(3);
+  const rawData = view === "global" ? global : friends;
+  const data = rawData.map(mapEntry);
+  const you = data.find((e) => e.you) || (me ? mapEntry(me, me.rank ? me.rank - 1 : 999) : null);
+  const remaining = data.slice(3);
 
   return (
     <div className="relative min-h-screen pb-20 pt-8 px-4 md:px-8 max-w-5xl mx-auto selection:bg-[#00f0ff] selection:text-[#0a0a12]">
@@ -328,7 +278,7 @@ export default function Leaderboard() {
         </div>
       </div>
 
-      {youEntry && (
+      {you && (
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -341,7 +291,7 @@ export default function Leaderboard() {
           </div>
           <div className="text-right flex items-baseline gap-2">
             <span className="text-[10px] uppercase tracking-widest text-[#00f0ff] font-['Rajdhani']">Rank</span>
-            <span className="font-black text-2xl stat-num text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">#{youEntry.rank}</span>
+            <span className="font-black text-2xl stat-num text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">#{you.rank}</span>
           </div>
         </motion.div>
       )}
@@ -349,7 +299,7 @@ export default function Leaderboard() {
       {/* Podium Area */}
       <div className="mb-16 relative">
          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-full bg-gradient-to-b from-[rgba(0,240,255,0.2)] to-transparent pointer-events-none" />
-        <Podium entries={currentData} />
+        <Podium entries={data} />
       </div>
 
       <div className="flex items-center gap-4 mb-6 opacity-70">
