@@ -70,8 +70,8 @@ graph TD
 
 ### Milestone 7: Campaigns & Projects
 - Implement `Project` Prisma model with tasks relation.
-- Implement Project CRUD: `GET /api/projects`, `POST /api/projects`, `PATCH /api/projects/:id`.
-- Implement `POST /api/projects/:id/complete` with campaign bonus validation.
+- Quest CRUD is implemented through `/api/quests`: `GET`, `POST`, `GET /:id`, `PATCH /:id`, and `DELETE /:id`.
+- Project completion is triggered authoritatively when the final project task is completed via `POST /api/tasks/:id/complete`.
 - Implement `projectPlanner.ts` for AI-assisted multi-phase campaign generation.
 
 ### Milestone 8: Virtual Economy & Armory

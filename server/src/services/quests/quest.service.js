@@ -38,7 +38,10 @@ class QuestService {
         difficulty: t.difficulty,
         xpReward: t.xpReward,
         coinReward: t.coinReward,
-        completedAt: t.completedAt
+        completedAt: t.completedAt,
+        projectId: t.projectId ?? null,
+        aiAnalyzed: Boolean(t.aiAnalyzed),
+        aiConfidence: t.aiConfidence ?? null
       }))
     };
   }
@@ -127,7 +130,10 @@ class QuestService {
               difficulty: true,
               xpReward: true,
               coinReward: true,
-              completedAt: true
+              completedAt: true,
+              projectId: true,
+              aiAnalyzed: true,
+              aiConfidence: true
             }
           }
         },
@@ -168,7 +174,10 @@ class QuestService {
             difficulty: true,
             xpReward: true,
             coinReward: true,
-            completedAt: true
+            completedAt: true,
+            projectId: true,
+            aiAnalyzed: true,
+            aiConfidence: true
           },
           orderBy: { createdAt: 'asc' }
         }
@@ -218,7 +227,12 @@ class QuestService {
       throw new AppError('QUEST_NOT_FOUND', 'Quest not found', 404);
     }
 
-    const updateData = { ...data };
+    const updateData = {};
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.category !== undefined) updateData.category = data.category;
+    if (data.difficulty !== undefined) updateData.difficulty = data.difficulty;
+    if (data.type !== undefined) updateData.type = data.type;
 
     // If difficulty is modified, authoritatively recalculate bonus rewards (only if no child tasks completed)
     if (data.difficulty && data.difficulty !== existing.difficulty) {
@@ -246,7 +260,10 @@ class QuestService {
             difficulty: true,
             xpReward: true,
             coinReward: true,
-            completedAt: true
+            completedAt: true,
+            projectId: true,
+            aiAnalyzed: true,
+            aiConfidence: true
           }
         }
       }
@@ -259,18 +276,17 @@ class QuestService {
    * Delete quest strictly scoped to authenticated user
    */
   static async deleteQuest(userId, questId) {
-    const result = await prisma.project.deleteMany({
-      where: { id: questId, userId }
+    return await prisma.$transaction(async (tx) => {
+      const project = await tx.project.findFirst({ where: { id: questId, userId }, select: { id: true } });
+      if (!project) throw new AppError('QUEST_NOT_FOUND', 'Quest not found', 404);
+
+      // Project objectives belong to the campaign. Delete them explicitly so they cannot
+      // become orphaned daily tasks when the database relation uses SetNull.
+      await tx.task.deleteMany({ where: { projectId: questId, userId } });
+      await tx.project.delete({ where: { id: questId } });
+
+      return { message: 'Quest deleted successfully', questId };
     });
-
-    if (result.count === 0) {
-      throw new AppError('QUEST_NOT_FOUND', 'Quest not found', 404);
-    }
-
-    return {
-      message: 'Quest deleted successfully',
-      questId
-    };
   }
 }
 

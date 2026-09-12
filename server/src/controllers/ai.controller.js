@@ -34,6 +34,15 @@ const planHabit = async (req, res, next) => {
   }
 };
 
+const createQuest = async (req, res, next) => {
+  try {
+    const result = await AiQuestGeneratorService.createQuest(req.user.id, req.body);
+    sendSuccess(res, result, 201);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const generateQuest = async (req, res, next) => {
   try {
     const userId = req.user.id;
@@ -48,5 +57,6 @@ module.exports = {
   analyzeTask,
   planProject,
   planHabit,
-  generateQuest
+  generateQuest,
+  createQuest
 };

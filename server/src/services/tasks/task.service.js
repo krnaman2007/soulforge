@@ -54,6 +54,7 @@ class TaskService {
       data: {
         userId,
         projectId,
+        questType: projectId ? 'PROJECT' : null,
         title,
         description,
         dueDate: dueDate ? new Date(dueDate) : null,
