@@ -1,6 +1,14 @@
 const prisma = require('../../db/prisma');
 const DateService = require('../utils/date.service');
 
+const CANONICAL_XP_TYPES = [
+  'TASK_COMPLETED',
+  'PROJECT_COMPLETED',
+  'CHALLENGE_CLAIMED',
+  'ACHIEVEMENT_UNLOCKED',
+  'XP_GAINED'
+];
+
 class ActivityService {
   /**
    * Formats an ActivityLog record into a polished human-readable event.
@@ -99,16 +107,8 @@ class ActivityService {
       id: log.id,
       type: log.type,
       description,
-      xp: log.type === 'TASK_COMPLETED' ? (log.metadata?.xpEarned ?? log.xpChange) :
-          log.type === 'PROJECT_COMPLETED' ? (log.metadata?.bonusXP ?? log.xpChange) :
-          log.type === 'CHALLENGE_CLAIMED' ? (log.metadata?.xpReward ?? log.xpChange) :
-          log.type === 'ACHIEVEMENT_UNLOCKED' ? (log.metadata?.rewardXP ?? log.xpChange) :
-          log.xpChange,
-      coins: log.type === 'TASK_COMPLETED' ? (log.metadata?.coinsEarned ?? log.coinChange) :
-             log.type === 'PROJECT_COMPLETED' ? (log.metadata?.bonusCoins ?? log.coinChange) :
-             log.type === 'CHALLENGE_CLAIMED' ? (log.metadata?.coinReward ?? log.coinChange) :
-             log.type === 'ACHIEVEMENT_UNLOCKED' ? (log.metadata?.rewardCoins ?? log.coinChange) :
-             log.coinChange,
+      xp: log.xpChange || (log.type === 'TASK_COMPLETED' ? log.metadata?.xpEarned : 0) || 0,
+      coins: log.coinChange || (log.type === 'TASK_COMPLETED' ? log.metadata?.coinsEarned : 0) || 0,
       metadata: log.metadata || null,
       createdAt: log.createdAt
     };
@@ -246,7 +246,8 @@ class ActivityService {
       prisma.activityLog.aggregate({
         where: {
           ...where,
-          type: 'XP_GAINED'
+          type: { in: CANONICAL_XP_TYPES },
+          xpChange: { gt: 0 }
         },
         _sum: {
           xpChange: true
@@ -269,7 +270,7 @@ class ActivityService {
     for (const item of typeCounts) {
       breakdown[item.type] = {
         count: item._count.id,
-        xp: item.type === 'XP_GAINED' ? (item._sum.xpChange || 0) : 0,
+        xp: item._sum.xpChange || 0,
         coins: item._sum.coinChange || 0
       };
     }
