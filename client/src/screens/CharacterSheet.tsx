@@ -5,7 +5,6 @@ import { RootState, AppDispatch } from "../store/store";
 import { fetchCurrentUser } from "../store/slices/authSlice";
 import { fetchMyAchievementsSummary, fetchAllAchievements } from "../store/slices/achievementSlice";
 import { fetchActivityStats } from "../store/slices/activitySlice";
-import { fetchInventory } from "../store/slices/shopSlice";
 import { getLevelProgress } from "../utils/rpg";
 import XPBar from "../components/XPBar";
 
@@ -189,7 +188,6 @@ export default function CharacterSheet() {
   const { user, character } = useSelector((state: RootState) => state.auth);
   const { unlockedAchievements, allAchievements, status } = useSelector((state: RootState) => state.achievements);
   const activityStats = useSelector((state: RootState) => state.activity.stats);
-  const inventoryState = useSelector((state: RootState) => state.shop.inventory);
 
   const [activeTab, setActiveTab] = useState<"all" | "vitality" | "mastery">("all");
 
@@ -198,7 +196,6 @@ export default function CharacterSheet() {
     dispatch(fetchMyAchievementsSummary());
     dispatch(fetchAllAchievements(undefined));
     dispatch(fetchActivityStats("all"));
-    dispatch(fetchInventory(undefined));
   }, [dispatch, user]);
 
   const level = character?.level || 1;
