@@ -112,6 +112,16 @@ function AppLayout() {
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);
 
+  useEffect(() => {
+    const handleNavEvent = (e: CustomEvent<ScreenId>) => {
+      if (e.detail && SCREENS[e.detail]) {
+        setScreen(e.detail);
+      }
+    };
+    window.addEventListener("soulforge:navigate" as any, handleNavEvent as any);
+    return () => window.removeEventListener("soulforge:navigate" as any, handleNavEvent as any);
+  }, []);
+
   const handleLogout = () => {
     dispatch(logoutLocally());
     navigate('/login');

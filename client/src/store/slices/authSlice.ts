@@ -19,11 +19,25 @@ export interface Character {
   health?: number;
   creativity?: number;
   social?: number;
+  leadership?: number;
+  finance?: number;
+  career?: number;
+  emotional?: number;
+  learning?: number;
+  personalGrowth?: number;
   currentStreak?: number;
   longestStreak?: number;
-  avatarId?: string;
-  themeId?: string;
-  titleId?: string;
+  previousStreak?: number;
+  lastActiveDate?: string | null;
+  avatarId?: string | null;
+  themeId?: string | null;
+  skinId?: string | null;
+  frameId?: string | null;
+  titleId?: string | null;
+  weaponId?: string | null;
+  petId?: string | null;
+  backgroundId?: string | null;
+  effectId?: string | null;
 }
 
 export interface AuthState {
