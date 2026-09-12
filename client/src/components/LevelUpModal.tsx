@@ -32,7 +32,7 @@ function Particle({ x, color }: { x: number; color: string }) {
 export default function LevelUpModal({ level, onClose }: LevelUpModalProps) {
   const particles = Array.from({ length: 30 }, (_, i) => ({
     x: 10 + Math.random() * 80,
-    color: ["#f6ad37", "#ff6b35", "#a78bfa", "#34d399"][i % 4],
+    color: ["#00f0ff", "#ec4899", "#a78bfa", "#34d399"][i % 4],
   }));
 
   useEffect(() => {
@@ -50,7 +50,7 @@ export default function LevelUpModal({ level, onClose }: LevelUpModalProps) {
         className="fixed inset-0 z-50 flex items-center justify-center"
         style={{ background: "rgba(10,10,18,0.85)", backdropFilter: "blur(8px)" }}
       >
-        {/* Radial gold burst */}
+        {/* Radial cyan burst */}
         <motion.div
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 3, opacity: 0 }}
@@ -60,7 +60,7 @@ export default function LevelUpModal({ level, onClose }: LevelUpModalProps) {
             width: 300,
             height: 300,
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(246,173,55,0.4) 0%, transparent 70%)",
+            background: "radial-gradient(circle, rgba(0,240,255,0.4) 0%, transparent 70%)",
             pointerEvents: "none",
           }}
         />
@@ -82,7 +82,7 @@ export default function LevelUpModal({ level, onClose }: LevelUpModalProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
             className="text-sm font-medium mb-2"
-            style={{ color: "#f6ad37", letterSpacing: "0.2em", textTransform: "uppercase" }}
+            style={{ color: "#00f0ff", letterSpacing: "0.2em", textTransform: "uppercase" }}
           >
             Congratulations
           </motion.p>
@@ -94,7 +94,7 @@ export default function LevelUpModal({ level, onClose }: LevelUpModalProps) {
               fontFamily: "Sora, sans-serif",
               fontSize: "clamp(3rem, 8vw, 6rem)",
               fontWeight: 800,
-              background: "linear-gradient(135deg, #f6ad37 0%, #ff6b35 50%, #f6ad37 100%)",
+              background: "linear-gradient(135deg, #00f0ff 0%, #ec4899 50%, #00f0ff 100%)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
               backgroundClip: "text",
@@ -116,8 +116,8 @@ export default function LevelUpModal({ level, onClose }: LevelUpModalProps) {
               width: 72,
               height: 72,
               borderRadius: "50%",
-              background: "linear-gradient(135deg, #f6ad37, #ff6b35)",
-              boxShadow: "0 0 40px rgba(246,173,55,0.5)",
+              background: "linear-gradient(135deg, #00f0ff, #ec4899)",
+              boxShadow: "0 0 40px rgba(0,240,255,0.5)",
               margin: "0 auto",
               fontFamily: "Sora, sans-serif",
               fontSize: "2rem",
@@ -145,7 +145,7 @@ export default function LevelUpModal({ level, onClose }: LevelUpModalProps) {
             onClick={onClose}
             className="mt-6 px-8 py-2.5 rounded-full text-sm font-semibold"
             style={{
-              background: "linear-gradient(135deg, #f6ad37, #ff6b35)",
+              background: "linear-gradient(135deg, #00f0ff, #ec4899)",
               color: "#0a0a12",
               fontFamily: "Sora, sans-serif",
               letterSpacing: "0.05em",

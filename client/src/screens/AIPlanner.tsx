@@ -44,13 +44,13 @@ function generateTasks(goal: string): GeneratedTask[] {
 }
 
 const DIFF_COLORS: Record<string, string> = {
-  Easy: "#34d399",
-  Medium: "#f6ad37",
-  Hard: "#ff6b35",
+  Easy: "#10e07f", // Emerald
+  Medium: "#00f0ff", // Cyan
+  Hard: "#ec4899", // Ember
 };
 
-// Violet AI particle dot
-function VioletParticle({ delay }: { delay: number }) {
+// Holographic Particle
+function HoloParticle({ delay, color = "#8b5cf6" }: { delay: number; color?: string }) {
   const x = Math.random() * 100;
   return (
     <motion.div
@@ -64,8 +64,8 @@ function VioletParticle({ delay }: { delay: number }) {
         width: 4,
         height: 4,
         borderRadius: "50%",
-        background: "#a78bfa",
-        boxShadow: "0 0 6px #a78bfa",
+        background: color,
+        boxShadow: `0 0 10px ${color}`,
         pointerEvents: "none",
       }}
     />
@@ -92,60 +92,65 @@ export default function AIPlanner() {
   const totalCoins = tasks?.reduce((s, t) => s + t.coins, 0) ?? 0;
 
   return (
-    <div className="p-6 max-w-2xl mx-auto space-y-6">
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <span style={{ color: "#a78bfa", fontSize: 18 }}>✦</span>
-          <h1 className="text-3xl font-bold" style={{ fontFamily: "Sora, sans-serif" }}>AI Project Planner</h1>
+    <div className="relative min-h-screen pb-20 pt-8 px-4 md:px-8 max-w-4xl mx-auto selection:bg-[#8b5cf6] selection:text-[#0a0a12]">
+      {/* Background Atmosphere */}
+      <div className="fixed inset-0 pointer-events-none z-[-1] flex items-center justify-center">
         </div>
-        <p className="text-sm" style={{ color: "rgba(232,232,240,0.5)" }}>
-          Describe your goal. The AI will forge a quest plan with XP rewards pre-assigned.
+
+      <div className="mb-12">
+        <div className="text-[10px] uppercase font-bold tracking-[0.3em] text-[#8b5cf6] mb-3 flex items-center gap-4">
+          <span className="w-8 h-px bg-[#8b5cf6]" />
+          Neural Link Active
+        </div>
+        <h1 className="text-4xl md:text-5xl font-black uppercase tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-white via-[#e8e8f0] to-[#8b5cf6]" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+          AI Overseer
+        </h1>
+        <p className="text-sm md:text-base mt-4 font-['Inter'] text-[rgba(232,232,240,0.6)] leading-relaxed max-w-2xl">
+          Submit your objective to the neural network. The AI will forge a gamified quest line with optimized progression curves and XP rewards.
         </p>
       </div>
 
-      {/* Input */}
-      <GlassCard className="p-5 overflow-hidden relative" glow="violet">
-        {/* Violet particle atmosphere */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl">
-          {Array.from({ length: 8 }, (_, i) => (
-            <VioletParticle key={i} delay={i * 0.3} />
-          ))}
-        </div>
+      {/* Input Panel */}
+      <motion.div 
+        className="relative p-6 bg-[rgba(20,20,30,0.4)] backdrop-blur-xl border border-[rgba(139,92,246,0.3)] mb-10 group transition-all duration-500 hover:border-[#8b5cf6]"
+        style={{ clipPath: "polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))" }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-[rgba(139,92,246,0.05)] to-transparent pointer-events-none" />
+        
+        {/* Animated Corner Brackets */}
+        <svg className="absolute top-2 left-2 w-4 h-4 opacity-50 group-hover:opacity-100 transition-opacity" fill="none" stroke="#8b5cf6" viewBox="0 0 24 24"><path d="M8 4H4v4" strokeWidth="2"/></svg>
+        <svg className="absolute bottom-2 right-2 w-4 h-4 opacity-50 group-hover:opacity-100 transition-opacity" fill="none" stroke="#8b5cf6" viewBox="0 0 24 24"><path d="M16 20h4v-4" strokeWidth="2"/></svg>
 
-        <label className="block text-xs font-medium mb-2 uppercase tracking-widest" style={{ color: "#a78bfa" }}>
-          What do you want to achieve?
+        <label className="block text-[10px] md:text-xs font-bold mb-4 uppercase tracking-[0.2em]" style={{ color: "#8b5cf6", fontFamily: "Rajdhani, sans-serif" }}>
+          Target Objective Parameter
         </label>
+        
         <textarea
           value={goal}
           onChange={(e) => setGoal(e.target.value)}
           rows={3}
-          placeholder="e.g. Run a 5K without stopping, Learn TypeScript in 2 weeks, Launch my first SaaS..."
-          className="w-full resize-none rounded-xl p-3 text-sm outline-none transition-all"
-          style={{
-            background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(167,139,250,0.2)",
-            color: "#e8e8f0",
-            fontFamily: "Inter, sans-serif",
-          }}
-          onFocus={(e) => (e.target.style.borderColor = "rgba(167,139,250,0.5)")}
-          onBlur={(e) => (e.target.style.borderColor = "rgba(167,139,250,0.2)")}
+          placeholder="e.g. Run a 5K without stopping, Master TypeScript, Launch a SaaS..."
+          className="w-full resize-none bg-[rgba(10,10,15,0.6)] p-4 text-sm md:text-base outline-none transition-all text-[#e8e8f0] font-['Inter'] focus:bg-[rgba(15,15,20,0.8)] focus:ring-1 focus:ring-[#8b5cf6]"
+          style={{ clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%)" }}
         />
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={handleGenerate}
-          disabled={!goal.trim() || generating}
-          className="mt-3 w-full py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
-          style={{
-            background: "linear-gradient(135deg, rgba(167,139,250,0.3), rgba(167,139,250,0.15))",
-            border: "1px solid rgba(167,139,250,0.3)",
-            color: "#a78bfa",
-            fontFamily: "Sora, sans-serif",
-          }}
-        >
-          {generating ? "Forging your quest plan..." : "✦ Generate Quest Plan"}
-        </motion.button>
-      </GlassCard>
+        
+        <div className="mt-6 flex justify-end">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleGenerate}
+            disabled={!goal.trim() || generating}
+            className="group relative flex items-center justify-center px-8 py-3 font-black uppercase tracking-[0.2em] text-xs md:text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ fontFamily: "Rajdhani, sans-serif" }}
+          >
+            <div className="absolute inset-0 bg-transparent border border-[#8b5cf6] opacity-80 group-hover:bg-[rgba(139,92,246,0.1)] transition-colors duration-300" style={{ clipPath: "polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)" }} />
+            <div className="absolute inset-[-1px] bg-gradient-to-r from-[#8b5cf6] via-[#c084fc] to-[#8b5cf6] z-[-1] opacity-40 blur-sm group-hover:opacity-100 group-hover:blur-md transition-all duration-500" style={{ clipPath: "polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)" }} />
+            <span className="relative z-10 text-[#8b5cf6] group-hover:text-white transition-all duration-300">
+              {generating ? "PROCESSING..." : "GENERATE QUEST PLAN"}
+            </span>
+          </motion.button>
+        </div>
+      </motion.div>
 
       {/* Generating state */}
       <AnimatePresence>
@@ -154,13 +159,16 @@ export default function AIPlanner() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="space-y-3"
+            className="space-y-4 mb-10 overflow-hidden"
           >
-            <p className="text-xs font-medium uppercase tracking-widest text-center" style={{ color: "#a78bfa" }}>
-              ✦ Soulforge AI is building your plan...
-            </p>
+            <div className="flex items-center gap-3">
+              <span className="w-2 h-2 bg-[#8b5cf6] animate-pulse rounded-full glow-violet" />
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#8b5cf6] font-['Rajdhani']">
+                Compiling Node Map...
+              </p>
+            </div>
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-16 skeleton rounded-2xl" style={{ animationDelay: `${i * 0.15}s` }} />
+              <div key={i} className="h-20 skeleton" style={{ clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))", animationDelay: `${i * 0.15}s` }} />
             ))}
           </motion.div>
         )}
@@ -172,83 +180,96 @@ export default function AIPlanner() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="space-y-3"
+            className="space-y-4"
           >
             {!accepted && (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span style={{ color: "#a78bfa", fontSize: 14 }}>✦</span>
-                  <p className="text-sm font-medium" style={{ color: "#a78bfa" }}>
-                    Quest plan ready — {tasks.length} tasks generated
+              <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 pb-4 border-b border-[rgba(139,92,246,0.3)] gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-[#8b5cf6] text-xl">◈</span>
+                  <p className="text-sm md:text-base font-black uppercase tracking-wider text-white font-['Rajdhani']">
+                    Quest Matrix Formulated <span className="text-[rgba(232,232,240,0.4)] ml-2 text-xs">[{tasks.length} Nodes]</span>
                   </p>
                 </div>
-                <div className="flex items-center gap-2 text-xs">
-                  <span style={{ color: "#f6ad37" }}>+{totalXP} XP</span>
-                  <span style={{ color: "rgba(246,173,55,0.6)" }}>◈ {totalCoins}</span>
+                <div className="flex items-center gap-4 text-sm font-['Rajdhani'] font-bold tracking-widest">
+                  <span className="text-[#00f0ff] drop-shadow-[0_0_8px_rgba(0,240,255,0.5)]">XP YIELD: +{totalXP}</span>
+                  <span className="text-[#ec4899]">LOOT: ◈ {totalCoins}</span>
                 </div>
               </div>
             )}
 
-            {tasks.map((task, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.08, type: "spring", stiffness: 280, damping: 24 }}
-              >
-                <GlassCard className="p-4 flex items-center gap-3" hover={false} glow="violet">
-                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                    style={{ background: "rgba(167,139,250,0.2)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.3)" }}>
-                    {i + 1}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{task.title}</p>
-                    <div className="flex items-center gap-2 mt-1 text-xs">
-                      <span style={{ color: DIFF_COLORS[task.diff] }}>● {task.diff}</span>
-                      <span style={{ color: "rgba(232,232,240,0.3)" }}>·</span>
-                      <span style={{ color: "rgba(232,232,240,0.4)" }}>Day {task.day}</span>
-                      <span className="ml-auto px-1.5 py-0.5 rounded-full"
-                        style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa" }}>
-                        ✦ AI-graded
-                      </span>
+            <div className="grid gap-4">
+              {tasks.map((task, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, x: -20, rotateX: 20 }}
+                  animate={{ opacity: 1, x: 0, rotateX: 0 }}
+                  transition={{ delay: i * 0.1, type: "spring" }}
+                  className="group preserve-3d"
+                >
+                  <div 
+                    className="relative p-4 md:p-6 bg-[rgba(20,20,30,0.4)] backdrop-blur-md border border-[rgba(255,255,255,0.05)] hover:border-[rgba(139,92,246,0.5)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_30px_rgba(139,92,246,0.15)] flex flex-col md:flex-row md:items-center gap-4"
+                    style={{ clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)" }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-[rgba(139,92,246,0.05)] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                    
+                    <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center font-['Rajdhani'] font-black text-lg md:text-xl flex-shrink-0"
+                      style={{ 
+                        background: "linear-gradient(135deg, rgba(139,92,246,0.2), transparent)", 
+                        color: "#c084fc", 
+                        border: "1px solid rgba(139,92,246,0.4)",
+                        clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)"
+                      }}>
+                      {i + 1}
+                    </div>
+                    
+                    <div className="flex-1">
+                      <p className="text-sm md:text-base font-bold text-white mb-2">{task.title}</p>
+                      <div className="flex flex-wrap items-center gap-3 text-[10px] md:text-xs font-['Rajdhani'] uppercase font-bold tracking-wider">
+                        <div className="flex items-center gap-1" style={{ color: DIFF_COLORS[task.diff] }}>
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: DIFF_COLORS[task.diff], boxShadow: `0 0 5px ${DIFF_COLORS[task.diff]}` }} />
+                          {task.diff}
+                        </div>
+                        <span className="text-[rgba(232,232,240,0.3)]">/</span>
+                        <span className="text-[rgba(232,232,240,0.6)]">Day {task.day}</span>
+                        <span className="text-[rgba(232,232,240,0.3)]">/</span>
+                        <span className="text-[#8b5cf6] border border-[#8b5cf6] px-2 py-0.5" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%)" }}>
+                          AI-GENERATED
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="text-left md:text-right flex md:flex-col gap-4 md:gap-1 mt-4 md:mt-0 font-['Rajdhani'] font-black text-sm tracking-wider">
+                      <p className="text-[#00f0ff] drop-shadow-[0_0_5px_rgba(0,240,255,0.4)]">+{task.xp} XP</p>
+                      <p className="text-[#ec4899]">◈ {task.coins}</p>
                     </div>
                   </div>
-                  <div className="text-right text-xs flex-shrink-0">
-                    <p style={{ color: "#f6ad37" }}>+{task.xp} XP</p>
-                    <p style={{ color: "rgba(246,173,55,0.6)" }}>◈ {task.coins}</p>
-                  </div>
-                </GlassCard>
-              </motion.div>
-            ))}
+                </motion.div>
+              ))}
+            </div>
 
             {!accepted && (
               <motion.div
-                initial={{ opacity: 0, y: 12 }}
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: tasks.length * 0.08 + 0.2 }}
-                className="flex gap-3"
+                transition={{ delay: tasks.length * 0.1 + 0.2 }}
+                className="flex flex-col md:flex-row gap-4 mt-8"
               >
                 <button
                   onClick={() => { setTasks(null); setGoal(""); }}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-medium"
-                  style={{
-                    background: "rgba(255,255,255,0.04)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    color: "rgba(232,232,240,0.5)",
-                  }}
+                  className="flex-1 px-8 py-3 font-black uppercase tracking-[0.2em] text-xs md:text-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.1)] text-[rgba(232,232,240,0.5)] hover:text-white hover:border-[rgba(255,255,255,0.3)] transition-all duration-300 font-['Rajdhani']"
+                  style={{ clipPath: "polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)" }}
                 >
-                  Regenerate
+                  Discard Map
                 </button>
                 <button
                   onClick={() => setAccepted(true)}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
-                  style={{
-                    background: "linear-gradient(135deg, #a78bfa, #7c3aed)",
-                    color: "#fff",
-                    fontFamily: "Sora, sans-serif",
-                  }}
+                  className="group relative flex-1 flex items-center justify-center px-8 py-3 font-black uppercase tracking-[0.2em] text-xs md:text-sm cursor-pointer font-['Rajdhani']"
                 >
-                  Accept Plan →
+                  <div className="absolute inset-0 bg-transparent border border-[#10e07f] opacity-80 group-hover:bg-[rgba(16,224,127,0.1)] transition-colors duration-300" style={{ clipPath: "polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)" }} />
+                  <div className="absolute inset-[-1px] bg-gradient-to-r from-[#10e07f] via-[#34d399] to-[#10e07f] z-[-1] opacity-40 blur-sm group-hover:opacity-100 group-hover:blur-md transition-all duration-500" style={{ clipPath: "polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)" }} />
+                  <span className="relative z-10 text-[#10e07f] group-hover:text-white transition-all duration-300 drop-shadow-[0_0_5px_rgba(16,224,127,0.5)]">
+                    CONFIRM MATRIX
+                  </span>
                 </button>
               </motion.div>
             )}
@@ -257,12 +278,16 @@ export default function AIPlanner() {
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="p-4 rounded-xl text-center"
-                style={{ background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)" }}
+                className="mt-8 p-6 bg-[rgba(16,224,127,0.05)] border border-[rgba(16,224,127,0.2)] text-center relative overflow-hidden"
+                style={{ clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))" }}
               >
-                <p className="text-sm font-semibold mb-1" style={{ color: "#34d399" }}>✓ Quest plan added to your Quest Log</p>
-                <p className="text-xs" style={{ color: "rgba(232,232,240,0.5)" }}>
-                  Tasks are now visible under Projects. Complete them to earn {totalXP} XP total.
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[rgba(16,224,127,0.1)] to-transparent -translate-x-[100%] animate-[shimmer_2s_infinite]" />
+                <h3 className="text-[#10e07f] text-lg font-black uppercase tracking-widest font-['Rajdhani'] mb-2 flex items-center justify-center gap-2">
+                  <span className="w-2 h-2 bg-[#10e07f] rounded-full glow-emerald" />
+                  Quest Line Initialized
+                </h3>
+                <p className="text-sm font-['Inter'] text-[rgba(232,232,240,0.6)]">
+                  The matrix is live. Check your Quest Log to begin. Potential Yield: {totalXP} XP.
                 </p>
               </motion.div>
             )}

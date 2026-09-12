@@ -21,7 +21,7 @@ export default function XPBar({ current, max, level, className = "" }: XPBarProp
     <div className={`space-y-1.5 ${className}`}>
       <div className="flex items-center justify-between text-xs">
         <span className="text-[rgba(232,232,240,0.5)]">Level {level}</span>
-        <span className="font-semibold" style={{ color: "#f6ad37" }}>
+        <span className="font-semibold" style={{ color: "#00f0ff" }}>
           {current.toLocaleString()} / {max.toLocaleString()} XP
         </span>
       </div>
@@ -32,8 +32,8 @@ export default function XPBar({ current, max, level, className = "" }: XPBarProp
           transition={{ type: "spring", stiffness: 60, damping: 20, delay: 0.2 }}
           className="absolute inset-y-0 left-0 rounded-full"
           style={{
-            background: "linear-gradient(90deg, #f6ad37, #ff6b35)",
-            boxShadow: "0 0 8px rgba(246,173,55,0.6)",
+            background: "linear-gradient(90deg, #00f0ff, #ec4899)",
+            boxShadow: "0 0 8px rgba(0,240,255,0.6)",
           }}
         />
         {/* Shimmer overlay */}

@@ -46,22 +46,22 @@ const TABS: { id: Tab; label: string }[] = [
 const TAG_COLORS: Record<string, string> = {
   work: "#8b5cf6",
   fitness: "#10e07f",
-  learning: "#f6ad37",
-  mindset: "#ff6b35",
+  learning: "#00f0ff",
+  mindset: "#ec4899",
   skill: "#60a5fa",
 };
 
 // Gem difficulty icons
 function DiffGem({ diff }: { diff: "Easy" | "Medium" | "Hard" }) {
   const config = {
-    Easy: { color: "#10e07f", icon: "◆", glow: "rgba(16,224,127,0.5)" },
-    Medium: { color: "#f6ad37", icon: "◆", glow: "rgba(246,173,55,0.5)" },
-    Hard: { color: "#ff6b35", icon: "◆", glow: "rgba(255,107,53,0.5)" },
+    Easy: { color: "#10e07f", icon: "◈", glow: "rgba(16,224,127,0.5)" },
+    Medium: { color: "#00f0ff", icon: "◈", glow: "rgba(0,240,255,0.5)" },
+    Hard: { color: "#ec4899", icon: "◈", glow: "rgba(236,72,153,0.5)" },
   }[diff];
   return (
-    <span className="text-xs flex items-center gap-1"
-      style={{ color: config.color, filter: `drop-shadow(0 0 3px ${config.glow})` }}>
-      {config.icon} {diff}
+    <span className="text-[10px] md:text-xs font-black uppercase tracking-widest flex items-center gap-1.5"
+      style={{ color: config.color, filter: `drop-shadow(0 0 5px ${config.glow})`, fontFamily: "Rajdhani, sans-serif" }}>
+      <span>{config.icon}</span> {diff}
     </span>
   );
 }
@@ -70,10 +70,10 @@ function CountdownTimer({ deadline }: { deadline: string }) {
   return (
     <motion.span
       animate={{ opacity: [1, 0.5, 1] }}
-      transition={{ duration: 1.2, repeat: Infinity }}
-      className="text-xs font-semibold"
-      style={{ color: "#dc2626", fontFamily: "Rajdhani, sans-serif" }}>
-      {deadline}
+      transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+      className="text-[9px] md:text-[10px] font-black uppercase tracking-widest flex items-center gap-1"
+      style={{ color: "#ef4444", fontFamily: "Rajdhani, sans-serif" }}>
+      <span className="text-xs">⏱</span> {deadline}
     </motion.span>
   );
 }
@@ -90,92 +90,117 @@ function QuestCard({ task, index }: { task: Quest; index: number }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05, type: "spring", stiffness: 280, damping: 24 }}
+      transition={{ delay: index * 0.05, type: "spring", stiffness: 200, damping: 20 }}
+      className="group relative"
     >
       <div
-        className="p-4 flex items-start gap-4 transition-all"
+        className="p-5 md:p-6 flex items-start gap-5 transition-all duration-300 relative overflow-hidden"
         style={{
           background: task.overdue
-            ? "rgba(220,38,38,0.07)"
-            : done ? "rgba(16,224,127,0.04)" : "rgba(255,255,255,0.05)",
-          backdropFilter: "blur(20px)",
-          border: `1px solid ${task.overdue ? "rgba(220,38,38,0.3)" : done ? "rgba(16,224,127,0.12)" : "rgba(255,255,255,0.08)"}`,
-          clipPath: "polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))",
-          boxShadow: task.overdue ? "0 0 16px rgba(220,38,38,0.1), inset 0 0 0 1px rgba(220,38,38,0.15)" : "none",
+            ? "rgba(220,38,38,0.05)"
+            : done ? "rgba(16,224,127,0.05)" : "rgba(15,15,22,0.7)",
+          border: `1px solid ${task.overdue ? "rgba(220,38,38,0.3)" : done ? "rgba(16,224,127,0.3)" : "rgba(255,255,255,0.05)"}`,
+          clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))",
+          boxShadow: task.overdue ? "inset 0 0 20px rgba(220,38,38,0.1)" : done ? "inset 0 0 20px rgba(16,224,127,0.1)" : "none",
         }}
       >
+        {/* Animated background on hover (if not done/overdue) */}
+        {!done && !task.overdue && (
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.03)] to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] pointer-events-none" />
+        )}
+        
+        {/* Left Accent Bar */}
+        <div className="absolute top-0 left-0 w-1.5 h-full transition-colors duration-300" 
+             style={{ 
+               background: task.overdue ? "#ef4444" : done ? "#10e07f" : "rgba(255,255,255,0.1)",
+               boxShadow: task.overdue ? "0 0 10px #ef4444" : done ? "0 0 10px #10e07f" : "none"
+             }} />
+
         {/* Checkbox */}
         <button
           onClick={handleComplete}
           disabled={!!task.overdue}
-          className="mt-0.5 w-6 h-6 flex items-center justify-center flex-shrink-0 transition-all"
+          className="mt-1 w-8 h-8 flex items-center justify-center flex-shrink-0 transition-all duration-300 relative z-10"
           style={{
-            background: done ? "#10e07f" : "transparent",
-            border: `1.5px solid ${done ? "#10e07f" : task.overdue ? "rgba(220,38,38,0.4)" : verifying ? "#8b5cf6" : "rgba(255,255,255,0.2)"}`,
-            clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))",
+            background: done ? "rgba(16,224,127,0.2)" : task.overdue ? "rgba(220,38,38,0.1)" : verifying ? "rgba(139,92,246,0.2)" : "rgba(255,255,255,0.02)",
+            border: `1.5px solid ${done ? "#10e07f" : task.overdue ? "#ef4444" : verifying ? "#8b5cf6" : "rgba(255,255,255,0.2)"}`,
+            transform: "rotate(45deg)",
+            boxShadow: done ? "0 0 15px rgba(16,224,127,0.5)" : task.overdue ? "0 0 15px rgba(239,68,68,0.3)" : verifying ? "0 0 15px rgba(139,92,246,0.5)" : "none",
+            cursor: (done || task.overdue || verifying) ? "default" : "pointer"
           }}
         >
           {done && (
-            <motion.svg initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: "spring", stiffness: 500, damping: 20 }}
-              width="12" height="10" viewBox="0 0 12 10" fill="none">
-              <path d="M1 5L4.5 8.5L11 1" stroke="#0d0d14" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </motion.svg>
+            <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 500, damping: 20 }}
+                         className="text-[#10e07f] font-black text-sm" style={{ transform: "rotate(-45deg)" }}>
+              ✓
+            </motion.span>
+          )}
+          {verifying && (
+            <motion.div animate={{ rotate: -360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        className="w-4 h-4 border-2 border-[#8b5cf6] border-t-transparent rounded-full" />
+          )}
+          {task.overdue && !done && (
+             <span className="text-[#ef4444] font-black text-xs" style={{ transform: "rotate(-45deg)" }}>✕</span>
           )}
         </button>
 
-        <div className="flex-1 min-w-0">
-          {verifying && <div className="h-4 skeleton mb-2 w-3/4" />}
+        <div className="flex-1 min-w-0 pl-2">
+          {verifying && (
+             <div className="flex flex-col gap-2">
+                <div className="h-5 bg-[rgba(139,92,246,0.2)] w-3/4 rounded relative overflow-hidden">
+                   <motion.div className="absolute top-0 left-0 h-full bg-[#8b5cf6]" initial={{ width: 0 }} animate={{ width: "100%" }} transition={{ duration: 2 }} />
+                </div>
+                <span className="text-[9px] uppercase tracking-[0.2em] text-[#8b5cf6] font-black font-['Rajdhani']">Verifying Objective Protocol...</span>
+             </div>
+          )}
           {!verifying && (
-            <p className="text-sm font-medium leading-snug" style={{
-              color: task.overdue ? "rgba(220,38,38,0.85)" : done ? "rgba(232,232,240,0.35)" : "#e8e8f0",
+            <p className="text-base md:text-lg font-black tracking-wider uppercase transition-colors" style={{
+              color: task.overdue ? "rgba(239,68,68,0.8)" : done ? "rgba(232,232,240,0.3)" : "#fff",
               textDecoration: done ? "line-through" : "none",
+              fontFamily: "Rajdhani, sans-serif"
             }}>
               {task.title}
             </p>
           )}
 
-          <div className="flex flex-wrap items-center gap-2 mt-2">
-            <span className="text-xs px-2 py-0.5"
-              style={{
-                background: `${TAG_COLORS[task.tag] || "#8b5cf6"}15`,
-                color: TAG_COLORS[task.tag] || "#8b5cf6",
-                border: `1px solid ${TAG_COLORS[task.tag] || "#8b5cf6"}28`,
-                clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))",
-              }}>
-              {task.tag}
-            </span>
-            <DiffGem diff={task.diff} />
-            {task.ai && (
-              <span className="text-xs px-2 py-0.5 flex items-center gap-1"
-                style={{ background: "rgba(139,92,246,0.1)", color: "#8b5cf6", border: "1px solid rgba(139,92,246,0.18)", clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))" }}>
-                ✦ AI-graded
+          {!verifying && (
+            <div className="flex flex-wrap items-center gap-3 mt-3">
+              <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-1 flex items-center"
+                style={{
+                  background: `linear-gradient(90deg, ${TAG_COLORS[task.tag] || "#8b5cf6"}20, transparent)`,
+                  color: TAG_COLORS[task.tag] || "#8b5cf6",
+                  borderLeft: `2px solid ${TAG_COLORS[task.tag] || "#8b5cf6"}`,
+                }}>
+                {task.tag}
               </span>
-            )}
-            {verifying && (
-              <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs px-2 py-0.5"
-                style={{ background: "rgba(139,92,246,0.12)", color: "#8b5cf6" }}>
-                Verifying...
-              </motion.span>
-            )}
-            {done && (
-              <motion.span initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
-                className="text-xs px-2 py-0.5"
-                style={{ background: "rgba(16,224,127,0.1)", color: "#10e07f", border: "1px solid rgba(16,224,127,0.2)", clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))" }}>
-                ✓ Complete
-              </motion.span>
-            )}
-            {task.overdue && task.deadline && (
-              <CountdownTimer deadline={task.deadline} />
-            )}
-          </div>
+              
+              <DiffGem diff={task.diff} />
+              
+              {task.ai && (
+                <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest px-2 py-1 flex items-center gap-1.5"
+                  style={{ background: "rgba(139,92,246,0.1)", color: "#c084fc", border: "1px solid rgba(139,92,246,0.3)", clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))" }}>
+                  <span className="text-[10px] drop-shadow-[0_0_5px_#c084fc]">✦</span> AI VERIFIED
+                </span>
+              )}
+              
+              {task.overdue && task.deadline && (
+                <div className="ml-auto">
+                   <CountdownTimer deadline={task.deadline} />
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        <div className="flex flex-col items-end gap-1 flex-shrink-0 text-xs">
-          <span style={{ color: task.overdue ? "rgba(246,173,55,0.4)" : "#f6ad37" }}>+{task.xp} XP</span>
-          <span style={{ color: "rgba(246,173,55,0.5)" }}>◈ {task.coins}</span>
+        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+          <span className="text-xs md:text-sm font-black uppercase tracking-widest flex items-center gap-1" style={{ color: task.overdue ? "rgba(0,240,255,0.4)" : "#00f0ff", fontFamily: "Rajdhani, sans-serif" }}>
+             <span className="text-[10px]">✦</span> +{task.xp} XP
+          </span>
+          <span className="text-[10px] md:text-xs font-black uppercase tracking-widest flex items-center gap-1" style={{ color: task.overdue ? "rgba(0,240,255,0.4)" : "#00f0ff", fontFamily: "Rajdhani, sans-serif" }}>
+             <span className="text-[10px]">◈</span> {task.coins}
+          </span>
         </div>
       </div>
     </motion.div>
@@ -188,36 +213,41 @@ export default function QuestLog() {
   const [tab, setTab] = useState<Tab>("daily");
 
   return (
-    <div className="p-6 max-w-2xl mx-auto space-y-5">
-      <div>
-        <h1 className="text-3xl font-bold" style={{ fontFamily: "Rajdhani, sans-serif" }}>Quest Log</h1>
-        <p className="text-sm" style={{ color: "rgba(232,232,240,0.5)" }}>Active missions. Complete them to earn XP and coins.</p>
+    <div className="p-6 md:p-8 max-w-4xl mx-auto min-h-screen bg-transparent">
+      <div className="mb-8 border-b border-[rgba(255,255,255,0.05)] pb-6 relative">
+         <div className="absolute top-0 right-0 w-32 h-32 bg-[#00f0ff] opacity-[0.03] blur-3xl rounded-full pointer-events-none" />
+         <div className="text-[10px] uppercase font-bold tracking-[0.3em] text-[#00f0ff] mb-2 font-['Rajdhani']">
+            Mission Control
+         </div>
+        <h1 className="text-4xl md:text-5xl font-black uppercase tracking-widest text-white mb-2" style={{ fontFamily: "Rajdhani, sans-serif" }}>Quest Log</h1>
+        <p className="text-[10px] md:text-xs uppercase tracking-[0.1em] text-[rgba(232,232,240,0.5)] font-['Inter']">Active missions and objectives. Execute to acquire resources.</p>
       </div>
 
       {/* Tabs — glowing underline on active */}
-      <div className="flex gap-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+      <div className="flex gap-2 mb-8" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
         {TABS.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className="relative px-4 py-2.5 text-sm font-medium transition-all"
+            className="relative px-6 py-3 text-xs md:text-sm font-black uppercase tracking-widest transition-all"
             style={{
-              color: tab === t.id ? "#f6ad37" : "rgba(232,232,240,0.45)",
+              color: tab === t.id ? "#00f0ff" : "rgba(232,232,240,0.4)",
               fontFamily: "Rajdhani, sans-serif",
-              letterSpacing: "0.04em",
             }}
           >
             {t.label}
             {t.id === "ai" && (
-              <span className="ml-1.5 text-xs px-1 py-0.5"
-                style={{ background: "rgba(139,92,246,0.18)", color: "#8b5cf6" }}>AI</span>
+              <span className="ml-2 text-[9px] px-2 py-0.5"
+                style={{ background: "rgba(139,92,246,0.15)", color: "#c084fc", border: "1px solid rgba(139,92,246,0.3)", clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))" }}>
+                AI
+              </span>
             )}
             {/* Glowing underline */}
             {tab === t.id && (
               <motion.div
                 layoutId="questTabLine"
-                className="absolute bottom-0 left-0 right-0 h-0.5"
-                style={{ background: "linear-gradient(90deg, transparent, #f6ad37, transparent)", boxShadow: "0 0 6px rgba(246,173,55,0.6)" }}
+                className="absolute bottom-[-1px] left-0 right-0 h-0.5"
+                style={{ background: "#00f0ff", boxShadow: "0 0 10px #00f0ff, 0 0 20px #00f0ff" }}
               />
             )}
           </button>
@@ -227,19 +257,22 @@ export default function QuestLog() {
       <AnimatePresence mode="wait">
         <motion.div
           key={tab}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.18 }}
-          className="space-y-3"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.2 }}
+          className="space-y-4"
         >
           {tab === "ai" && (
-            <div className="p-3 flex items-center gap-2"
-              style={{ background: "rgba(139,92,246,0.07)", border: "1px solid rgba(139,92,246,0.15)", clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)" }}>
-              <span style={{ color: "#8b5cf6" }}>✦</span>
-              <p className="text-xs" style={{ color: "rgba(139,92,246,0.9)" }}>
-                AI-suggested based on your goals and pace. Rewards are pre-graded by Soulforge AI.
-              </p>
+            <div className="p-4 flex items-start gap-3 bg-[rgba(139,92,246,0.05)] border border-[rgba(139,92,246,0.2)] mb-6"
+              style={{ clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))" }}>
+              <span className="text-[#c084fc] text-lg mt-0.5 animate-pulse drop-shadow-[0_0_8px_#c084fc]">✦</span>
+              <div>
+                 <p className="text-xs font-black uppercase tracking-widest text-[#c084fc] font-['Rajdhani'] mb-1">Algorithmic Suggestions</p>
+                 <p className="text-[10px] font-['Inter'] uppercase tracking-wider leading-relaxed" style={{ color: "rgba(232,232,240,0.6)" }}>
+                   Missions generated by Soulforge AI based on current attributes and progression velocity. Rewards pre-calculated.
+                 </p>
+              </div>
             </div>
           )}
           {tabData[tab].map((task, i) => (

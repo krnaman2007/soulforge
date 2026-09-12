@@ -163,7 +163,7 @@ export default function RankUpModal({ fromRank, toRank, toColor, toIcon, onClose
             className="px-10 py-2.5 text-sm font-bold"
             style={{
               background: isPrismatic
-                ? "linear-gradient(135deg, rgba(139,92,246,0.25), rgba(246,173,55,0.15))"
+                ? "linear-gradient(135deg, rgba(139,92,246,0.25), rgba(0,240,255,0.15))"
                 : `linear-gradient(135deg, ${toColor}30, ${toColor}18)`,
               border: `1px solid ${isPrismatic ? "rgba(139,92,246,0.4)" : `${toColor}50`}`,
               color: isPrismatic ? "#a78bfa" : toColor,

@@ -10,8 +10,8 @@ export const RANKS = [
   { id: "adept", name: "Adept", xpMin: 6000, xpMax: 15000, tier: 4, color: "#60a5fa", icon: "⬡", desc: "Skill sharpens like steel. You are becoming a force to be reckoned with." },
   { id: "specialist", name: "Specialist", xpMin: 15000, xpMax: 30000, tier: 5, color: "#e2e8f0", icon: "◎", desc: "The professional emerges. Precision and focus define your daily actions." },
   { id: "expert", name: "Expert", xpMin: 30000, xpMax: 60000, tier: 6, color: "#cd7f32", icon: "▲", desc: "Bronze-tempered resolve. Others look to you for guidance." },
-  { id: "master", name: "Master", xpMin: 60000, xpMax: 120000, tier: 7, color: "#f6ad37", icon: "★", desc: "Gold burns in the veins. Mastery over mind, body, and craft." },
-  { id: "grandmaster", name: "Grand Master", xpMin: 120000, xpMax: 250000, tier: 8, color: "#f6ad37", icon: "✦", desc: "Few reach this height. Your legacy is being forged into legend." },
+  { id: "master", name: "Master", xpMin: 60000, xpMax: 120000, tier: 7, color: "#00f0ff", icon: "★", desc: "Neon burns in the veins. Mastery over mind, body, and craft." },
+  { id: "grandmaster", name: "Grand Master", xpMin: 120000, xpMax: 250000, tier: 8, color: "#00f0ff", icon: "✦", desc: "Few reach this height. Your legacy is being forged into legend." },
   { id: "enlightened", name: "Enlightened", xpMin: 250000, xpMax: Infinity, tier: 9, color: "#a78bfa", icon: "◈", desc: "Beyond rank. Beyond limit. Total mastery and inner peace." },
 ];
 
@@ -310,7 +310,7 @@ export default function ProgressionPath() {
   const completedPathData = generatePath(currentIndex + 1);
 
   return (
-    <div className="relative min-h-screen bg-[#030308] overflow-hidden selection:bg-cyan-900">
+    <div className="relative min-h-screen bg-transparent overflow-hidden selection:bg-cyan-900">
       {/* Immersive Deep Parallax Background */}
       <div className="fixed inset-0 z-0 opacity-50 mix-blend-screen pointer-events-none">
         <Starfield />
@@ -451,7 +451,7 @@ export default function ProgressionPath() {
             <div className="hidden md:block w-px h-24 bg-gradient-to-b from-transparent via-white/20 to-transparent" />
             <div className="flex flex-col items-center md:items-start mt-4 md:mt-0">
               <span className="text-base uppercase tracking-widest font-bold text-gray-500 mb-2">Next Destination</span>
-              <span className="text-xl md:text-2xl font-bold text-[#f6ad37] drop-shadow-[0_0_15px_rgba(246,173,55,0.3)]">
+              <span className="text-xl md:text-2xl font-bold text-[#00f0ff] drop-shadow-[0_0_15px_rgba(0,240,255,0.3)]">
                 {RANKS[currentIndex + 1]?.name || "Infinite Horizon"}
               </span>
             </div>

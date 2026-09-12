@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Starfield from "./components/Starfield";
+import GamingBackground from "./components/GamingBackground";
+import Landing from "./screens/Landing";
 import Onboarding from "./screens/Onboarding";
 import Dashboard from "./screens/Dashboard";
 import QuestLog from "./screens/QuestLog";
@@ -70,20 +71,22 @@ const SCREENS: Record<Screen, React.ReactElement> = {
 };
 
 export default function App() {
+  const [hasStarted, setHasStarted] = useState(false);
   const [onboarded, setOnboarded] = useState(false);
   const [screen, setScreen] = useState<Screen>("dashboard");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
-    <div className="relative min-h-screen" style={{ background: "#0d0d14" }}>
-      {/* Layered atmospheric overlays */}
-      <Starfield />
-      <div className="grain-overlay" />
-      <div className="scanlines" />
-      <div className="vignette-overlay" />
+    <div className="relative min-h-screen bg-transparent">
+      {/* Universal Gaming Environment Background */}
+      <GamingBackground />
 
       <AnimatePresence mode="wait">
-        {!onboarded ? (
+        {!hasStarted ? (
+          <motion.div key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 1.05 }} transition={{ duration: 0.6 }} className="relative z-10 min-h-screen">
+            <Landing onStart={() => setHasStarted(true)} />
+          </motion.div>
+        ) : !onboarded ? (
           <motion.div key="onboarding" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.97 }}
             transition={{ duration: 0.4 }} className="relative z-10 min-h-screen">
             <Onboarding onComplete={() => setOnboarded(true)} />
@@ -103,7 +106,7 @@ export default function App() {
               <div className="flex items-center gap-2.5 px-3 mb-8">
                 <div className="w-7 h-7 flex items-center justify-center text-sm font-bold"
                   style={{
-                    background: "linear-gradient(135deg, #f6ad37, #ff6b35)",
+                    background: "linear-gradient(135deg, #00f0ff, #ec4899)",
                     color: "#0d0d14",
                     clipPath: "polygon(50% 0%, 95% 25%, 95% 75%, 50% 100%, 5% 75%, 5% 25%)",
                   }}>
@@ -138,7 +141,7 @@ export default function App() {
                 }}>
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 hex-clip flex items-center justify-center text-base"
-                    style={{ background: "rgba(246,173,55,0.15)", border: "1px solid rgba(246,173,55,0.2)" }}>
+                    style={{ background: "rgba(0,240,255,0.15)", border: "1px solid rgba(0,240,255,0.2)" }}>
                     ⚔️
                   </div>
                   <div>
@@ -169,7 +172,7 @@ export default function App() {
                 {NAV.slice(0, 5).map((item) => (
                   <button key={item.id} onClick={() => setScreen(item.id)}
                     className="flex flex-col items-center gap-0.5 px-2 py-1.5 transition-all"
-                    style={{ color: screen === item.id ? "#f6ad37" : "rgba(232,232,240,0.38)" }}>
+                    style={{ color: screen === item.id ? "#00f0ff" : "rgba(232,232,240,0.38)" }}>
                     <span className="text-lg leading-none">{item.icon}</span>
                     <span style={{ fontSize: 9, fontFamily: "Rajdhani, sans-serif", letterSpacing: "0.04em" }}>{item.label}</span>
                   </button>
@@ -198,8 +201,8 @@ export default function App() {
                       <button key={item.id} onClick={() => { setScreen(item.id); setMobileNavOpen(false); }}
                         className="flex flex-col items-center gap-1 py-2 transition-all"
                         style={{
-                          background: screen === item.id ? "rgba(246,173,55,0.1)" : "rgba(255,255,255,0.03)",
-                          color: screen === item.id ? "#f6ad37" : "rgba(232,232,240,0.45)",
+                          background: screen === item.id ? "rgba(0,240,255,0.1)" : "rgba(255,255,255,0.03)",
+                          color: screen === item.id ? "#00f0ff" : "rgba(232,232,240,0.45)",
                           clipPath: "polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))",
                         }}>
                         <span className="text-lg">{item.icon}</span>
@@ -225,9 +228,9 @@ function NavButton({ item, active, onClick }: { item: NavItem; active: boolean; 
       onClick={onClick}
       className="w-full flex items-center gap-2.5 px-3 py-2 mb-0.5 text-sm transition-all"
       style={{
-        background: active ? "rgba(246,173,55,0.08)" : "transparent",
-        border: active ? "1px solid rgba(246,173,55,0.14)" : "1px solid transparent",
-        color: active ? "#f6ad37" : "rgba(232,232,240,0.45)",
+        background: active ? "rgba(0,240,255,0.08)" : "transparent",
+        border: active ? "1px solid rgba(0,240,255,0.14)" : "1px solid transparent",
+        color: active ? "#00f0ff" : "rgba(232,232,240,0.45)",
         fontFamily: "Rajdhani, sans-serif",
         fontWeight: active ? 600 : 400,
         letterSpacing: "0.04em",
@@ -235,7 +238,7 @@ function NavButton({ item, active, onClick }: { item: NavItem; active: boolean; 
       }}
     >
       <span className="w-5 text-center text-base leading-none"
-        style={{ filter: active ? "drop-shadow(0 0 4px rgba(246,173,55,0.6))" : "none" }}>
+        style={{ filter: active ? "drop-shadow(0 0 4px rgba(0,240,255,0.6))" : "none" }}>
         {item.icon}
       </span>
       <span className="text-sm">{item.label}</span>
