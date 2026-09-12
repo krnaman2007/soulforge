@@ -10,6 +10,21 @@ function FriendCard({ friend, view }: { friend: any; view?: string }) {
   const [sharing, setSharing] = useState(false);
   const dispatch = useDispatch<AppDispatch>();
   const isOnline = friend.isOnline !== undefined ? friend.isOnline : friend.online;
+  const [isFollowingLocal, setIsFollowingLocal] = useState(friend.isFollowing);
+
+  useEffect(() => {
+    setIsFollowingLocal(friend.isFollowing);
+  }, [friend.isFollowing]);
+
+  const handleFollowToggle = () => {
+    if (isFollowingLocal) {
+      setIsFollowingLocal(false);
+      dispatch(unfollowUser(friend.id));
+    } else {
+      setIsFollowingLocal(true);
+      dispatch(followUser(friend.id));
+    }
+  };
 
   return (
     <div className="relative group preserve-3d">
@@ -57,40 +72,19 @@ function FriendCard({ friend, view }: { friend: any; view?: string }) {
             <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: isOnline ? "#10e07f" : "rgba(232,232,240,0.3)", fontFamily: "Rajdhani, sans-serif" }}>
               {isOnline ? "Online" : "Offline"}
             </span>
-            {view === "add" ? (
-              <button 
-                onClick={() => friend.isFollowing ? dispatch(unfollowUser(friend.id)) : dispatch(followUser(friend.id))}
-                className="mt-4 sm:mt-0 w-full sm:w-auto px-4 py-2 font-black uppercase tracking-widest text-xs transition-all relative overflow-hidden group/btn"
-                style={{
-                  background: friend.isFollowing ? "rgba(255,255,255,0.05)" : "rgba(0,240,255,0.1)",
-                  border: `1px solid ${friend.isFollowing ? "rgba(255,255,255,0.1)" : "rgba(0,240,255,0.4)"}`,
-                  color: friend.isFollowing ? "rgba(232,232,240,0.5)" : "#00f0ff",
-                  clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))",
-                  fontFamily: "Rajdhani, sans-serif"
-                }}>
-                {friend.isFollowing ? "Unfollow" : "Follow"}
-              </button>
-            ) : (
-              <div className="flex gap-2 mt-4 sm:mt-0">
-                <button className="px-4 py-2 font-black uppercase tracking-widest text-xs transition-all bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.1)] hover:border-[#00f0ff] hover:text-[#00f0ff]"
-                  style={{ clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))", fontFamily: "Rajdhani, sans-serif" }}>
-                  Message
-                </button>
-              </div>
-            )}
+            <button 
+              onClick={handleFollowToggle}
+              className="mt-4 sm:mt-0 w-full sm:w-auto px-4 py-2 font-black uppercase tracking-widest text-xs transition-all relative overflow-hidden group/btn"
+              style={{
+                background: isFollowingLocal ? "rgba(255,255,255,0.05)" : "rgba(0,240,255,0.1)",
+                border: `1px solid ${isFollowingLocal ? "rgba(255,255,255,0.1)" : "rgba(0,240,255,0.4)"}`,
+                color: isFollowingLocal ? "rgba(232,232,240,0.5)" : "#00f0ff",
+                clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))",
+                fontFamily: "Rajdhani, sans-serif"
+              }}>
+              {isFollowingLocal ? "Unfollow" : "Follow"}
+            </button>
           </div>
-        </div>
-
-        {/* Shareable glass card mini (Hidden by default, shown on hover/expand in a real app, keeping it here for aesthetics) */}
-        <div className="mt-4 p-3 bg-[rgba(0,0,0,0.3)] border border-[rgba(255,255,255,0.05)] relative"
-          style={{ clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)" }}>
-           <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#8b5cf6] to-transparent" />
-          <div className="flex items-center justify-between mb-2 pl-2">
-            <span className="text-[9px] uppercase font-bold tracking-widest text-[rgba(232,232,240,0.4)] font-['Rajdhani']">Recent Activity</span>
-          </div>
-          <p className="text-xs text-[rgba(232,232,240,0.7)] font-['Inter'] pl-2">
-            Completed <span className="text-[#00f0ff] font-bold">"Mastery Challenge: Deep Work"</span> (+300 XP)
-          </p>
         </div>
       </div>
     </div>
@@ -113,9 +107,21 @@ export default function Friends() {
   const [query, setQuery] = useState("");
   const [added, setAdded] = useState<string[]>([]);
 
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (query.trim().length >= 2) {
+        dispatch(searchUsers({ q: query }));
+        setView("add");
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [query, dispatch]);
+
   const handleSearch = (e: any) => {
     e.preventDefault();
-    if (query) {
+    if (query.trim().length >= 2) {
       dispatch(searchUsers({ q: query }));
       setView("add");
     }
@@ -125,15 +131,20 @@ export default function Friends() {
     if (view === "following") return following.users;
     if (view === "followers") return followers.users;
     if (view === "add") return searchResults.users;
+    if (view === "guilds") return [];
     return [];
   };
 
   const list = getActiveList();
   const activeList = list;
 
-  const filtered = activeList.filter((f: any) =>
-    (f.username || f.name).toLowerCase().includes(query.toLowerCase())
-  );
+  const filtered = view === "add" 
+    ? activeList // Backend already filters search results
+    : activeList.filter((f: any) => {
+        const usernameMatch = f.username?.toLowerCase().includes(query.toLowerCase());
+        const nameMatch = f.name?.toLowerCase().includes(query.toLowerCase());
+        return usernameMatch || nameMatch;
+      });
 
   const dynamicSuggestions = useMemo(() => {
     return followers.users.filter(f => !f.isFollowing).slice(0, 5);
@@ -249,8 +260,10 @@ export default function Friends() {
             </h2>
             <div className="text-center py-6 border border-dashed border-[rgba(139,92,246,0.3)] bg-[rgba(0,0,0,0.2)]">
                <p className="text-xs font-bold text-[rgba(232,232,240,0.5)] font-['Inter'] mb-3">You are currently solo.</p>
-               <button className="text-[10px] font-black uppercase tracking-widest px-4 py-2 bg-[rgba(139,92,246,0.1)] border border-[rgba(139,92,246,0.3)] text-[#8b5cf6] hover:bg-[#8b5cf6] hover:text-white transition-colors font-['Rajdhani']"
-                style={{ clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)" }}>
+               <button 
+                 onClick={() => alert("Party System is still being forged in the backend. Coming soon!")}
+                 className="text-[10px] font-black uppercase tracking-widest px-4 py-2 bg-[rgba(139,92,246,0.1)] border border-[rgba(139,92,246,0.3)] text-[#8b5cf6] hover:bg-[#8b5cf6] hover:text-white transition-colors font-['Rajdhani']"
+                 style={{ clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)" }}>
                  Create Party
                </button>
             </div>
