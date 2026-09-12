@@ -84,7 +84,7 @@ const ANTI_CHEAT = {
 };
 
 const AI_CONFIG = {
-  GEMINI_MODEL: 'gemini-1.5-flash',
+  GEMINI_MODEL: 'gemini-2.5-flash',
   GEMINI_TIMEOUT_MS: 8000,
   GROQ_TIMEOUT_MS: 5000,
   FALLBACK_CONFIDENCE: 0.85
@@ -96,18 +96,20 @@ const VALIDATION_CONFIG = {
   MAX_PROJECT_NAME_LENGTH: 50
 };
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 const RATE_LIMIT_CONFIG = {
   GLOBAL: {
     windowMs: 60 * 1000,
-    limit: 150
+    limit: isProduction ? 150 : 1000
   },
   AUTH: {
     windowMs: 15 * 60 * 1000,
-    limit: 10
+    limit: isProduction ? 10 : 500
   },
   AI: {
     windowMs: 60 * 1000,
-    limit: 15
+    limit: isProduction ? 15 : 200
   }
 };
 
