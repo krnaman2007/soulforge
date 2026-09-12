@@ -220,8 +220,14 @@ class QuestService {
 
     const updateData = { ...data };
 
-    // If difficulty is modified, authoritatively recalculate bonus rewards
+    // If difficulty is modified, authoritatively recalculate bonus rewards (only if no child tasks completed)
     if (data.difficulty && data.difficulty !== existing.difficulty) {
+      const completedTaskCount = await prisma.task.count({
+        where: { projectId: questId, status: 'COMPLETED' }
+      });
+      if (completedTaskCount > 0) {
+        throw new AppError('QUEST_DIFFICULTY_LOCKED', 'Cannot change quest difficulty once tasks have been completed', 400);
+      }
       const rewards = RPG_CONSTANTS.QUEST_DIFFICULTY_REWARDS[data.difficulty] || RPG_CONSTANTS.QUEST_DIFFICULTY_REWARDS.MEDIUM;
       updateData.bonusXP = rewards.xp;
       updateData.bonusCoins = rewards.coins;
@@ -250,20 +256,16 @@ class QuestService {
   }
 
   /**
-   * Delete quest
+   * Delete quest strictly scoped to authenticated user
    */
   static async deleteQuest(userId, questId) {
-    const existing = await prisma.project.findUnique({
-      where: { id: questId }
+    const result = await prisma.project.deleteMany({
+      where: { id: questId, userId }
     });
 
-    if (!existing || existing.userId !== userId) {
+    if (result.count === 0) {
       throw new AppError('QUEST_NOT_FOUND', 'Quest not found', 404);
     }
-
-    await prisma.project.delete({
-      where: { id: questId }
-    });
 
     return {
       message: 'Quest deleted successfully',

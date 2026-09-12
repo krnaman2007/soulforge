@@ -159,6 +159,7 @@ model User {
   passwordHash String?
   googleId     String?
   isVerified   Boolean  @default(false)
+  timezone     String   @default("UTC")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -262,6 +263,8 @@ model Task {
 
   @@index([userId])
   @@index([userId, status])
+  @@index([userId, completedAt])
+  @@index([userId, dueDate])
   @@index([projectId])
   @@index([createdAt])
 }

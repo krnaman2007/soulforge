@@ -1,43 +1,31 @@
 const prisma = require('../../db/prisma');
 const { AppError } = require('../../utils/errors');
 const { RPG_CONSTANTS } = require('../../config/constants');
-const LevelService = require('../rpg/level.service');
+const RewardService = require('../rpg/reward.service');
 const AchievementService = require('../rpg/achievement.service');
+const DateService = require('../utils/date.service');
 const logger = require('../../errorlogging/logger');
 
 class ChallengeService {
-  static getStartOfDay(date = new Date()) {
-    const d = new Date(date);
-    d.setUTCHours(0, 0, 0, 0);
-    return d;
-  }
-
-  static getDailyPeriodKey(date = new Date()) {
-    const d = new Date(date);
-    return d.toISOString().split('T')[0];
-  }
-
-  static getStartOfWeek(date = new Date()) {
-    const d = new Date(date);
-    d.setUTCHours(0, 0, 0, 0);
-    const day = d.getUTCDay();
-    const diff = (day === 0 ? -6 : 1) - day;
-    d.setUTCDate(d.getUTCDate() + diff);
-    return d;
-  }
-
-  static getWeeklyPeriodKey(date = new Date()) {
-    const start = this.getStartOfWeek(date);
-    return `W-${start.toISOString().split('T')[0]}`;
+  /**
+   * Helper to retrieve user timezone
+   */
+  static async getUserTimezone(userId) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { timezone: true }
+    });
+    return user?.timezone || 'UTC';
   }
 
   /**
-   * Get Daily Challenge status and progress
+   * Get Daily Challenge status and progress in user's timezone
    */
   static async getDailyChallenge(userId) {
+    const tz = await this.getUserTimezone(userId);
     const now = new Date();
-    const periodKey = this.getDailyPeriodKey(now);
-    const startOfDay = this.getStartOfDay(now);
+    const periodKey = DateService.getDailyPeriodKey(tz, now);
+    const startOfDay = DateService.getStartOfUserDay(tz, now);
     const config = RPG_CONSTANTS.CHALLENGE_CONFIG.DAILY;
 
     const [completedTasksCount, existingClaim] = await Promise.all([
@@ -84,12 +72,13 @@ class ChallengeService {
   }
 
   /**
-   * Get Weekly Challenge status and progress
+   * Get Weekly Challenge status and progress in user's timezone
    */
   static async getWeeklyChallenge(userId) {
+    const tz = await this.getUserTimezone(userId);
     const now = new Date();
-    const periodKey = this.getWeeklyPeriodKey(now);
-    const startOfWeek = this.getStartOfWeek(now);
+    const periodKey = DateService.getWeeklyPeriodKey(tz, now);
+    const startOfWeek = DateService.getStartOfUserWeek(tz, now);
     const config = RPG_CONSTANTS.CHALLENGE_CONFIG.WEEKLY;
 
     const [completedTasksCount, existingClaim] = await Promise.all([
@@ -144,10 +133,11 @@ class ChallengeService {
       throw new AppError('INVALID_CHALLENGE_TYPE', 'Challenge type must be either DAILY or WEEKLY', 400);
     }
 
+    const tz = await this.getUserTimezone(userId);
     const now = new Date();
     const isDaily = type === 'DAILY';
-    const periodKey = isDaily ? this.getDailyPeriodKey(now) : this.getWeeklyPeriodKey(now);
-    const startDate = isDaily ? this.getStartOfDay(now) : this.getStartOfWeek(now);
+    const periodKey = isDaily ? DateService.getDailyPeriodKey(tz, now) : DateService.getWeeklyPeriodKey(tz, now);
+    const startDate = isDaily ? DateService.getStartOfUserDay(tz, now) : DateService.getStartOfUserWeek(tz, now);
     const config = isDaily ? RPG_CONSTANTS.CHALLENGE_CONFIG.DAILY : RPG_CONSTANTS.CHALLENGE_CONFIG.WEEKLY;
 
     // Verify completion count
@@ -184,7 +174,7 @@ class ChallengeService {
 
     try {
       return await prisma.$transaction(async (tx) => {
-        // 1. Record Claim
+        // 1. Record Claim (composite unique index protects against races)
         const claim = await tx.challengeClaim.create({
           data: {
             userId,
@@ -193,97 +183,33 @@ class ChallengeService {
           }
         });
 
-        // 2. Fetch Character
-        const character = await tx.character.findUnique({
-          where: { userId }
-        });
-
-        if (!character) {
-          throw new AppError('CHARACTER_NOT_FOUND', 'Character profile not found', 404);
-        }
-
-        // 3. Apply Level & XP progression authoritatively
-        const levelUpData = LevelService.applyXP(
-          character.level,
-          character.xp,
-          config.xpReward
-        );
-
-        // 4. Update Character stats
-        const updatedCharacter = await tx.character.update({
-          where: { userId },
-          data: {
-            level: levelUpData.newLevel,
-            xp: levelUpData.remainingXP,
-            coins: { increment: config.coinReward }
+        // 2. Authoritatively Grant Challenge Rewards via RewardService
+        const rewardResult = await RewardService.grantRewards(userId, tx, {
+          xp: config.xpReward,
+          coins: config.coinReward,
+          source: 'CHALLENGE_CLAIMED',
+          metadata: {
+            challengeType: type,
+            periodKey,
+            targetCount: config.targetCount,
+            completedCount
           }
         });
 
-        // 5. Create ActivityLog
-        await tx.activityLog.create({
-          data: {
-            userId,
-            type: 'CHALLENGE_CLAIMED',
-            xpChange: config.xpReward,
-            coinChange: config.coinReward,
-            metadata: {
-              challengeType: type,
-              periodKey,
-              targetCount: config.targetCount,
-              completedCount,
-              levelUp: levelUpData.leveledUp,
-              newLevel: levelUpData.newLevel
-            }
-          }
-        });
-
-        // 6. Evaluate Achievements (e.g. CHALLENGER, DEDICATED, HOARDER)
-        let finalCharacter = updatedCharacter;
-        let finalLevelUp = levelUpData;
-
-        const newlyUnlockedAchievements = await AchievementService.evaluateChallengeAchievements(
+        // 3. Evaluate Achievements (CHALLENGER, DEDICATED, etc.)
+        const newlyUnlockedAchievements = await AchievementService.evaluate(
+          'CHALLENGE_CLAIMED',
           userId,
           tx,
           {
             challengeType: type,
-            character: finalCharacter
+            periodKey,
+            timezone: tz
           }
         );
 
-        for (const ach of newlyUnlockedAchievements) {
-          if (ach.rewardXP > 0) {
-            const achLevelData = LevelService.applyXP(
-              finalCharacter.level,
-              finalCharacter.xp,
-              ach.rewardXP
-            );
-
-            finalCharacter = await tx.character.update({
-              where: { userId },
-              data: {
-                level: achLevelData.newLevel,
-                xp: achLevelData.remainingXP,
-                coins: { increment: ach.rewardCoins }
-              }
-            });
-
-            if (achLevelData.leveledUp) {
-              finalLevelUp = {
-                leveledUp: true,
-                oldLevel: levelUpData.oldLevel,
-                newLevel: achLevelData.newLevel,
-                nextLevelXP: achLevelData.nextLevelXP
-              };
-            }
-          } else if (ach.rewardCoins > 0) {
-            finalCharacter = await tx.character.update({
-              where: { userId },
-              data: {
-                coins: { increment: ach.rewardCoins }
-              }
-            });
-          }
-        }
+        // Fetch latest authoritative character
+        const finalCharacter = await tx.character.findUnique({ where: { userId } });
 
         return {
           success: true,
@@ -299,15 +225,15 @@ class ChallengeService {
             coins: config.coinReward
           },
           levelUp: {
-            leveledUp: finalLevelUp.leveledUp,
-            oldLevel: finalLevelUp.oldLevel,
-            newLevel: finalLevelUp.newLevel,
-            nextLevelXP: finalLevelUp.nextLevelXP
+            leveledUp: finalCharacter.level > rewardResult.levelUp.oldLevel,
+            oldLevel: rewardResult.levelUp.oldLevel,
+            newLevel: finalCharacter.level,
+            nextLevelXP: RewardService.calculateLevel(finalCharacter.level, finalCharacter.xp, 0).nextLevelXP
           },
           character: {
             level: finalCharacter.level,
             xp: finalCharacter.xp,
-            nextLevelXP: finalLevelUp.nextLevelXP,
+            nextLevelXP: RewardService.calculateLevel(finalCharacter.level, finalCharacter.xp, 0).nextLevelXP,
             coins: finalCharacter.coins
           },
           achievementsUnlocked: newlyUnlockedAchievements.map(a => ({

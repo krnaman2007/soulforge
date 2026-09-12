@@ -81,7 +81,8 @@ class TaskService {
   }
 
   /**
-   * Updates an existing task. (Title, description, dueDate)
+   * Updates an existing task. (Title, description, dueDate only)
+   * Enforces immutability of reward, difficulty, and attribute fields.
    */
   static async updateTask(userId, taskId, data) {
     const task = await prisma.task.findFirst({
@@ -89,40 +90,42 @@ class TaskService {
     });
 
     if (!task) {
-      throw new AppError('Task not found', 404, 'TASK_NOT_FOUND');
+      throw new AppError('TASK_NOT_FOUND', 'Task not found', 404);
     }
 
     if (task.status === 'COMPLETED') {
-      throw new AppError('Cannot edit a completed task', 400, 'TASK_ALREADY_COMPLETED');
+      throw new AppError('TASK_ALREADY_COMPLETED', 'Cannot edit a completed task', 400);
     }
 
-    const updatedTask = await prisma.task.update({
-      where: { id: taskId },
-      data: {
-        title: data.title,
-        description: data.description,
-        dueDate: data.dueDate ? new Date(data.dueDate) : null
-      }
+    // Whitelist only safe mutable fields to prevent reward or status tampering
+    const updateData = {};
+    if (data.title !== undefined) updateData.title = data.title;
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.dueDate !== undefined) {
+      updateData.dueDate = data.dueDate ? new Date(data.dueDate) : null;
+    }
+
+    await prisma.task.updateMany({
+      where: { id: taskId, userId },
+      data: updateData
     });
 
-    return updatedTask;
+    return await prisma.task.findFirst({
+      where: { id: taskId, userId }
+    });
   }
 
   /**
-   * Deletes a task.
+   * Deletes a task strictly scoped to the authenticated user.
    */
   static async deleteTask(userId, taskId) {
-    const task = await prisma.task.findFirst({
+    const result = await prisma.task.deleteMany({
       where: { id: taskId, userId }
     });
 
-    if (!task) {
-      throw new AppError('Task not found', 404, 'TASK_NOT_FOUND');
+    if (result.count === 0) {
+      throw new AppError('TASK_NOT_FOUND', 'Task not found', 404);
     }
-
-    await prisma.task.delete({
-      where: { id: taskId }
-    });
 
     logger.info(`Task deleted by user ${userId}`, { taskId });
     return { success: true };

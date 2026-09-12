@@ -14,6 +14,7 @@ router.route('/')
 
 router.route('/:id')
   .put(validateParams(taskIdSchema), validateBody(updateTaskSchema), updateTask)
+  .patch(validateParams(taskIdSchema), validateBody(updateTaskSchema), updateTask)
   .delete(validateParams(taskIdSchema), deleteTask);
 
 router.post('/:id/complete', validateParams(taskIdSchema), completeTask);

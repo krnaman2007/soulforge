@@ -1,62 +1,55 @@
 const prisma = require('../../db/prisma');
 const TaskIntegrityService = require('./taskIntegrity.service');
-const LevelService = require('../rpg/level.service');
-const AttributeService = require('../rpg/attribute.service');
+const RewardService = require('../rpg/reward.service');
 const StreakService = require('../rpg/streak.service');
 const AchievementService = require('../rpg/achievement.service');
-const logger = require('../../errorlogging/logger');
+const DateService = require('../utils/date.service');
+const LevelService = require('../rpg/level.service');
 const { AppError } = require('../../utils/errors');
+const logger = require('../../errorlogging/logger');
 
 class TaskCompletionService {
   /**
    * Completes a task, applying anti-cheat verification, and grants authoritative rewards.
-   * Runs entirely inside a Prisma Transaction to guarantee ACID compliance.
+   * All mutations occur within a single ACID transaction via the central RewardService.
    */
   static async completeTask(userId, taskId) {
     return await prisma.$transaction(async (tx) => {
-      // 1. Fetch Task and User's Character
-      const task = await tx.task.findFirst({
-        where: { id: taskId, userId }
-      });
+      // 1. Fetch User (for timezone) and Task
+      const [user, task] = await Promise.all([
+        tx.user.findUnique({ where: { id: userId } }),
+        tx.task.findFirst({ where: { id: taskId, userId } })
+      ]);
 
+      if (!user) {
+        throw new AppError('USER_NOT_FOUND', 'User not found', 404);
+      }
       if (!task) {
-        throw new AppError('Task not found', 404, 'TASK_NOT_FOUND');
+        throw new AppError('TASK_NOT_FOUND', 'Task not found', 404);
       }
       if (task.status === 'COMPLETED') {
-        throw new AppError('This quest was already completed!', 400, 'TASK_ALREADY_COMPLETED');
+        throw new AppError('TASK_ALREADY_COMPLETED', 'This quest was already completed!', 400);
       }
 
-      const character = await tx.character.findUnique({
-        where: { userId }
-      });
-
-      if (!character) {
-        throw new AppError('Character not found', 404, 'CHARACTER_NOT_FOUND');
-      }
-
-      // 2. Anti-Cheat Verification
-      // For a real production app, we would query the count of daily completions.
-      // Here we pass 0 for simplicity, but could count ActivityLogs for today.
-      const todayStart = new Date();
-      todayStart.setUTCHours(0, 0, 0, 0);
-      
+      // 2. Anti-Cheat Verification (in user local calendar day)
+      const userStartOfDay = DateService.getStartOfUserDay(user.timezone || 'UTC');
       const dailyCompletions = await tx.activityLog.count({
         where: {
           userId,
           type: 'TASK_COMPLETED',
-          createdAt: { gte: todayStart }
+          createdAt: { gte: userStartOfDay }
         }
       });
 
       const integrity = TaskIntegrityService.evaluateIntegrity(task, dailyCompletions);
-      
+
       // Calculate final rewards with integrity multiplier applied and rounded to nearest 5
       const finalXP = Math.round((task.xpReward * integrity.xpReduction) / 5) * 5;
       const finalCoins = Math.round((task.coinReward * integrity.xpReduction) / 5) * 5;
 
-      // 3. Mark Task as Completed (Optimistic Concurrency Control)
+      // 3. Mark Task as Completed with Optimistic Concurrency Control
       const updateResult = await tx.task.updateMany({
-        where: { id: taskId, status: 'PENDING' },
+        where: { id: taskId, userId, status: 'PENDING' },
         data: {
           status: 'COMPLETED',
           completedAt: new Date()
@@ -64,131 +57,86 @@ class TaskCompletionService {
       });
 
       if (updateResult.count === 0) {
-        throw new AppError('This quest was already completed or not found!', 400, 'TASK_ALREADY_COMPLETED');
+        throw new AppError('TASK_ALREADY_COMPLETED', 'This quest was already completed or not found!', 400);
       }
 
-      // Re-fetch the updated task for returning to client
       const completedTask = await tx.task.findUnique({ where: { id: taskId } });
 
-      // 4. Calculate New Level & XP
-      const levelUpData = LevelService.applyXP(character.level, character.xp, finalXP);
-
-      // 5. Calculate Attribute Gains
-      const attributeGains = AttributeService.calculateAttributeGains({
+      // 4. Authoritative Reward Engine: Grant Task Rewards
+      const taskRewardResult = await RewardService.grantRewards(userId, tx, {
+        xp: finalXP,
+        coins: finalCoins,
         primaryAttribute: task.primaryAttribute,
         secondaryAttributes: task.secondaryAttributes,
-        difficulty: task.difficulty
-      });
-
-      // Prepare attribute updates for Prisma
-      const characterUpdateData = {
-        level: levelUpData.newLevel,
-        xp: levelUpData.remainingXP,
-        coins: { increment: finalCoins }
-      };
-
-      for (const [attr, gain] of Object.entries(attributeGains)) {
-        characterUpdateData[attr] = { increment: gain };
-      }
-
-      // 6. Streak Evaluation
-      const streakData = StreakService.calculateStreak(
-        character.currentStreak,
-        character.longestStreak,
-        character.lastActiveDate,
-        new Date()
-      );
-
-      characterUpdateData.currentStreak = streakData.currentStreak;
-      characterUpdateData.longestStreak = streakData.longestStreak;
-      characterUpdateData.lastActiveDate = streakData.lastActiveDate;
-
-      // Apply Character Update
-      const updatedCharacter = await tx.character.update({
-        where: { userId },
-        data: characterUpdateData
-      });
-
-      // 7. Activity Logging
-      await tx.activityLog.create({
-        data: {
-          userId,
-          type: 'TASK_COMPLETED',
-          taskId: task.id,
-          projectId: task.projectId,
-          xpChange: finalXP,
-          coinChange: finalCoins,
-          metadata: {
-            integrityReason: integrity.reason,
-            levelUp: levelUpData.leveledUp,
-            attributeGains
-          }
+        difficulty: task.difficulty,
+        source: 'TASK_COMPLETED',
+        taskId: task.id,
+        projectId: task.projectId,
+        metadata: {
+          integrityReason: integrity.reason
         }
       });
 
-      // 8. Handle Project / Quest Progress (if part of a project)
+      // 5. Streak Evaluation with User Timezone
+      const streakData = StreakService.calculateStreak(
+        taskRewardResult.character.currentStreak,
+        taskRewardResult.character.longestStreak,
+        taskRewardResult.character.lastActiveDate,
+        new Date(),
+        user.timezone || 'UTC'
+      );
+
+      await tx.character.update({
+        where: { userId },
+        data: {
+          currentStreak: streakData.currentStreak,
+          longestStreak: streakData.longestStreak,
+          lastActiveDate: streakData.lastActiveDate
+        }
+      });
+
+      // 6. Handle Project / Quest Progress (Zero-task proof & exactly-once bonus)
       let questCompleted = false;
       let questRewards = null;
-      let finalCharacter = updatedCharacter;
-      let finalLevelUp = {
-        leveledUp: levelUpData.leveledUp,
-        oldLevel: levelUpData.oldLevel,
-        newLevel: levelUpData.newLevel,
-        nextLevelXP: levelUpData.nextLevelXP
-      };
+      let aggregatedLevelUp = { ...taskRewardResult.levelUp };
 
       if (task.projectId) {
-        const projectTasks = await tx.task.findMany({
-          where: { projectId: task.projectId }
-        });
-        const completedCount = projectTasks.filter(t => t.status === 'COMPLETED').length;
-        const progress = projectTasks.length > 0 ? completedCount / projectTasks.length : 1.0;
+        const project = await tx.project.findUnique({ where: { id: task.projectId } });
+        if (project && project.status !== 'COMPLETED') {
+          const projectTasks = await tx.task.findMany({
+            where: { projectId: task.projectId }
+          });
+          const totalTasks = projectTasks.length;
+          const completedTasks = projectTasks.filter(t => t.status === 'COMPLETED').length;
+          const progress = totalTasks > 0 ? Number((completedTasks / totalTasks).toFixed(2)) : 0;
 
-        const projectUpdate = { progress };
-        
-        // If Project Completed
-        if (completedCount === projectTasks.length) {
-          projectUpdate.status = 'COMPLETED';
-          projectUpdate.completedAt = new Date();
-          
-          const project = await tx.project.findUnique({ where: { id: task.projectId } });
-          if (project && project.status !== 'COMPLETED') {
+          // Zero-task quests cannot complete accidentally
+          if (totalTasks > 0 && completedTasks === totalTasks) {
             questCompleted = true;
+            await tx.project.update({
+              where: { id: project.id },
+              data: {
+                status: 'COMPLETED',
+                progress: 1.0,
+                completedAt: new Date()
+              }
+            });
 
-            // Calculate quest attribute gains based on category & difficulty
-            const questAttrGains = AttributeService.calculateAttributeGains({
+            // Grant Quest Bonus authoritatively via RewardService
+            const questRewardResult = await RewardService.grantRewards(userId, tx, {
+              xp: project.bonusXP,
+              coins: project.bonusCoins,
               primaryAttribute: project.category || 'INTELLECT',
-              difficulty: project.difficulty || 'MEDIUM'
+              difficulty: project.difficulty || 'MEDIUM',
+              source: 'PROJECT_COMPLETED',
+              projectId: project.id
             });
 
-            // Route quest bonus XP through authoritative LevelService.applyXP
-            const questLevelData = LevelService.applyXP(
-              finalCharacter.level,
-              finalCharacter.xp,
-              project.bonusXP
-            );
-
-            const questCharUpdate = {
-              level: questLevelData.newLevel,
-              xp: questLevelData.remainingXP,
-              coins: { increment: project.bonusCoins }
-            };
-
-            for (const [attr, gain] of Object.entries(questAttrGains)) {
-              questCharUpdate[attr] = { increment: gain };
+            if (questRewardResult.levelUp.leveledUp) {
+              aggregatedLevelUp.leveledUp = true;
+              aggregatedLevelUp.newLevel = questRewardResult.levelUp.newLevel;
+              aggregatedLevelUp.nextLevelXP = questRewardResult.levelUp.nextLevelXP;
             }
-
-            finalCharacter = await tx.character.update({
-              where: { userId },
-              data: questCharUpdate
-            });
-
-            finalLevelUp = {
-              leveledUp: levelUpData.leveledUp || questLevelData.leveledUp,
-              oldLevel: levelUpData.oldLevel,
-              newLevel: questLevelData.newLevel,
-              nextLevelXP: questLevelData.nextLevelXP
-            };
 
             questRewards = {
               questId: project.id,
@@ -196,93 +144,60 @@ class TaskCompletionService {
               bonusXP: project.bonusXP,
               bonusCoins: project.bonusCoins,
               attribute: project.category,
-              attributeGains: questAttrGains
+              attributeGains: questRewardResult.rewardsGranted.attributeGains
             };
-
-            await tx.activityLog.create({
-              data: {
-                userId,
-                type: 'PROJECT_COMPLETED',
-                projectId: project.id,
-                xpChange: project.bonusXP,
-                coinChange: project.bonusCoins,
-                metadata: {
-                  levelUp: questLevelData.leveledUp,
-                  newLevel: questLevelData.newLevel,
-                  attributeGains: questAttrGains
-                }
-              }
+          } else {
+            await tx.project.update({
+              where: { id: project.id },
+              data: { progress }
             });
           }
         }
-        
-        await tx.project.update({
-          where: { id: task.projectId },
-          data: projectUpdate
-        });
       }
 
-      // 9. Evaluate Achievements
-      const newlyUnlockedAchievements = await AchievementService.evaluateTaskAchievements(
+      // 7. Evaluate Achievements
+      const latestCharacter = await tx.character.findUnique({ where: { userId } });
+      const newlyUnlockedAchievements = await AchievementService.evaluate(
+        'TASK_COMPLETED',
         userId,
         tx,
         {
           task: completedTask,
-          character: finalCharacter,
+          character: latestCharacter,
           questCompleted,
           streakData,
-          completionTime: new Date()
+          completionTime: new Date(),
+          timezone: user.timezone || 'UTC'
         }
       );
 
-      // If achievements award XP or Coins, apply authoritatively to character
-      for (const ach of newlyUnlockedAchievements) {
-        if (ach.rewardXP > 0) {
-          const achLevelData = LevelService.applyXP(
-            finalCharacter.level,
-            finalCharacter.xp,
-            ach.rewardXP
-          );
-
-          finalCharacter = await tx.character.update({
-            where: { userId },
-            data: {
-              level: achLevelData.newLevel,
-              xp: achLevelData.remainingXP,
-              coins: { increment: ach.rewardCoins }
-            }
-          });
-
-          if (achLevelData.leveledUp) {
-            finalLevelUp.leveledUp = true;
-            finalLevelUp.newLevel = achLevelData.newLevel;
-            finalLevelUp.nextLevelXP = achLevelData.nextLevelXP;
-          }
-        } else if (ach.rewardCoins > 0) {
-          finalCharacter = await tx.character.update({
-            where: { userId },
-            data: {
-              coins: { increment: ach.rewardCoins }
-            }
-          });
-        }
+      // Re-fetch final authoritative character state
+      const finalCharacter = await tx.character.findUnique({ where: { userId } });
+      if (finalCharacter.level > aggregatedLevelUp.newLevel) {
+        aggregatedLevelUp.leveledUp = true;
+        aggregatedLevelUp.newLevel = finalCharacter.level;
+        aggregatedLevelUp.nextLevelXP = LevelService.getRequiredXP(finalCharacter.level);
       }
 
-      // 10. Format response payload to match frontend contract
+      // 8. Return response contract
+      const primaryGain = taskRewardResult.rewardsGranted.attributeGains[
+        (task.primaryAttribute || '').toLowerCase()
+      ] || 0;
+
       return {
         task: completedTask,
         rewards: {
           xp: finalXP,
           coins: finalCoins,
           attribute: task.primaryAttribute,
-          attributeIncrease: attributeGains[AttributeService.calculateAttributeGains({ primaryAttribute: task.primaryAttribute, difficulty: task.difficulty }) ? Object.keys(AttributeService.calculateAttributeGains({ primaryAttribute: task.primaryAttribute, difficulty: task.difficulty }))[0] : ''] || 0
+          attributeIncrease: primaryGain
         },
         questCompleted,
         questRewards,
         character: {
           level: finalCharacter.level,
           xp: finalCharacter.xp,
-          nextLevelXP: finalLevelUp.nextLevelXP,
+          nextLevelXP: aggregatedLevelUp.nextLevelXP,
           coins: finalCharacter.coins,
           intellect: finalCharacter.intellect,
           strength: finalCharacter.strength,
@@ -298,9 +213,9 @@ class TaskCompletionService {
           personalGrowth: finalCharacter.personalGrowth
         },
         levelUp: {
-          leveledUp: finalLevelUp.leveledUp,
-          oldLevel: finalLevelUp.oldLevel,
-          newLevel: finalLevelUp.newLevel
+          leveledUp: aggregatedLevelUp.leveledUp,
+          oldLevel: aggregatedLevelUp.oldLevel,
+          newLevel: aggregatedLevelUp.newLevel
         },
         streak: {
           current: finalCharacter.currentStreak,

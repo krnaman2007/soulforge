@@ -35,9 +35,12 @@ const RESERVED_USERNAMES = new Set([
 
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,30}$/;
 
-async function register({ name, email, password, username }) {
+const DateService = require('../utils/date.service');
+
+async function register({ name, email, password, username, timezone }) {
   const normalizedEmail = email.toLowerCase().trim();
   const normalizedUsername = username.toLowerCase().trim();
+  const validTimezone = DateService.getUserTimezone(timezone);
 
   if (RESERVED_USERNAMES.has(normalizedUsername)) {
     throw new AppError('RESERVED_USERNAME', 'This username is reserved and cannot be used', 400);
@@ -68,7 +71,8 @@ async function register({ name, email, password, username }) {
         email: normalizedEmail,
         username: normalizedUsername,
         passwordHash,
-        isVerified: false
+        isVerified: false,
+        timezone: validTimezone
       }
     });
 

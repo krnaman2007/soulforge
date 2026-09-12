@@ -2,6 +2,8 @@ const prisma = require('../../db/prisma');
 const { AppError } = require('../../utils/errors');
 const logger = require('../../errorlogging/logger');
 const { ACHIEVEMENT_CATALOG } = require('../../config/achievementCatalog');
+const RewardService = require('./reward.service');
+const DateService = require('../utils/date.service');
 
 class AchievementService {
   /**
@@ -44,6 +46,25 @@ class AchievementService {
   }
 
   /**
+   * Unified entry point to evaluate achievements triggered by game events.
+   *
+   * @param {string} event - TASK_COMPLETED | CHALLENGE_CLAIMED | QUEST_COMPLETED
+   * @param {string} userId
+   * @param {Object} tx - Prisma transaction client
+   * @param {Object} context
+   * @returns {Promise<Array<Object>>} Newly unlocked achievements
+   */
+  static async evaluate(event, userId, tx, context = {}) {
+    if (event === 'TASK_COMPLETED' || event === 'QUEST_COMPLETED') {
+      return this.evaluateTaskAchievements(userId, tx, context);
+    }
+    if (event === 'CHALLENGE_CLAIMED') {
+      return this.evaluateChallengeAchievements(userId, tx, context);
+    }
+    return [];
+  }
+
+  /**
    * Evaluates and unlocks any achievements earned during task completion.
    * Runs within an existing transaction `tx`.
    *
@@ -53,7 +74,7 @@ class AchievementService {
    * @returns {Promise<Array<Object>>} List of newly unlocked achievements
    */
   static async evaluateTaskAchievements(userId, tx, context = {}) {
-    const { task, character, questCompleted, streakData, completionTime } = context;
+    const { task, questCompleted, streakData, completionTime, timezone = 'UTC' } = context;
 
     try {
       // 1. Fetch already unlocked achievements to avoid duplicate work
@@ -78,12 +99,8 @@ class AchievementService {
 
       // 3. Compute metrics required for locked achievements
       const hasTaskMetric = lockedAchievements.some(a => a.type === 'TASK');
-      const hasStreakMetric = lockedAchievements.some(a => a.type === 'STREAK');
-      const hasLevelMetric = lockedAchievements.some(a => a.type === 'LEVEL');
       const hasProjectMetric = lockedAchievements.some(a => a.type === 'PROJECT');
-      const hasEconomyMetric = lockedAchievements.some(a => a.type === 'ECONOMY');
 
-      // Metric calculations
       let totalCompletedTasks = 0;
       let attributeCounts = {};
       let isEarlyMorning = false;
@@ -93,9 +110,9 @@ class AchievementService {
           where: { userId, status: 'COMPLETED' }
         });
 
-        // Current completion time check for EARLY_RISER
+        // Current completion time check for EARLY_RISER in user's local timezone
         const timestamp = completionTime || new Date();
-        const hour = timestamp.getHours();
+        const hour = DateService.getUserHour(timestamp, timezone);
         if (hour < 8) {
           isEarlyMorning = true;
         }
@@ -115,19 +132,22 @@ class AchievementService {
         }
       }
 
+      // Fetch fresh character for streak / level / economy
+      const character = await tx.character.findUnique({ where: { userId } });
       const currentStreak = streakData ? streakData.currentStreak : (character ? character.currentStreak : 0);
       const currentLevel = character ? character.level : 1;
       const currentCoins = character ? character.coins : 0;
 
-      let completedQuestCount = 0;
+      let completedProjects = 0;
       if (hasProjectMetric) {
-        completedQuestCount = await tx.project.count({
+        completedProjects = await tx.project.count({
           where: { userId, status: 'COMPLETED' }
         });
       }
 
       const newlyUnlocked = [];
 
+      // 4. Evaluate each locked achievement against metrics
       for (const ach of lockedAchievements) {
         const req = ach.requirement || {};
         let conditionMet = false;
@@ -138,30 +158,28 @@ class AchievementService {
             break;
 
           case 'ATTRIBUTE_TASK_COUNT':
-            if (req.attribute) {
-              const count = attributeCounts[req.attribute] || 0;
-              conditionMet = count >= (req.target || 25);
-            }
-            break;
-
-          case 'EARLY_RISER':
-            conditionMet = isEarlyMorning;
+            const catCount = attributeCounts[req.attribute] || 0;
+            conditionMet = catCount >= (req.target || 1);
             break;
 
           case 'STREAK_DAYS':
-            conditionMet = currentStreak >= (req.target || 7);
+            conditionMet = currentStreak >= (req.target || 1);
             break;
 
           case 'LEVEL':
-            conditionMet = currentLevel >= (req.target || 5);
+            conditionMet = currentLevel >= (req.target || 1);
             break;
 
           case 'QUEST_COUNT':
-            conditionMet = completedQuestCount >= (req.target || 1) || questCompleted === true;
+            conditionMet = questCompleted || completedProjects >= (req.target || 1);
             break;
 
           case 'COIN_BALANCE':
             conditionMet = currentCoins >= (req.target || 1000);
+            break;
+
+          case 'EARLY_RISER':
+            conditionMet = isEarlyMorning;
             break;
 
           default:
@@ -177,21 +195,20 @@ class AchievementService {
             }
           });
 
-          // Record in activity log
-          await tx.activityLog.create({
-            data: {
-              userId,
-              type: 'ACHIEVEMENT_UNLOCKED',
-              xpChange: ach.rewardXP,
-              coinChange: ach.rewardCoins,
+          // Route bonus XP and Coins authoritatively through RewardService
+          if (ach.rewardXP > 0 || ach.rewardCoins > 0) {
+            await RewardService.grantRewards(userId, tx, {
+              xp: ach.rewardXP,
+              coins: ach.rewardCoins,
+              source: 'ACHIEVEMENT_UNLOCKED',
               metadata: {
                 achievementCode: ach.code,
                 achievementName: ach.name,
                 badge: ach.badge,
                 rewardTitle: ach.rewardTitle
               }
-            }
-          });
+            });
+          }
 
           newlyUnlocked.push(ach);
         }
@@ -213,8 +230,6 @@ class AchievementService {
    * @returns {Promise<Array<Object>>}
    */
   static async evaluateChallengeAchievements(userId, tx, context = {}) {
-    const { character } = context;
-
     try {
       const existingUserAchievements = await tx.userAchievement.findMany({
         where: { userId },
@@ -239,9 +254,10 @@ class AchievementService {
         return [];
       }
 
-      const [dailyCount, weeklyCount] = await Promise.all([
+      const [dailyCount, weeklyCount, character] = await Promise.all([
         tx.challengeClaim.count({ where: { userId, type: 'DAILY' } }),
-        tx.challengeClaim.count({ where: { userId, type: 'WEEKLY' } })
+        tx.challengeClaim.count({ where: { userId, type: 'WEEKLY' } }),
+        tx.character.findUnique({ where: { userId } })
       ]);
 
       const coins = character ? character.coins : 0;
@@ -269,20 +285,20 @@ class AchievementService {
             }
           });
 
-          await tx.activityLog.create({
-            data: {
-              userId,
-              type: 'ACHIEVEMENT_UNLOCKED',
-              xpChange: ach.rewardXP,
-              coinChange: ach.rewardCoins,
+          // Route bonus XP and Coins authoritatively through RewardService
+          if (ach.rewardXP > 0 || ach.rewardCoins > 0) {
+            await RewardService.grantRewards(userId, tx, {
+              xp: ach.rewardXP,
+              coins: ach.rewardCoins,
+              source: 'ACHIEVEMENT_UNLOCKED',
               metadata: {
                 achievementCode: ach.code,
                 achievementName: ach.name,
                 badge: ach.badge,
                 rewardTitle: ach.rewardTitle
               }
-            }
-          });
+            });
+          }
 
           newlyUnlocked.push(ach);
         }
@@ -296,7 +312,7 @@ class AchievementService {
   }
 
   /**
-   * Lists all achievements with computed unlock status and progress for user.
+   * Lists all achievements with computed unlock status and derived progress for user.
    */
   static async getAllAchievements(userId = null, query = {}) {
     await this.ensureCatalog();
@@ -324,7 +340,7 @@ class AchievementService {
       }));
     }
 
-    // Load user state for progress calculation
+    // Load user state for authoritative derived progress calculation
     const [userAchievements, character, taskCount, completedQuests, dailyClaims, weeklyClaims] = await Promise.all([
       prisma.userAchievement.findMany({
         where: { userId },
@@ -339,7 +355,7 @@ class AchievementService {
 
     const unlockMap = new Map(userAchievements.map(ua => [ua.achievementId, ua.unlockedAt]));
 
-    // Preload attribute counts if needed
+    // Preload attribute counts for progress derivation
     const attributeGroup = await prisma.task.groupBy({
       by: ['primaryAttribute'],
       where: { userId, status: 'COMPLETED' },

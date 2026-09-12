@@ -2,7 +2,7 @@
 
 This document outlines all backend REST API endpoints for the SoulForge Life RPG platform.
 
-* **Base URL:** `http://localhost:3000/api` (Local Dev)
+* **Base URL:** `http://localhost:3000/api/v1` (Canonical) or `http://localhost:3000/api` (Backward-Compatible)
 * **Default Content-Type:** `application/json`
 * **Standard Authentication:** `Authorization: Bearer <JWT_TOKEN>`
 
@@ -39,7 +39,7 @@ This document outlines all backend REST API endpoints for the SoulForge Life RPG
 Check whether the backend service is operational.
 
 * **Method:** `GET`
-* **URL:** `/api/health`
+* **URL:** `/api/v1/health` (or `/api/health`)
 * **Auth Required:** No
 * **Headers:** None
 * **Request Data:** None
@@ -60,7 +60,7 @@ Check whether the backend service is operational.
 Registers a new player with email, password, and unique handle. Sends an email verification link.
 
 * **Method:** `POST`
-* **URL:** `/api/auth/register`
+* **URL:** `/api/v1/auth/register`
 * **Auth Required:** No (Rate limited)
 * **Headers:** `Content-Type: application/json`
 * **Request Body:**
@@ -70,6 +70,7 @@ Registers a new player with email, password, and unique handle. Sends an email v
 | `email` | string | Yes | Valid email format | Player's unique email |
 | `username` | string | Yes | 3 - 30 chars, `[a-zA-Z0-9_]` | Unique player handle (case-insensitive) |
 | `password` | string | Yes | 6 - 100 chars | Account password |
+| `timezone` | string | No | IANA timezone (e.g. `Asia/Kolkata`) | Player timezone for streaks & daily reset (default `UTC`) |
 
 * **Example Request:**
 ```json
@@ -77,7 +78,8 @@ Registers a new player with email, password, and unique handle. Sends an email v
   "name": "Alex Vance",
   "email": "alex@example.com",
   "username": "alex_vance",
-  "password": "SecretPassword123!"
+  "password": "SecretPassword123!",
+  "timezone": "Asia/Kolkata"
 }
 ```
 
@@ -1566,11 +1568,11 @@ Retrieves details of a specific achievement by its unique ID, including the auth
 |---|---|---|
 | `200 OK` | - | Request succeeded |
 | `201 Created` | - | Resource created successfully |
-| `400 Bad Request` | `VALIDATION_ERROR`, `SELF_FOLLOW_NOT_ALLOWED`, `CHALLENGE_NOT_COMPLETED` | Invalid input or invalid business action |
-| `401 Unauthorized` | `UNAUTHORIZED` | Missing, invalid, or expired JWT Bearer token |
-| `403 Forbidden` | `ACCOUNT_NOT_VERIFIED` | Action blocked until email is verified |
-| `404 Not Found` | `USER_NOT_FOUND`, `NOT_FOLLOWING`, `QUEST_NOT_FOUND`, `TASK_NOT_FOUND`, `ACHIEVEMENT_NOT_FOUND` | Target resource does not exist |
-| `409 Conflict` | `EMAIL_ALREADY_EXISTS`, `USERNAME_ALREADY_EXISTS`, `ALREADY_FOLLOWING`, `CHALLENGE_ALREADY_CLAIMED` | Uniqueness conflict or duplicate claim |
+| `400 Bad Request` | `VALIDATION_ERROR`, `SELF_FOLLOW_NOT_ALLOWED`, `CHALLENGE_NOT_COMPLETED`, `TASK_ALREADY_COMPLETED`, `QUEST_DIFFICULTY_LOCKED`, `FOREIGN_KEY_VIOLATION` | Invalid input or invalid business action |
+| `401 Unauthorized` | `UNAUTHORIZED`, `INVALID_CREDENTIALS` | Missing, invalid, or expired JWT Bearer token |
+| `403 Forbidden` | `ACCOUNT_NOT_VERIFIED`, `FORBIDDEN` | Action blocked until email is verified or access denied |
+| `404 Not Found` | `USER_NOT_FOUND`, `NOT_FOLLOWING`, `QUEST_NOT_FOUND`, `TASK_NOT_FOUND`, `ACHIEVEMENT_NOT_FOUND`, `RESOURCE_NOT_FOUND` | Target resource does not exist |
+| `409 Conflict` | `EMAIL_ALREADY_EXISTS`, `USERNAME_ALREADY_EXISTS`, `ALREADY_FOLLOWING`, `CHALLENGE_ALREADY_CLAIMED`, `DUPLICATE_RESOURCE` | Uniqueness conflict or duplicate claim |
 | `429 Too Many Requests` | `RATE_LIMIT_EXCEEDED` | Rate limit threshold reached |
 | `500 Internal Server Error` | `INTERNAL_SERVER_ERROR` | Unexpected server condition |
 

@@ -111,10 +111,53 @@ const RATE_LIMIT_CONFIG = {
   }
 };
 
+const CORE_ATTRIBUTES = [
+  'INTELLECT',
+  'STRENGTH',
+  'DISCIPLINE',
+  'HEALTH',
+  'CREATIVITY',
+  'SOCIAL'
+];
+
+const CATEGORY_TO_ATTRIBUTE_MAP = {
+  CAREER: 'INTELLECT',
+  LEARNING: 'INTELLECT',
+  INTELLECT: 'INTELLECT',
+  PHYSICAL: 'STRENGTH',
+  STRENGTH: 'STRENGTH',
+  DISCIPLINE: 'DISCIPLINE',
+  FINANCE: 'DISCIPLINE',
+  PERSONAL_GROWTH: 'DISCIPLINE',
+  HEALTH: 'HEALTH',
+  EMOTIONAL: 'HEALTH',
+  CREATIVITY: 'CREATIVITY',
+  SOCIAL: 'SOCIAL',
+  LEADERSHIP: 'SOCIAL'
+};
+
+function getPrimaryAttributeForCategory(category) {
+  if (!category) return 'DISCIPLINE';
+  const normalized = String(category).toUpperCase();
+  return CATEGORY_TO_ATTRIBUTE_MAP[normalized] || 'DISCIPLINE';
+}
+
+const REWARD_BOUNDS = {
+  MIN_TASK_XP: 10,
+  MAX_TASK_XP: 150,
+  MIN_TASK_COINS: 5,
+  MAX_TASK_COINS: 75
+};
+
 module.exports = {
   RPG_CONSTANTS,
+  CORE_ATTRIBUTES,
+  CATEGORY_TO_ATTRIBUTE_MAP,
+  getPrimaryAttributeForCategory,
+  REWARD_BOUNDS,
   ANTI_CHEAT,
   AI_CONFIG,
   VALIDATION_CONFIG,
   RATE_LIMIT_CONFIG
 };
+

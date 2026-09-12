@@ -1,11 +1,14 @@
-const { RPG_CONSTANTS } = require('../../config/constants');
+const prisma = require('../../db/prisma');
+const { RPG_CONSTANTS, REWARD_BOUNDS } = require('../../config/constants');
+const LevelService = require('./level.service');
+const AttributeService = require('./attribute.service');
+const { AppError } = require('../../utils/errors');
 const logger = require('../../errorlogging/logger');
 
 class RewardService {
   /**
-   * Calculates the XP and Coin rewards for a task based on the RPG specification.
-   * FinalXP = round(BaseXP(Difficulty) * Multiplier(Effort) + Bonus(Impact) + Modifier(Priority))
-   * CoinReward = max(5, round(FinalXP * 0.4))
+   * Calculates XP and Coin rewards for a task based on difficulty, effort, impact, and priority.
+   * Rewards are deterministically calculated and strictly bounded by backend maximums to prevent exploits.
    *
    * @param {Object} params
    * @param {string} params.difficulty - EASY | MEDIUM | HARD | EPIC
@@ -22,20 +25,176 @@ class RewardService {
       const priorityMod = RPG_CONSTANTS.PRIORITY_BONUS[priority] || RPG_CONSTANTS.PRIORITY_BONUS.MEDIUM;
 
       const rawXP = (baseXP * effortMult) + impactBonus + priorityMod;
-      const finalXP = Math.round(rawXP / 5) * 5;
-      
+      const roundedXP = Math.round(rawXP / 5) * 5;
+
+      // Authoritative Clamping
+      const finalXP = Math.min(
+        REWARD_BOUNDS.MAX_TASK_XP,
+        Math.max(REWARD_BOUNDS.MIN_TASK_XP, roundedXP)
+      );
+
       const rawCoins = finalXP * RPG_CONSTANTS.COIN_REWARD_RATIO;
-      const coinReward = Math.max(
-        RPG_CONSTANTS.MIN_COIN_REWARD,
-        Math.round(rawCoins / 5) * 5
+      const roundedCoins = Math.round(rawCoins / 5) * 5;
+
+      const coinReward = Math.min(
+        REWARD_BOUNDS.MAX_TASK_COINS,
+        Math.max(REWARD_BOUNDS.MIN_TASK_COINS, roundedCoins)
       );
 
       return { xp: finalXP, coins: coinReward };
     } catch (error) {
       logger.error('Error calculating task reward', { error, difficulty, effort, impact, priority });
-      // Safe fallback
-      return { xp: 25, coins: 10 };
+      return {
+        xp: REWARD_BOUNDS.MIN_TASK_XP,
+        coins: REWARD_BOUNDS.MIN_TASK_COINS
+      };
     }
+  }
+
+  /**
+   * Evaluates recursive level-up advances for a given XP gain.
+   */
+  static calculateLevel(currentLevel, currentXP, xpToAdd) {
+    return LevelService.applyXP(currentLevel, currentXP, xpToAdd);
+  }
+
+  /**
+   * The Single Authoritative Mutator for Character Progression.
+   * Nobody except this method directly mutates character.xp, character.coins, character.level, or character attributes.
+   *
+   * @param {string} userId
+   * @param {Object} [tx] - Prisma transaction client (optional, creates transaction if omitted)
+   * @param {Object} options
+   * @param {number} [options.xp=0]
+   * @param {number} [options.coins=0]
+   * @param {string} [options.primaryAttribute]
+   * @param {string[]} [options.secondaryAttributes]
+   * @param {string} [options.difficulty='MEDIUM']
+   * @param {string} [options.source] - ActivityType enum or action identifier
+   * @param {string} [options.taskId]
+   * @param {string} [options.projectId]
+   * @param {string} [options.itemId]
+   * @param {Object} [options.metadata]
+   * @returns {Promise<{ character: Object, levelUp: Object, rewardsGranted: Object }>}
+   */
+  static async grantRewards(userId, tx, options = {}) {
+    const execute = async (db) => {
+      const {
+        xp = 0,
+        coins = 0,
+        primaryAttribute,
+        secondaryAttributes = [],
+        difficulty = 'MEDIUM',
+        source,
+        taskId,
+        projectId,
+        itemId,
+        metadata = {}
+      } = options;
+
+      const safeXP = Math.max(0, Math.round(Number(xp) || 0));
+      const safeCoins = Math.max(0, Math.round(Number(coins) || 0));
+
+      // 1. Fetch Character
+      const character = await db.character.findUnique({
+        where: { userId }
+      });
+
+      if (!character) {
+        throw new AppError('CHARACTER_NOT_FOUND', 'Character profile not found for user', 404);
+      }
+
+      // 2. Authoritative Level & XP Progression
+      const levelUpData = LevelService.applyXP(character.level, character.xp, safeXP);
+
+      // 3. Authoritative Attribute Gains
+      let attributeGains = {};
+      if (primaryAttribute) {
+        attributeGains = AttributeService.calculateAttributeGains({
+          primaryAttribute,
+          secondaryAttributes,
+          difficulty
+        });
+      }
+
+      // 4. Prepare Character Mutations
+      const updateData = {
+        level: levelUpData.newLevel,
+        xp: levelUpData.remainingXP
+      };
+
+      if (safeCoins > 0) {
+        updateData.coins = { increment: safeCoins };
+      }
+
+      for (const [field, gain] of Object.entries(attributeGains)) {
+        if (gain > 0) {
+          updateData[field] = { increment: gain };
+        }
+      }
+
+      // 5. Mutate Character atomically
+      const updatedCharacter = await db.character.update({
+        where: { userId },
+        data: updateData
+      });
+
+      // 6. Write ActivityLog within same transactional boundary
+      if (source) {
+        await db.activityLog.create({
+          data: {
+            userId,
+            type: source,
+            taskId: taskId || null,
+            projectId: projectId || null,
+            itemId: itemId || null,
+            xpChange: safeXP,
+            coinChange: safeCoins,
+            metadata: {
+              levelUp: levelUpData.leveledUp,
+              oldLevel: levelUpData.oldLevel,
+              newLevel: levelUpData.newLevel,
+              attributeGains,
+              ...metadata
+            }
+          }
+        });
+      }
+
+      return {
+        character: updatedCharacter,
+        levelUp: {
+          leveledUp: levelUpData.leveledUp,
+          oldLevel: levelUpData.oldLevel,
+          newLevel: levelUpData.newLevel,
+          nextLevelXP: levelUpData.nextLevelXP
+        },
+        rewardsGranted: {
+          xp: safeXP,
+          coins: safeCoins,
+          attributeGains
+        }
+      };
+    };
+
+    if (tx) {
+      return execute(tx);
+    }
+    return prisma.$transaction(execute);
+  }
+
+  /**
+   * Convenience helper to grant XP authoritatively.
+   */
+  static async grantXP(userId, tx, xpAmount, options = {}) {
+    return this.grantRewards(userId, tx, { ...options, xp: xpAmount });
+  }
+
+  /**
+   * Convenience helper to grant Coins authoritatively.
+   */
+  static async grantCoins(userId, tx, coinAmount, options = {}) {
+    return this.grantRewards(userId, tx, { ...options, coins: coinAmount });
   }
 }
 
