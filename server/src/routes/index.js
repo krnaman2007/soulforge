@@ -6,6 +6,7 @@ const questRoutes = require('./quest.routes');
 const challengeRoutes = require('./challenge.routes');
 const achievementRoutes = require('./achievement.routes');
 const leaderboardRoutes = require('./leaderboard.routes');
+const activityRoutes = require('./activity.routes');
 
 const apiRouter = Router();
 
@@ -18,5 +19,6 @@ apiRouter.use('/quests', questRoutes);
 apiRouter.use('/challenges', challengeRoutes);
 apiRouter.use('/achievements', achievementRoutes);
 apiRouter.use('/leaderboard', leaderboardRoutes);
+apiRouter.use('/activity', activityRoutes);
 
 module.exports = apiRouter;

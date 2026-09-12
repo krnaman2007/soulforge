@@ -60,7 +60,7 @@ Check whether the backend service is operational.
 Registers a new player with email, password, and unique handle. Sends an email verification link.
 
 * **Method:** `POST`
-* **URL:** `/api/v1/auth/register`
+* **URL:** `/api/v1/auth/register` (or `/api/auth/register`)
 * **Auth Required:** No (Rate limited)
 * **Headers:** `Content-Type: application/json`
 * **Request Body:**
@@ -118,7 +118,7 @@ Registers a new player with email, password, and unique handle. Sends an email v
 Authenticates an existing verified user with email and password.
 
 * **Method:** `POST`
-* **URL:** `/api/auth/login`
+* **URL:** `/api/v1/auth/login` (or `/api/auth/login`)
 * **Auth Required:** No (Rate limited)
 * **Headers:** `Content-Type: application/json`
 * **Request Body:**
@@ -164,7 +164,7 @@ Authenticates an existing verified user with email and password.
 Invalidates the client session.
 
 * **Method:** `POST`
-* **URL:** `/api/auth/logout`
+* **URL:** `/api/v1/auth/logout` (or `/api/auth/logout`)
 * **Auth Required:** No
 * **Headers:** None
 * **Request Data:** None
@@ -184,7 +184,7 @@ Invalidates the client session.
 Returns current authenticated player's full profile and RPG character stats.
 
 * **Method:** `GET`
-* **URL:** `/api/auth/me`
+* **URL:** `/api/v1/auth/me` (or `/api/auth/me`)
 * **Auth Required:** Yes
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>`
 * **Request Data:** None
@@ -227,7 +227,7 @@ Returns current authenticated player's full profile and RPG character stats.
 Resends a verification link if expired or lost.
 
 * **Method:** `POST`
-* **URL:** `/api/auth/resend-verification`
+* **URL:** `/api/v1/auth/resend-verification` (or `/api/auth/resend-verification`)
 * **Auth Required:** No (Rate limited)
 * **Headers:** `Content-Type: application/json`
 * **Request Body:**
@@ -251,8 +251,8 @@ Resends a verification link if expired or lost.
 ### 2.6 Verify Email Token
 Confirms email ownership and activates the user account using the token sent in the email.
 
-* **Method:** `POST`
-* **URL:** `/api/auth/verify-email`
+* **Method:** `GET`
+* **URL:** `/api/v1/auth/verify-email` (or `/api/auth/verify-email`)
 * **Auth Required:** No (Rate limited)
 * **Headers:** `Content-Type: application/json`
 * **Request Body:**
@@ -290,7 +290,7 @@ Confirms email ownership and activates the user account using the token sent in 
 Authenticates or registers a user with a Google OAuth ID token.
 
 * **Method:** `POST`
-* **URL:** `/api/auth/google`
+* **URL:** `/api/v1/auth/google` (or `/api/auth/google`)
 * **Auth Required:** No (Rate limited)
 * **Headers:** `Content-Type: application/json`
 * **Request Body:**
@@ -334,7 +334,7 @@ Authenticates or registers a user with a Google OAuth ID token.
 Checks whether a handle is available or taken (for live frontend feedback).
 
 * **Method:** `GET`
-* **URL:** `/api/auth/check-username`
+* **URL:** `/api/v1/auth/check-username` (or `/api/auth/check-username`)
 * **Auth Required:** No (Rate limited)
 * **Query Parameters:**
 | Param | Type | Required | Description |
@@ -370,7 +370,7 @@ Checks whether a handle is available or taken (for live frontend feedback).
 Enables authenticated users (especially Google OAuth users on first login) to claim their unique handle.
 
 * **Method:** `POST`
-* **URL:** `/api/auth/username`
+* **URL:** `/api/v1/auth/username` (or `/api/auth/username`)
 * **Auth Required:** Yes
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>`, `Content-Type: application/json`
 * **Request Body:**
@@ -414,7 +414,7 @@ Enables authenticated users (especially Google OAuth users on first login) to cl
 Discovers other players by display name or handle.
 
 * **Method:** `GET`
-* **URL:** `/api/users/search`
+* **URL:** `/api/v1/users/search` (or `/api/users/search`)
 * **Auth Required:** Optional (Returns contextual `isFollowing` if authenticated)
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>` (Optional)
 * **Query Parameters:**
@@ -458,7 +458,7 @@ Discovers other players by display name or handle.
 Retrieves an adventurer's public profile, level, streak, followers/following counts, and follow state.
 
 * **Method:** `GET`
-* **URL:** `/api/users/:userId`
+* **URL:** `/api/v1/users/:userId` (or `/api/users/:userId`)
 * **Auth Required:** Optional
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>` (Optional)
 * **URL Parameters:**
@@ -496,7 +496,7 @@ Retrieves an adventurer's public profile, level, streak, followers/following cou
 Follows target adventurer. Creates a directed one-way social relationship.
 
 * **Method:** `POST`
-* **URL:** `/api/users/:userId/follow`
+* **URL:** `/api/v1/users/:userId/follow` (or `/api/users/:userId/follow`)
 * **Auth Required:** Yes
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>`
 * **URL Parameters:**
@@ -526,7 +526,7 @@ Follows target adventurer. Creates a directed one-way social relationship.
 Removes the follow relationship with target adventurer.
 
 * **Method:** `DELETE`
-* **URL:** `/api/users/:userId/follow`
+* **URL:** `/api/v1/users/:userId/follow` (or `/api/users/:userId/follow`)
 * **Auth Required:** Yes
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>`
 * **URL Parameters:**
@@ -553,7 +553,7 @@ Removes the follow relationship with target adventurer.
 Returns paginated list of users following target user.
 
 * **Method:** `GET`
-* **URL:** `/api/users/:userId/followers`
+* **URL:** `/api/v1/users/:userId/followers` (or `/api/users/:userId/followers`)
 * **Auth Required:** Optional
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>` (Optional)
 * **URL Parameters:** `userId` (string, required)
@@ -597,7 +597,7 @@ Returns paginated list of users following target user.
 Returns paginated list of users followed by target user.
 
 * **Method:** `GET`
-* **URL:** `/api/users/:userId/following`
+* **URL:** `/api/v1/users/:userId/following` (or `/api/users/:userId/following`)
 * **Auth Required:** Optional
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>` (Optional)
 * **URL Parameters:** `userId` (string, required)
@@ -643,7 +643,7 @@ Returns paginated list of users followed by target user.
 Retrieves all tasks for the authenticated user.
 
 * **Method:** `GET`
-* **URL:** `/api/tasks`
+* **URL:** `/api/v1/tasks` (or `/api/tasks`)
 * **Auth Required:** Yes
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>`
 * **Request Data:** None
@@ -677,7 +677,7 @@ Retrieves all tasks for the authenticated user.
 Creates a new quest/task. Automatically classifies category and rewards using AI heuristics.
 
 * **Method:** `POST`
-* **URL:** `/api/tasks`
+* **URL:** `/api/v1/tasks` (or `/api/tasks`)
 * **Auth Required:** Yes
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>`, `Content-Type: application/json`
 * **Request Body:**
@@ -719,8 +719,8 @@ Creates a new quest/task. Automatically classifies category and rewards using AI
 ### 4.3 Update Task
 Updates fields on an existing task.
 
-* **Method:** `PUT`
-* **URL:** `/api/tasks/:id`
+* **Method:** `PATCH`
+* **URL:** `/api/v1/tasks/:id` (or `/api/tasks/:id`)
 * **Auth Required:** Yes
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>`, `Content-Type: application/json`
 * **URL Parameters:**
@@ -751,7 +751,7 @@ Updates fields on an existing task.
 Marks a task completed, awards authoritative XP & coins to the user's character, advances streaks, and logs activity.
 
 * **Method:** `POST`
-* **URL:** `/api/tasks/:id/complete`
+* **URL:** `/api/v1/tasks/:id/complete` (or `/api/tasks/:id/complete`)
 * **Auth Required:** Yes
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>`
 * **URL Parameters:**
@@ -818,7 +818,7 @@ Marks a task completed, awards authoritative XP & coins to the user's character,
 Deletes a task owned by the authenticated player.
 
 * **Method:** `DELETE`
-* **URL:** `/api/tasks/:id`
+* **URL:** `/api/v1/tasks/:id` (or `/api/tasks/:id`)
 * **Auth Required:** Yes
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>`
 * **URL Parameters:**
@@ -844,7 +844,7 @@ Deletes a task owned by the authenticated player.
 Uses AI to classify an input task into the 6 Life RPG categories, estimating difficulty, effort, impact, XP, and coin rewards.
 
 * **Method:** `POST`
-* **URL:** `/api/ai/tasks/analyze`
+* **URL:** `/api/v1/ai/tasks/analyze` (or `/api/ai/tasks/analyze`)
 * **Auth Required:** Yes
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>`, `Content-Type: application/json`
 * **Request Body:**
@@ -884,7 +884,7 @@ Uses AI to classify an input task into the 6 Life RPG categories, estimating dif
 Generates a structured RPG questline / project breakdown for a user-specified goal.
 
 * **Method:** `POST`
-* **URL:** `/api/ai/projects/plan`
+* **URL:** `/api/v1/ai/projects/plan` (or `/api/ai/projects/plan`)
 * **Auth Required:** Yes
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>`, `Content-Type: application/json`
 * **Request Body:**
@@ -933,7 +933,7 @@ Generates a structured RPG questline / project breakdown for a user-specified go
 Creates a sustainable RPG habit schedule with progressive difficulty milestones.
 
 * **Method:** `POST`
-* **URL:** `/api/ai/habit-plan`
+* **URL:** `/api/v1/ai/habit-plan` (or `/api/ai/habit-plan`)
 * **Auth Required:** Yes
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>`, `Content-Type: application/json`
 * **Request Body:**
@@ -977,7 +977,7 @@ Quests are meaningful objectives (backed by Projects) that group tasks together,
 Creates a new Quest with difficulty-based authoritative milestone rewards.
 
 * **Method:** `POST`
-* **URL:** `/api/quests`
+* **URL:** `/api/v1/quests` (or `/api/quests`)
 * **Auth Required:** Yes
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>`, `Content-Type: application/json`
 * **Request Body:**
@@ -1037,7 +1037,7 @@ Creates a new Quest with difficulty-based authoritative milestone rewards.
 Returns a paginated list of the authenticated user's quests with optional filtering.
 
 * **Method:** `GET`
-* **URL:** `/api/quests?page=1&limit=20&status=ACTIVE&category=INTELLECT&difficulty=HARD`
+* **URL:** `/api/v1/quests` (or `/api/quests`)
 * **Auth Required:** Yes
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>`
 * **Query Parameters:**
@@ -1104,7 +1104,7 @@ Returns a paginated list of the authenticated user's quests with optional filter
 Retrieves complete details of a specific quest.
 
 * **Method:** `GET`
-* **URL:** `/api/quests/:id`
+* **URL:** `/api/v1/quests/:id` (or `/api/quests/:id`)
 * **Auth Required:** Yes
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>`
 * **URL Parameters:**
@@ -1141,7 +1141,7 @@ Retrieves complete details of a specific quest.
 Retrieves lightweight progress analytics and task breakdown for a quest.
 
 * **Method:** `GET`
-* **URL:** `/api/quests/:id/progress`
+* **URL:** `/api/v1/quests/:id/progress` (or `/api/quests/:id/progress`)
 * **Auth Required:** Yes
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>`
 * **Success Response (200 OK):**
@@ -1174,7 +1174,7 @@ Retrieves lightweight progress analytics and task breakdown for a quest.
 Updates metadata of an existing quest. If `difficulty` changes, milestone bonuses are authoritatively updated.
 
 * **Method:** `PATCH`
-* **URL:** `/api/quests/:id`
+* **URL:** `/api/v1/quests/:id` (or `/api/quests/:id`)
 * **Auth Required:** Yes
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>`, `Content-Type: application/json`
 * **Request Body:**
@@ -1208,7 +1208,7 @@ Updates metadata of an existing quest. If `difficulty` changes, milestone bonuse
 Deletes a quest. Any child tasks are detached (`projectId` set to `null`).
 
 * **Method:** `DELETE`
-* **URL:** `/api/quests/:id`
+* **URL:** `/api/v1/quests/:id` (or `/api/quests/:id`)
 * **Auth Required:** Yes
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>`
 * **Success Response (200 OK):**
@@ -1232,7 +1232,7 @@ Challenges track real-time activity aggregated across daily and weekly windows, 
 Checks progress towards the daily completion quota (3 tasks/day).
 
 * **Method:** `GET`
-* **URL:** `/api/challenges/daily`
+* **URL:** `/api/v1/challenges/daily` (or `/api/challenges/daily`)
 * **Auth Required:** Yes
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>`
 * **Success Response (200 OK):**
@@ -1265,7 +1265,7 @@ Checks progress towards the daily completion quota (3 tasks/day).
 Checks progress towards the weekly completion quota (15 tasks/week).
 
 * **Method:** `GET`
-* **URL:** `/api/challenges/weekly`
+* **URL:** `/api/v1/challenges/weekly` (or `/api/challenges/weekly`)
 * **Auth Required:** Yes
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>`
 * **Success Response (200 OK):**
@@ -1298,7 +1298,7 @@ Checks progress towards the weekly completion quota (15 tasks/week).
 Claims bonus rewards for a completed daily or weekly challenge. Claims are idempotent per period window.
 
 * **Method:** `POST`
-* **URL:** `/api/challenges/:type/claim`
+* **URL:** `/api/v1/challenges/:type/claim` (or `/api/challenges/:type/claim`)
 * **Auth Required:** Yes
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>`, `Content-Type: application/json`
 * **URL Parameters:**
@@ -1350,7 +1350,7 @@ Claims bonus rewards for a completed daily or weekly challenge. Claims are idemp
 Decomposes a broad goal into sequential phases and tasks, calculates authoritative rewards, and atomically creates the Quest and child Tasks in the user's quest line.
 
 * **Method:** `POST`
-* **URL:** `/api/ai/quests/generate`
+* **URL:** `/api/v1/ai/quests/generate` (or `/api/ai/quests/generate`)
 * **Auth Required:** Yes
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>`, `Content-Type: application/json`
 * **Request Body:**
@@ -1413,7 +1413,7 @@ Achievements are permanent RPG milestones awarded automatically when key events 
 Retrieves the full achievement catalog. If authenticated with a Bearer token, returns the user's progress percentage, unlock status, and unlock timestamp for each achievement. Supports filtering by achievement category type.
 
 * **Method:** `GET`
-* **URL:** `/api/achievements`
+* **URL:** `/api/v1/achievements` (or `/api/achievements`)
 * **Auth Required:** Optional (`Authorization: Bearer <JWT_TOKEN>`)
 * **Query Parameters:**
   * `type` (optional string): Filter by category: `TASK`, `STREAK`, `LEVEL`, `PROJECT`, `ECONOMY`, `CHALLENGE`
@@ -1476,7 +1476,7 @@ Retrieves the full achievement catalog. If authenticated with a Bearer token, re
 Retrieves a personalized summary of the authenticated user's unlocked achievements, completion statistics, and aggregate rewards earned.
 
 * **Method:** `GET`
-* **URL:** `/api/achievements/me`
+* **URL:** `/api/v1/achievements/me` (or `/api/achievements/me`)
 * **Auth Required:** Yes
 * **Headers:** `Authorization: Bearer <JWT_TOKEN>`
 * **Success Response (200 OK):**
@@ -1515,7 +1515,7 @@ Retrieves a personalized summary of the authenticated user's unlocked achievemen
 Retrieves details of a specific achievement by its unique ID, including the authenticated user's current progress.
 
 * **Method:** `GET`
-* **URL:** `/api/achievements/:id`
+* **URL:** `/api/v1/achievements/:id` (or `/api/achievements/:id`)
 * **Auth Required:** Optional (`Authorization: Bearer <JWT_TOKEN>`)
 * **URL Parameters:**
   * `id` (string, required): Achievement UUID / CUID
@@ -1761,7 +1761,190 @@ curl http://localhost:3000/api/v1/leaderboard/me \
 
 ---
 
-## 11. Common Status Codes
+## 11. Activity & Player History Subsystem
+
+The activity subsystem provides a chronological event log of the player's life RPG journey. It tracks task completions, quest progression, challenge claims, achievement unlocks, level ups, streak changes, and item acquisitions. The activity feed powers frontend dashboard timelines, recent achievement notifications, XP audits, and the weekly leaderboard.
+
+### 11.1 Paginated Activity Feed
+Retrieves the authenticated user's activity feed with pagination, optional activity type filtering, and date range filters.
+
+* **Method:** `GET`
+* **URL:** `/api/v1/activity` (or `/api/activity`)
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+* **Query Parameters:**
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `page` | integer | No | 1 | Page number (min 1) |
+| `limit` | integer | No | 20 | Number of entries per page (1-100) |
+| `type` | string | No | - | Filter by activity type: `TASK_CREATED`, `TASK_COMPLETED`, `TASK_DELETED`, `PROJECT_CREATED`, `PROJECT_COMPLETED`, `XP_GAINED`, `LEVEL_UP`, `ITEM_PURCHASED`, `ITEM_EQUIPPED`, `STREAK_STARTED`, `STREAK_INCREASED`, `STREAK_BROKEN`, `STREAK_RECOVERED`, `ACHIEVEMENT_UNLOCKED`, `CHALLENGE_CLAIMED` |
+| `startDate` | string | No | - | ISO-8601 date string filter (e.g. `2026-09-01T00:00:00Z`) |
+| `endDate` | string | No | - | ISO-8601 date string filter |
+
+* **Example Request:**
+```bash
+curl "http://localhost:3000/api/v1/activity?page=1&limit=10&type=TASK_COMPLETED" \
+  -H "Authorization: Bearer <JWT_TOKEN>"
+```
+
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "activities": [
+      {
+        "id": "cmtye8f0a0004zsxd3b91a7c2",
+        "type": "TASK_COMPLETED",
+        "description": "Completed task: Study System Architecture",
+        "xp": 50,
+        "coins": 20,
+        "metadata": {
+          "taskTitle": "Study System Architecture",
+          "difficulty": "MEDIUM",
+          "attribute": "INTELLECT"
+        },
+        "createdAt": "2026-09-12T13:40:00.000Z",
+        "task": {
+          "id": "cmtye8ezy0002zsxd8v01a91a",
+          "title": "Study System Architecture",
+          "primaryAttribute": "INTELLECT",
+          "difficulty": "MEDIUM"
+        }
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "total": 1,
+      "totalPages": 1
+    }
+  }
+}
+```
+
+---
+
+### 11.2 Recent Activities Feed
+Fetches the player's most recent activity events for quick display on home dashboards, sidebars, or notification dropdowns.
+
+* **Method:** `GET`
+* **URL:** `/api/v1/activity/recent` (or `/api/activity/recent`)
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+* **Query Parameters:**
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `limit` | integer | No | 10 | Maximum number of recent events to retrieve (1-50) |
+
+* **Example Request:**
+```bash
+curl "http://localhost:3000/api/v1/activity/recent?limit=5" \
+  -H "Authorization: Bearer <JWT_TOKEN>"
+```
+
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "cmtye8f0a0004zsxd3b91a7c2",
+      "type": "TASK_COMPLETED",
+      "description": "Completed task: Study System Architecture",
+      "xp": 50,
+      "coins": 20,
+      "metadata": {
+        "taskTitle": "Study System Architecture",
+        "difficulty": "MEDIUM",
+        "attribute": "INTELLECT"
+      },
+      "createdAt": "2026-09-12T13:40:00.000Z",
+      "task": {
+        "id": "cmtye8ezy0002zsxd8v01a91a",
+        "title": "Study System Architecture",
+        "primaryAttribute": "INTELLECT",
+        "difficulty": "MEDIUM"
+      }
+    },
+    {
+      "id": "cmtye8f0b0005zsxd4c92b8d3",
+      "type": "ACHIEVEMENT_UNLOCKED",
+      "description": "Unlocked Achievement: First Blood",
+      "xp": 100,
+      "coins": 50,
+      "metadata": {
+        "achievementId": "ach_first_blood",
+        "achievementName": "First Blood"
+      },
+      "createdAt": "2026-09-12T13:40:01.000Z"
+    }
+  ]
+}
+```
+
+---
+
+### 11.3 Aggregated Activity Statistics
+Returns player activity metrics aggregated across a selected time period (`today`, `week`, `month`, or lifetime `all`), including total XP/coins earned, task completion counts, quest completions, and full category breakdowns.
+
+* **Method:** `GET`
+* **URL:** `/api/v1/activity/stats` (or `/api/activity/stats`)
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+* **Query Parameters:**
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `period` | string | No | `all` | Time window: `today`, `week`, `month`, or `all` |
+
+* **Example Request:**
+```bash
+curl "http://localhost:3000/api/v1/activity/stats?period=week" \
+  -H "Authorization: Bearer <JWT_TOKEN>"
+```
+
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "period": "week",
+    "totalActivities": 12,
+    "totalXP": 450,
+    "totalCoins": 180,
+    "tasksCompleted": 8,
+    "questsCompleted": 1,
+    "challengesClaimed": 2,
+    "achievementsUnlocked": 1,
+    "breakdown": {
+      "TASK_COMPLETED": {
+        "count": 8,
+        "xp": 300,
+        "coins": 120
+      },
+      "PROJECT_COMPLETED": {
+        "count": 1,
+        "xp": 50,
+        "coins": 30
+      },
+      "CHALLENGE_CLAIMED": {
+        "count": 2,
+        "xp": 50,
+        "coins": 20
+      },
+      "ACHIEVEMENT_UNLOCKED": {
+        "count": 1,
+        "xp": 50,
+        "coins": 10
+      }
+    }
+  }
+}
+```
+
+---
+
+## 12. Common Status Codes
 
 | Status Code | Code Constant | Reason |
 |---|---|---|
@@ -1774,4 +1957,5 @@ curl http://localhost:3000/api/v1/leaderboard/me \
 | `409 Conflict` | `EMAIL_ALREADY_EXISTS`, `USERNAME_ALREADY_EXISTS`, `ALREADY_FOLLOWING`, `CHALLENGE_ALREADY_CLAIMED`, `DUPLICATE_RESOURCE` | Uniqueness conflict or duplicate claim |
 | `429 Too Many Requests` | `RATE_LIMIT_EXCEEDED` | Rate limit threshold reached |
 | `500 Internal Server Error` | `INTERNAL_SERVER_ERROR` | Unexpected server condition |
+
 
