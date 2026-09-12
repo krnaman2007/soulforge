@@ -49,9 +49,9 @@ class TaskCompletionService {
 
       const integrity = TaskIntegrityService.evaluateIntegrity(task, dailyCompletions);
       
-      // Calculate final rewards with integrity multiplier applied
-      const finalXP = Math.round(task.xpReward * integrity.xpReduction);
-      const finalCoins = Math.round(task.coinReward * integrity.xpReduction);
+      // Calculate final rewards with integrity multiplier applied and rounded to nearest 5
+      const finalXP = Math.round((task.xpReward * integrity.xpReduction) / 5) * 5;
+      const finalCoins = Math.round((task.coinReward * integrity.xpReduction) / 5) * 5;
 
       // 3. Mark Task as Completed (Optimistic Concurrency Control)
       const updateResult = await tx.task.updateMany({

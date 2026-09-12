@@ -21,10 +21,13 @@ class RewardService {
       const impactBonus = RPG_CONSTANTS.IMPACT_BONUS[impact] || RPG_CONSTANTS.IMPACT_BONUS.MEDIUM;
       const priorityMod = RPG_CONSTANTS.PRIORITY_BONUS[priority] || RPG_CONSTANTS.PRIORITY_BONUS.MEDIUM;
 
-      const finalXP = Math.round((baseXP * effortMult) + impactBonus + priorityMod);
+      const rawXP = (baseXP * effortMult) + impactBonus + priorityMod;
+      const finalXP = Math.round(rawXP / 5) * 5;
+      
+      const rawCoins = finalXP * RPG_CONSTANTS.COIN_REWARD_RATIO;
       const coinReward = Math.max(
         RPG_CONSTANTS.MIN_COIN_REWARD,
-        Math.round(finalXP * RPG_CONSTANTS.COIN_REWARD_RATIO)
+        Math.round(rawCoins / 5) * 5
       );
 
       return { xp: finalXP, coins: coinReward };
