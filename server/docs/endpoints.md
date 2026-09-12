@@ -1562,7 +1562,206 @@ Retrieves details of a specific achievement by its unique ID, including the auth
 
 ---
 
-## 10. Common Status Codes
+## 10. Leaderboard System (Weekly & Lifetime Rankings)
+
+The leaderboard subsystem calculates real-time competitive rankings across adventurers. Weekly rankings aggregate XP gained in the current UTC week via `ActivityLog` (`TASK_COMPLETED`, `XP_GAINED`, `PROJECT_COMPLETED`, `CHALLENGE_CLAIMED`), giving new and active players an equal opportunity to compete.
+
+### 10.1 Global Lifetime Leaderboard
+Ranks all adventurers globally by total lifetime character XP.
+
+* **Method:** `GET`
+* **URL:** `/api/v1/leaderboard/global` (or `/api/leaderboard/global`)
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+* **Query Parameters:**
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `limit` | integer | No | 100 | Maximum number of ranked players to return |
+
+* **Example Request:**
+```bash
+curl http://localhost:3000/api/v1/leaderboard/global?limit=10 \
+  -H "Authorization: Bearer <JWT_TOKEN>"
+```
+
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "rank": 1,
+      "user": {
+        "id": "cmtya5ip3000ht1xdz9wmoirb",
+        "username": "hero_p0_199217",
+        "avatarId": "avatar_starter",
+        "level": 3
+      },
+      "xp": 377,
+      "currentStreak": 1
+    },
+    {
+      "rank": 2,
+      "user": {
+        "id": "cmty9qcto000gamxdrwdjym8k",
+        "username": "hunter_1789210493525",
+        "avatarId": "avatar_starter",
+        "level": 3
+      },
+      "xp": 182,
+      "currentStreak": 1
+    }
+  ]
+}
+```
+
+---
+
+### 10.2 Global Weekly Leaderboard
+Ranks adventurers globally by XP gained within the current UTC week.
+
+* **Method:** `GET`
+* **URL:** `/api/v1/leaderboard/weekly` (or `/api/leaderboard/weekly`)
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+* **Query Parameters:**
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `limit` | integer | No | 100 | Maximum number of ranked players to return |
+
+* **Example Request:**
+```bash
+curl http://localhost:3000/api/v1/leaderboard/weekly?limit=10 \
+  -H "Authorization: Bearer <JWT_TOKEN>"
+```
+
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "rank": 1,
+      "user": {
+        "id": "cmtya5ip3000ht1xdz9wmoirb",
+        "username": "hero_p0_199217",
+        "avatarId": "avatar_starter",
+        "level": 3
+      },
+      "weeklyXP": 430,
+      "currentStreak": 1
+    },
+    {
+      "rank": 2,
+      "user": {
+        "id": "cmty9qcto000gamxdrwdjym8k",
+        "username": "hunter_1789210493525",
+        "avatarId": "avatar_starter",
+        "level": 3
+      },
+      "weeklyXP": 235,
+      "currentStreak": 1
+    }
+  ]
+}
+```
+
+---
+
+### 10.3 Friends Weekly Leaderboard
+Ranks mutual accepted friends and the requesting authenticated player by weekly XP earned.
+
+* **Method:** `GET`
+* **URL:** `/api/v1/leaderboard/friends` (or `/api/leaderboard/friends`)
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+* **Query Parameters:**
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `limit` | integer | No | 100 | Maximum number of friend entries to return |
+
+* **Example Request:**
+```bash
+curl http://localhost:3000/api/v1/leaderboard/friends \
+  -H "Authorization: Bearer <JWT_TOKEN>"
+```
+
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "rank": 1,
+      "user": {
+        "id": "cmty9qcto000gamxdrwdjym8k",
+        "username": "hunter_1789210493525",
+        "avatarId": "avatar_starter",
+        "level": 3
+      },
+      "weeklyXP": 235,
+      "currentStreak": 1
+    }
+  ]
+}
+```
+
+---
+
+### 10.4 Current Player Weekly Rank (`/leaderboard/me`)
+Returns the authenticated player's rank, weekly XP earned, and streak on the current weekly leaderboard.
+
+* **Method:** `GET`
+* **URL:** `/api/v1/leaderboard/me` (or `/api/leaderboard/me`)
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+* **Request Data:** None
+
+* **Example Request:**
+```bash
+curl http://localhost:3000/api/v1/leaderboard/me \
+  -H "Authorization: Bearer <JWT_TOKEN>"
+```
+
+* **Success Response (200 OK - Ranked):**
+```json
+{
+  "success": true,
+  "data": {
+    "rank": 3,
+    "user": {
+      "id": "cmty9qcto000gamxdrwdjym8k",
+      "username": "hunter_1789210493525",
+      "avatarId": "avatar_starter",
+      "level": 3
+    },
+    "weeklyXP": 235,
+    "currentStreak": 1
+  }
+}
+```
+
+* **Success Response (200 OK - Unranked):**
+```json
+{
+  "success": true,
+  "data": {
+    "rank": null,
+    "user": {
+      "id": "cmtydz6jq0000zsxdky7vq03k",
+      "username": "new_player",
+      "avatarId": "avatar_starter",
+      "level": 1
+    },
+    "weeklyXP": 0,
+    "currentStreak": 0
+  }
+}
+```
+
+---
+
+## 11. Common Status Codes
 
 | Status Code | Code Constant | Reason |
 |---|---|---|
@@ -1571,7 +1770,7 @@ Retrieves details of a specific achievement by its unique ID, including the auth
 | `400 Bad Request` | `VALIDATION_ERROR`, `SELF_FOLLOW_NOT_ALLOWED`, `CHALLENGE_NOT_COMPLETED`, `TASK_ALREADY_COMPLETED`, `QUEST_DIFFICULTY_LOCKED`, `FOREIGN_KEY_VIOLATION` | Invalid input or invalid business action |
 | `401 Unauthorized` | `UNAUTHORIZED`, `INVALID_CREDENTIALS` | Missing, invalid, or expired JWT Bearer token |
 | `403 Forbidden` | `ACCOUNT_NOT_VERIFIED`, `FORBIDDEN` | Action blocked until email is verified or access denied |
-| `404 Not Found` | `USER_NOT_FOUND`, `NOT_FOLLOWING`, `QUEST_NOT_FOUND`, `TASK_NOT_FOUND`, `ACHIEVEMENT_NOT_FOUND`, `RESOURCE_NOT_FOUND` | Target resource does not exist |
+| `404 Not Found` | `USER_NOT_FOUND`, `NOT_FOLLOWING`, `QUEST_NOT_FOUND`, `TASK_NOT_FOUND`, `ACHIEVEMENT_NOT_FOUND`, `RESOURCE_NOT_FOUND`, `CHARACTER_NOT_FOUND` | Target resource does not exist |
 | `409 Conflict` | `EMAIL_ALREADY_EXISTS`, `USERNAME_ALREADY_EXISTS`, `ALREADY_FOLLOWING`, `CHALLENGE_ALREADY_CLAIMED`, `DUPLICATE_RESOURCE` | Uniqueness conflict or duplicate claim |
 | `429 Too Many Requests` | `RATE_LIMIT_EXCEEDED` | Rate limit threshold reached |
 | `500 Internal Server Error` | `INTERNAL_SERVER_ERROR` | Unexpected server condition |
