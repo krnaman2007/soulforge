@@ -12,11 +12,8 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(3000),
   FRONTEND_URL: z.string().default('http://localhost:5173'),
 
-  // Email / SMTP (Optional - logs to console in development if unset)
-  SMTP_HOST: z.string().optional().default(''),
-  SMTP_PORT: z.coerce.number().optional().default(587),
-  SMTP_USER: z.string().optional().default(''),
-  SMTP_PASS: z.string().optional().default(''),
+  // Email / Resend (Optional - logs to console in development if unset)
+  RESEND_API_KEY: z.string().optional().default(''),
   EMAIL_FROM: z.string().optional().default('SoulForge <no-reply@soulforge.gg>'),
 
   // Google OAuth (Optional - accepts ID tokens or client code)

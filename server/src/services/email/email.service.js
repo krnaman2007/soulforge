@@ -1,29 +1,21 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const env = require('../../config/env');
 const logger = require('../../errorlogging/logger');
 
-let transporter = null;
+let resendClient = null;
 
-function getTransporter() {
-  if (transporter) return transporter;
+function getResendClient() {
+  if (resendClient) return resendClient;
 
-  if (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS) {
-    transporter = nodemailer.createTransport({
-      host: env.SMTP_HOST,
-      port: env.SMTP_PORT,
-      secure: env.SMTP_PORT === 465,
-      auth: {
-        user: env.SMTP_USER,
-        pass: env.SMTP_PASS
-      }
-    });
+  if (env.RESEND_API_KEY) {
+    resendClient = new Resend(env.RESEND_API_KEY);
   }
 
-  return transporter;
+  return resendClient;
 }
 
 async function sendVerificationLink(email, token) {
-  const mailTransporter = getTransporter();
+  const client = getResendClient();
 
   const verificationUrl = `${env.FRONTEND_URL}/verify-email?token=${token}`;
   const subject = 'Verify your SoulForge Account';
@@ -44,24 +36,29 @@ async function sendVerificationLink(email, token) {
     </div>
   `;
 
-  if (mailTransporter) {
+  if (client) {
     try {
-      await mailTransporter.sendMail({
+      const { data, error } = await client.emails.send({
         from: env.EMAIL_FROM,
         to: email,
         subject,
         text: textBody,
         html: htmlBody
       });
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
       logger.info(`[EMAIL] Verification link dispatched to ${email}`);
-      return { sent: true, mode: 'smtp' };
+      return { sent: true, mode: 'resend', id: data.id };
     } catch (error) {
-      logger.error(`[EMAIL] Failed to send email via SMTP: ${error.message}`);
+      logger.error(`[EMAIL] Failed to send email via Resend: ${error.message}`);
       logger.info(`[VERIFICATION FALLBACK] Link for ${email}: ${verificationUrl}`);
       return { sent: false, mode: 'fallback', error: error.message };
     }
   } else {
-    // In local development or when SMTP is not configured
+    // In local development or when Resend is not configured
     logger.info(`[VERIFICATION DEV MODE] Link for ${email}: ${verificationUrl}`);
     return { sent: true, mode: 'console' };
   }
