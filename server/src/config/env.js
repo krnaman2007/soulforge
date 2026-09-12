@@ -12,8 +12,8 @@ const envSchema = z.object({
   LLM_API_KEY: z.string().optional().default(''),
   GROQ_API_KEY: z.string().optional().default(''),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  PORT: z.coerce.number().default(3000),
-  FRONTEND_URL: z.string().default('http://localhost:5173'),
+  FRONTEND_URL: z.string().default('http://localhost:5173').transform((url) => url.trim().replace(/\/+$/, '')),
+  CORS_ORIGIN: z.string().optional().default(''),
 
   // Email / Mailjet (Optional - logs to console in development if unset)
   MAILJET_API_KEY: z.string().optional().default(''),
