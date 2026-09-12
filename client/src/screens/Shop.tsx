@@ -1,5 +1,9 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { RootState, AppDispatch } from "../store/store";
+import { fetchCurrentUser } from "../store/slices/authSlice";
+import api from "../api/axiosConfig";
 
 type Category = "all" | "avatars" | "skins" | "frames" | "effects" | "titles";
 type Rarity = "common" | "rare" | "epic" | "legendary";
@@ -25,7 +29,7 @@ const RARITY = {
   legendary: { label: "Legendary", color: "#00f0ff", bg: "rgba(0,240,255,0.15)", border: "rgba(0,240,255,0.4)", glow: "rgba(0,240,255,0.7)" },
 };
 
-const ITEMS: ShopItem[] = [
+const DEFAULT_ITEMS: ShopItem[] = [
   { id: "streak-recovery", name: "Streak Recovery", desc: "Restore a broken streak. One-time use.", icon: "🛡", cost: 200, category: "all", pinned: true, rarity: "rare", owned: false },
   { id: "a1", name: "Void Knight", desc: "A warrior forged in dark matter", icon: "🗡", cost: 450, category: "avatars", rarity: "rare", owned: false },
   { id: "a2", name: "Cyber Sage", desc: "Wisdom radiating cyan energy", icon: "☀", cost: 550, category: "avatars", rarity: "epic", owned: true },
@@ -50,12 +54,10 @@ const CATEGORIES: { id: Category; label: string }[] = [
   { id: "titles", label: "Titles" },
 ];
 
-const USER_RANK_TIER = 3; // Journeyman
-
-function ShopSlot({ item, coins, onBuy }: { item: ShopItem; coins: number; onBuy: (id: string, cost: number) => void }) {
+function ShopSlot({ item, coins, onBuy, userRankTier }: { item: ShopItem; coins: number; onBuy: (id: string, cost: number) => void; userRankTier: number }) {
   const [hover, setHover] = useState(false);
-  const r = RARITY[item.rarity];
-  const rankLocked = item.rankTier !== undefined && USER_RANK_TIER < item.rankTier;
+  const r = RARITY[item.rarity] || RARITY.common;
+  const rankLocked = item.rankTier !== undefined && userRankTier < item.rankTier;
   const canAfford = coins >= item.cost && !rankLocked && !item.owned;
 
   return (
@@ -161,18 +163,81 @@ function ShopSlot({ item, coins, onBuy }: { item: ShopItem; coins: number; onBuy
   );
 }
 
+// Simple rank tier calculation based on XP to preserve existing UX
+const getRankTier = (xp: number) => {
+  if (xp >= 120000) return 8; // Grand Master
+  if (xp >= 60000) return 7; // Master
+  if (xp >= 30000) return 6; // Expert
+  if (xp >= 15000) return 5; // Specialist
+  if (xp >= 6000) return 4; // Adept
+  if (xp >= 2000) return 3; // Journeyman
+  if (xp >= 1000) return 2; // Apprentice
+  return 1; // Novice
+};
+
 export default function Shop() {
   const [tab, setTab] = useState<Category>("all");
-  const [coins, setCoins] = useState(1240);
+  const [items, setItems] = useState<ShopItem[]>(DEFAULT_ITEMS);
   const [toast, setToast] = useState<string | null>(null);
+  const dispatch = useDispatch<AppDispatch>();
+  const { character } = useSelector((state: RootState) => state.auth);
+  
+  const coins = character?.coins || 0;
+  const userRankTier = getRankTier(character?.xp || 0);
 
-  const handleBuy = (id: string, cost: number) => {
-    setCoins((c) => c - cost);
-    setToast("Item Acquired successfully.");
-    setTimeout(() => setToast(null), 2500);
+  useEffect(() => {
+    fetchShopItems();
+  }, []);
+
+  const fetchShopItems = async () => {
+    try {
+      const res = await api.get('/shop');
+      if (res.data.success && res.data.data.items.length > 0) {
+        // Map backend items to frontend format
+        const mapped = res.data.data.items.map((apiItem: any) => ({
+          id: apiItem.id,
+          name: apiItem.name,
+          desc: apiItem.description,
+          icon: apiItem.metadata?.icon || "📦",
+          cost: apiItem.price,
+          category: (apiItem.type.toLowerCase() + "s") as Category, // E.g., AVATAR -> avatars
+          rarity: apiItem.rarity.toLowerCase() as Rarity,
+          owned: apiItem.isOwned,
+          pinned: apiItem.metadata?.pinned || false,
+          rankRequired: apiItem.metadata?.rankRequired,
+          rankTier: apiItem.metadata?.rankTier,
+        }));
+        // If DB has items, replace defaults. Otherwise, keep defaults.
+        setItems(mapped);
+      }
+    } catch (err) {
+      console.error("Failed to load shop items", err);
+    }
   };
 
-  const visible = (tab === "all" ? ITEMS : ITEMS.filter((i) => i.category === tab))
+  const handleBuy = async (id: string, cost: number) => {
+    try {
+      // Find if it's a default static item or a real API item
+      const itemToBuy = items.find(i => i.id === id);
+      
+      // Attempt API purchase
+      const res = await api.post(`/shop/${id}/purchase`);
+      
+      if (res.data.success) {
+        setToast(`Acquired ${itemToBuy?.name || "Item"} successfully.`);
+        setTimeout(() => setToast(null), 2500);
+        // Refresh Redux and local shop state
+        dispatch(fetchCurrentUser());
+        fetchShopItems();
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.error?.message || "Failed to purchase item";
+      setToast(msg);
+      setTimeout(() => setToast(null), 3000);
+    }
+  };
+
+  const visible = (tab === "all" ? items : items.filter((i) => i.category === tab))
     .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
 
   return (
@@ -184,13 +249,13 @@ export default function Shop() {
           <motion.div initial={{ opacity: 0, y: -20, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -20, scale: 0.9 }}
             className="fixed top-8 left-1/2 -translate-x-1/2 z-50 px-6 py-3 text-xs md:text-sm font-black uppercase tracking-widest shadow-[0_10px_40px_rgba(16,224,127,0.3)] flex items-center gap-3 backdrop-blur-md"
             style={{
-              background: "rgba(16,224,127,0.15)",
-              border: "1px solid rgba(16,224,127,0.4)",
-              color: "#10e07f",
+              background: toast.includes("Failed") ? "rgba(239,68,68,0.15)" : "rgba(16,224,127,0.15)",
+              border: toast.includes("Failed") ? "1px solid rgba(239,68,68,0.4)" : "1px solid rgba(16,224,127,0.4)",
+              color: toast.includes("Failed") ? "#ef4444" : "#10e07f",
               clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))",
               fontFamily: "Rajdhani, sans-serif",
             }}>
-            <span className="text-lg">✓</span> {toast}
+            <span className="text-lg">{toast.includes("Failed") ? "!" : "✓"}</span> {toast}
           </motion.div>
         )}
       </AnimatePresence>
@@ -271,7 +336,7 @@ export default function Shop() {
                transition={{ delay: i * 0.03, type: "spring", stiffness: 300, damping: 25 }}
                className="h-full"
              >
-               <ShopSlot item={item} coins={coins} onBuy={handleBuy} />
+               <ShopSlot item={item} coins={coins} onBuy={handleBuy} userRankTier={userRankTier} />
              </motion.div>
            ))}
         </AnimatePresence>

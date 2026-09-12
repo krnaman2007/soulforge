@@ -1,30 +1,10 @@
 import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { RootState, AppDispatch } from "../store/store";
+import { fetchCurrentUser } from "../store/slices/authSlice";
+import api from "../api/axiosConfig";
 import XPBar from "../components/XPBar";
-
-const ATTRIBUTES = [
-  { name: "Focus", value: 72, max: 100, color: "#8b5cf6", desc: "Deep work & sustained attention" },
-  { name: "Vitality", value: 58, max: 100, color: "#10e07f", desc: "Physical health & energy" },
-  { name: "Mastery", value: 85, max: 100, color: "#00f0ff", desc: "Skill depth & expertise" },
-  { name: "Discipline", value: 61, max: 100, color: "#ec4899", desc: "Consistency & habit adherence" },
-  { name: "Creativity", value: 44, max: 100, color: "#60a5fa", desc: "Novel thinking & expression" },
-  { name: "Resilience", value: 77, max: 100, color: "#f472b6", desc: "Bounce-back & adaptability" },
-];
-
-const TITLES = [
-  { name: "The Architect", unlocked: true, equipped: true, desc: "Awarded for planning 5+ projects" },
-  { name: "Iron Will", unlocked: true, equipped: false, desc: "Completed a 14-day streak" },
-  { name: "Deep Diver", unlocked: false, equipped: false, desc: "Reach Mastery 90 to unlock" },
-  { name: "Night Owl", unlocked: false, equipped: false, desc: "Complete 10 quests after 10pm" },
-];
-
-const BADGES = [
-  { name: "First Flame", desc: "3-day streak", icon: "🔥", tier: "bronze", earned: true },
-  { name: "Steady Burn", desc: "7-day streak", icon: "🔥", tier: "silver", earned: true },
-  { name: "Iron Streak", desc: "14-day streak", icon: "🏅", tier: "cyan", earned: true },
-  { name: "Forge Fire", desc: "30-day streak", icon: "🏆", tier: "cyan", earned: false },
-  { name: "Eternal Flame", desc: "60-day streak", icon: "✦", tier: "legendary", earned: false },
-  { name: "Ascendant", desc: "100-day streak", icon: "◈", tier: "legendary", earned: false },
-];
 
 const BADGE_TIER: Record<string, { color: string; bg: string; border: string }> = {
   bronze: { color: "#cd7f32", bg: "rgba(205,127,50,0.12)", border: "rgba(205,127,50,0.25)" },
@@ -33,7 +13,7 @@ const BADGE_TIER: Record<string, { color: string; bg: string; border: string }> 
   legendary: { color: "#8b5cf6", bg: "rgba(139,92,246,0.1)", border: "rgba(139,92,246,0.2)" },
 };
 
-function StatBar({ attr, index }: { attr: typeof ATTRIBUTES[0]; index: number }) {
+function StatBar({ attr, index }: { attr: any; index: number }) {
   return (
     <motion.div
       initial={{ opacity: 0, x: -20, rotateX: 10 }}
@@ -81,7 +61,115 @@ function StatBar({ attr, index }: { attr: typeof ATTRIBUTES[0]; index: number })
   );
 }
 
+// Simple rank tier calculation based on XP
+const getRankTier = (xp: number) => {
+  if (xp >= 120000) return { rank: "Grand Master", tier: 8 };
+  if (xp >= 60000) return { rank: "Master", tier: 7 };
+  if (xp >= 30000) return { rank: "Expert", tier: 6 };
+  if (xp >= 15000) return { rank: "Specialist", tier: 5 };
+  if (xp >= 6000) return { rank: "Adept", tier: 4 };
+  if (xp >= 2000) return { rank: "Journeyman", tier: 3 };
+  if (xp >= 1000) return { rank: "Apprentice", tier: 2 };
+  return { rank: "Novice", tier: 1 };
+};
+const getRankMaxXp = (tier: number) => {
+  const thresholds = [0, 1000, 2000, 6000, 15000, 30000, 60000, 120000, 999999];
+  return thresholds[tier] || 1000;
+};
+
 export default function CharacterSheet() {
+  const dispatch = useDispatch<AppDispatch>();
+  const { user, character } = useSelector((state: RootState) => state.auth);
+
+  const [titles, setTitles] = useState<{id: string; itemId?: string; name: string; unlocked: boolean; equipped: boolean; desc: string}[]>([
+    { id: "t1", name: "The Architect", unlocked: true, equipped: true, desc: "Awarded for planning 5+ projects" },
+    { id: "t2", name: "Iron Will", unlocked: true, equipped: false, desc: "Completed a 14-day streak" },
+    { id: "t3", name: "Deep Diver", unlocked: false, equipped: false, desc: "Reach Mastery 90 to unlock" },
+    { id: "t4", name: "Night Owl", unlocked: false, equipped: false, desc: "Complete 10 quests after 10pm" },
+  ]);
+
+  const [badges, setBadges] = useState([
+    { name: "First Flame", desc: "3-day streak", icon: "🔥", tier: "bronze", earned: true },
+    { name: "Steady Burn", desc: "7-day streak", icon: "🔥", tier: "silver", earned: true },
+    { name: "Iron Streak", desc: "14-day streak", icon: "🏅", tier: "cyan", earned: true },
+    { name: "Forge Fire", desc: "30-day streak", icon: "🏆", tier: "cyan", earned: false },
+    { name: "Eternal Flame", desc: "60-day streak", icon: "✦", tier: "legendary", earned: false },
+    { name: "Ascendant", desc: "100-day streak", icon: "◈", tier: "legendary", earned: false },
+  ]);
+
+  useEffect(() => {
+    fetchInventoryAndAchievements();
+  }, []);
+
+  const fetchInventoryAndAchievements = async () => {
+    try {
+      const [invRes, achRes] = await Promise.all([
+        api.get("/inventory"),
+        api.get("/achievements/me")
+      ]);
+
+      if (invRes.data?.success) {
+        const inventoryItems = invRes.data.data.items;
+        const apiTitles = inventoryItems
+          .filter((item: any) => item.type === "TITLE")
+          .map((item: any) => ({
+            id: item.inventoryId,
+            itemId: item.itemId,
+            name: item.name,
+            desc: item.description,
+            unlocked: true,
+            equipped: item.equipped
+          }));
+        
+        if (apiTitles.length > 0) {
+          // Merge with default static titles that aren't unlocked
+          const mergedTitles = [
+            ...apiTitles,
+            ...titles.filter(t => !t.unlocked)
+          ];
+          setTitles(mergedTitles);
+        }
+      }
+
+      if (achRes.data?.success) {
+         // Optionally update badges based on unlocked achievements
+         // Currently keeping static fallback to preserve premium visual demo
+      }
+    } catch (error) {
+      console.error("Failed to load inventory/achievements", error);
+    }
+  };
+
+  const handleEquipTitle = async (inventoryId: string, itemId: string, currentEquipped: boolean) => {
+    if (currentEquipped) return; // Already equipped
+    try {
+      const res = await api.post(`/inventory/${itemId}/equip`);
+      if (res.data.success) {
+        dispatch(fetchCurrentUser());
+        setTitles(titles.map(t => ({
+          ...t,
+          equipped: t.id === inventoryId
+        })));
+      }
+    } catch (error) {
+      console.error("Failed to equip item", error);
+    }
+  };
+
+  const xp = character?.xp || 0;
+  const { rank, tier } = getRankTier(xp);
+  const maxXp = getRankMaxXp(tier);
+  const equippedTitle = titles.find(t => t.equipped)?.name || "Initiate";
+
+  const charAttributes = [
+    { name: "Focus", value: character?.intellect || 10, max: 100, color: "#8b5cf6", desc: "Deep work & sustained attention" },
+    { name: "Vitality", value: character?.health || 10, max: 100, color: "#10e07f", desc: "Physical health & energy" },
+    { name: "Mastery", value: (character as any)?.learning || 10, max: 100, color: "#00f0ff", desc: "Skill depth & expertise" },
+    { name: "Discipline", value: character?.discipline || 10, max: 100, color: "#ec4899", desc: "Consistency & habit adherence" },
+    { name: "Creativity", value: character?.creativity || 10, max: 100, color: "#60a5fa", desc: "Novel thinking & expression" },
+    { name: "Resilience", value: (character as any)?.emotional || 10, max: 100, color: "#f472b6", desc: "Bounce-back & adaptability" },
+  ];
+
   return (
     <div className="relative min-h-screen pb-20 pt-8 px-4 md:px-8 max-w-6xl mx-auto selection:bg-[#00f0ff] selection:text-[#0a0a12]">
       {/* Background Layer */}
@@ -131,14 +219,14 @@ export default function CharacterSheet() {
                     clipPath: "polygon(50% 0%, 95% 25%, 95% 75%, 50% 100%, 5% 75%, 5% 25%)",
                     boxShadow: "0 0 15px rgba(0,240,255,0.6)",
                   }}>
-                  7
+                  {character?.level || 1}
                 </div>
               </div>
 
               {/* Character Details */}
               <div className="flex-1 text-center sm:text-left">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
-                  <h2 className="text-3xl font-black uppercase tracking-wide text-white" style={{ fontFamily: "Rajdhani, sans-serif" }}>Aiden</h2>
+                  <h2 className="text-3xl font-black uppercase tracking-wide text-white" style={{ fontFamily: "Rajdhani, sans-serif" }}>{user?.name || "Aiden"}</h2>
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 self-center sm:self-auto"
                     style={{
                       background: "rgba(96,165,250,0.1)",
@@ -147,7 +235,7 @@ export default function CharacterSheet() {
                       boxShadow: "0 0 10px rgba(96,165,250,0.2) inset",
                     }}>
                     <span className="text-[#60a5fa] text-[10px] animate-pulse">◉</span>
-                    <span className="text-xs font-black uppercase tracking-widest text-[#60a5fa] font-['Rajdhani']">Journeyman</span>
+                    <span className="text-xs font-black uppercase tracking-widest text-[#60a5fa] font-['Rajdhani']">{rank}</span>
                   </div>
                 </div>
                 
@@ -156,21 +244,21 @@ export default function CharacterSheet() {
                     background: "rgba(0,240,255,0.15)", 
                     borderLeft: "2px solid #00f0ff",
                   }}>
-                  <span className="text-xs font-bold uppercase tracking-widest text-[#00f0ff] font-['Rajdhani']">The Architect</span>
+                  <span className="text-xs font-bold uppercase tracking-widest text-[#00f0ff] font-['Rajdhani']">{equippedTitle}</span>
                 </div>
                 
-                <p className="text-[10px] uppercase tracking-[0.2em] mb-4 text-[#8b5cf6] font-bold">Tier II // Work & Learning Focused</p>
+                <p className="text-[10px] uppercase tracking-[0.2em] mb-4 text-[#8b5cf6] font-bold">Tier {tier} // {xp.toLocaleString()} XP Total</p>
                 
-                <XPBar current={3420} max={5000} level={7} />
+                <XPBar current={xp} max={maxXp} level={character?.level || 1} />
               </div>
             </div>
 
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-3 gap-2 mt-8 pt-6 border-t border-[rgba(255,255,255,0.05)] relative z-10">
               {[
-                { label: "Total Quests", value: "142", color: "#00f0ff" },
-                { label: "Best Streak", value: "23d", color: "#ec4899" },
-                { label: "Rank Tier", value: "3 / 9", color: "#60a5fa" },
+                { label: "Coins", value: character?.coins || 0, color: "#00f0ff" },
+                { label: "Best Streak", value: `${character?.longestStreak || 0}d`, color: "#ec4899" },
+                { label: "Rank Tier", value: `${tier} / 9`, color: "#60a5fa" },
               ].map((s) => (
                 <div key={s.label} className="p-3 text-center bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]"
                   style={{ clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)" }}>
@@ -192,7 +280,7 @@ export default function CharacterSheet() {
               </div>
               <div>
                 <p className="text-sm font-black uppercase tracking-widest text-[#10e07f] font-['Rajdhani'] drop-shadow-[0_0_5px_rgba(16,224,127,0.5)]">Streak Shield — Active</p>
-                <p className="text-[10px] md:text-xs text-[rgba(232,232,240,0.5)] mt-1 font-['Inter']">1 shield available. Protects your 7-day streak from a missed day.</p>
+                <p className="text-[10px] md:text-xs text-[rgba(232,232,240,0.5)] mt-1 font-['Inter']">1 shield available. Protects your streak from a missed day.</p>
               </div>
             </div>
           </motion.div>
@@ -210,13 +298,14 @@ export default function CharacterSheet() {
             </div>
             
             <div className="grid gap-3">
-              {TITLES.map((t, i) => (
+              {titles.map((t, i) => (
                 <motion.div 
-                  key={t.name} 
+                  key={t.id || t.name} 
                   initial={{ opacity: 0, x: -20 }} 
                   animate={{ opacity: 1, x: 0 }} 
                   transition={{ delay: i * 0.1 }}
-                  className="group relative"
+                  className="group relative cursor-pointer"
+                  onClick={() => t.unlocked && t.itemId && handleEquipTitle(t.id, t.itemId, t.equipped)}
                 >
                   <div className={`p-4 flex items-center gap-4 transition-all duration-300 border ${t.unlocked ? (t.equipped ? 'bg-[rgba(0,240,255,0.05)] border-[rgba(0,240,255,0.3)] shadow-[0_0_15px_rgba(0,240,255,0.1)]' : 'bg-[rgba(255,255,255,0.02)] border-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.15)]') : 'bg-[rgba(0,0,0,0.2)] border-[rgba(255,255,255,0.02)] opacity-50'}`}
                     style={{ clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)" }}>
@@ -266,7 +355,7 @@ export default function CharacterSheet() {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {ATTRIBUTES.map((attr, i) => <StatBar key={attr.name} attr={attr} index={i} />)}
+              {charAttributes.map((attr, i) => <StatBar key={attr.name} attr={attr} index={i} />)}
             </div>
           </motion.div>
 
@@ -282,7 +371,7 @@ export default function CharacterSheet() {
             </div>
             
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {BADGES.map((badge, i) => {
+              {badges.map((badge, i) => {
                 const bt = BADGE_TIER[badge.tier];
                 return (
                   <motion.div

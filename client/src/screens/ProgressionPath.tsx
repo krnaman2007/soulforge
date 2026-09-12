@@ -15,9 +15,6 @@ export const RANKS = [
   { id: "enlightened", name: "Enlightened", xpMin: 250000, xpMax: Infinity, tier: 9, color: "#a78bfa", icon: "◈", desc: "Beyond rank. Beyond limit. Total mastery and inner peace." },
 ];
 
-const CURRENT_XP = 3420;
-const CURRENT_RANK = RANKS.find((r, i) => CURRENT_XP >= r.xpMin && (CURRENT_XP < r.xpMax || r.xpMax === Infinity)) || RANKS[1];
-
 // Defining organic positions and scaling for the journey
 const JOURNEY_STAGES = [
   { x: 50, yOffset: 0, scale: 1, isMilestone: false },       // Novice
@@ -40,7 +37,7 @@ const NODE_POSITIONS = JOURNEY_STAGES.map((stage) => {
 
 const TOTAL_HEIGHT = currentY + 500; // Extra space at bottom
 
-function JourneyNode({ rank, index, isCurrent, isCompleted }: { rank: typeof RANKS[0]; index: number; isCurrent: boolean; isCompleted: boolean }) {
+function JourneyNode({ rank, index, isCurrent, isCompleted, currentXp }: { rank: typeof RANKS[0]; index: number; isCurrent: boolean; isCompleted: boolean; currentXp: number }) {
   const stage = NODE_POSITIONS[index];
   const isFuture = !isCurrent && !isCompleted;
   const nodeColor = rank.color;
@@ -256,7 +253,7 @@ function JourneyNode({ rank, index, isCurrent, isCompleted }: { rank: typeof RAN
                     <div className="flex justify-between items-center text-xs font-semibold">
                       <span className="text-gray-500 uppercase tracking-wider text-[11px]">Progress</span>
                       <span style={{ color: isCurrent ? "#0ea5e9" : "#10e07f" }}>
-                        {isCompleted ? "100%" : `${Math.floor(((CURRENT_XP - rank.xpMin) / (rank.xpMax - rank.xpMin)) * 100)}%`}
+                        {isCompleted ? "100%" : `${Math.floor(((currentXp - rank.xpMin) / (rank.xpMax - rank.xpMin)) * 100)}%`}
                       </span>
                     </div>
                   ) : (
@@ -281,8 +278,14 @@ function JourneyNode({ rank, index, isCurrent, isCompleted }: { rank: typeof RAN
   );
 }
 
+import { useSelector } from "react-redux";
+import { RootState } from "../store/store";
+
 export default function ProgressionPath() {
-  const currentIndex = RANKS.findIndex((r) => r.id === CURRENT_RANK.id);
+  const { character } = useSelector((state: RootState) => state.auth);
+  const currentXp = character?.xp || 0;
+  const currentRank = RANKS.find((r) => currentXp >= r.xpMin && (currentXp < r.xpMax || r.xpMax === Infinity)) || RANKS[0];
+  const currentIndex = RANKS.findIndex((r) => r.id === currentRank.id);
   
   // Create continuous SVG Path data using calculated absolute coordinates
   const generatePath = (count: number) => {
@@ -428,6 +431,7 @@ export default function ProgressionPath() {
               index={i} 
               isCurrent={i === currentIndex} 
               isCompleted={i < currentIndex} 
+              currentXp={currentXp}
             />
           ))}
         </div>
@@ -445,7 +449,7 @@ export default function ProgressionPath() {
             <div className="flex flex-col items-center md:items-end">
               <span className="text-base uppercase tracking-widest font-bold text-gray-500 mb-2">Total XP Forged</span>
               <span className="text-5xl md:text-6xl font-black text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.3)]" style={{ fontFamily: "Rajdhani, sans-serif" }}>
-                {CURRENT_XP.toLocaleString()} <span className="text-2xl text-[#0ea5e9]">XP</span>
+                {currentXp.toLocaleString()} <span className="text-2xl text-[#0ea5e9]">XP</span>
               </span>
             </div>
             <div className="hidden md:block w-px h-24 bg-gradient-to-b from-transparent via-white/20 to-transparent" />

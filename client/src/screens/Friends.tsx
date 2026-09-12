@@ -1,5 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
+import api from "../api/axiosConfig";
 
 const FRIENDS_LIST = [
   { name: "Alex Torres", title: "The Hustler", level: 22, streak: 15, avatar: "☄", xp: 48200, online: true, guild: "Shadow Syndicate" },
@@ -94,10 +96,93 @@ function FriendCard({ friend }: { friend: typeof FRIENDS_LIST[0] }) {
 }
 
 export default function Friends() {
+  const { user } = useSelector((state: any) => state.auth);
   const [search, setSearch] = useState("");
+  const [friends, setFriends] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
   const [added, setAdded] = useState<string[]>([]);
+  
+  // Use debounced search for API calls if needed, but for now just fetch on load and filter locally if search is empty, or search API if not empty.
+  useEffect(() => {
+    if (user?.id) {
+      fetchData();
+    }
+  }, [user?.id]);
 
-  const filtered = FRIENDS_LIST.filter((f) =>
+  useEffect(() => {
+    if (search.length > 2) {
+      handleSearch(search);
+    } else {
+      // Revert suggestions to default when search is cleared
+      fetchData();
+    }
+  }, [search]);
+
+  const fetchData = async () => {
+    try {
+      const [followingRes, searchRes] = await Promise.all([
+        api.get(`/social/${user.id}/following`),
+        api.get(`/social/search`)
+      ]);
+      
+      if (followingRes.data?.success) {
+        setFriends(formatUsers(followingRes.data.data.users));
+      }
+      
+      if (searchRes.data?.success) {
+        // Filter out already following
+        const allUsers = searchRes.data.data.users;
+        const followingIds = followingRes.data?.data?.users?.map((u:any) => u.id) || [];
+        const notFollowing = allUsers.filter((u:any) => u.id !== user.id && !followingIds.includes(u.id));
+        setSuggestions(formatUsers(notFollowing).slice(0, 5));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleSearch = async (query: string) => {
+    try {
+      const res = await api.get(`/social/search?q=${query}`);
+      if (res.data?.success) {
+        const followingIds = friends.map((u:any) => u.id);
+        const searchResults = res.data.data.users.filter((u:any) => u.id !== user.id && !followingIds.includes(u.id));
+        setSuggestions(formatUsers(searchResults).slice(0, 5));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const formatUsers = (users: any[]) => {
+    return users.map(u => {
+      const emojiMatch = u.avatarId ? u.avatarId.match(/[\p{Emoji}]/u) : null;
+      return {
+        id: u.id,
+        name: u.username || u.name,
+        title: u.titleId || "Apprentice",
+        level: u.level || 1,
+        streak: u.currentStreak || 0,
+        avatar: emojiMatch ? emojiMatch[0] : "👤",
+        xp: u.xp || 0,
+        online: true,
+        guild: "None"
+      };
+    });
+  };
+
+  const handleAddAlly = async (targetId: string, name: string) => {
+    try {
+      setAdded((prev) => [...prev, name]);
+      await api.post(`/social/${targetId}/follow`);
+      // Refresh friends list
+      fetchData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const filtered = friends.filter((f) =>
     f.name.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -197,7 +282,7 @@ export default function Friends() {
             </div>
             
             <div className="space-y-3">
-              {SUGGESTIONS.map((s, i) => (
+              {suggestions.map((s, i) => (
                 <motion.div
                   key={s.name}
                   initial={{ opacity: 0, x: 20 }}
@@ -215,7 +300,7 @@ export default function Friends() {
                       <p className="text-[10px] text-[rgba(232,232,240,0.5)] truncate font-['Inter']">Lv {s.level} · {s.title}</p>
                     </div>
                     <button
-                      onClick={() => setAdded((prev) => [...prev, s.name])}
+                      onClick={() => handleAddAlly(s.id, s.name)}
                       disabled={added.includes(s.name)}
                       className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 transition-all disabled:opacity-50 flex-shrink-0 font-['Rajdhani']"
                       style={{

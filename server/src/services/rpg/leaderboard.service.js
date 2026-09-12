@@ -118,23 +118,15 @@ class LeaderboardService {
     return await this._buildLeaderboard(null, limit, true);
   }
 
-  /**
-   * Gets the friends leaderboard by Weekly XP
-   * Defined as mutual ACCEPTED friendships + the requesting user
-   */
   static async getFriendsLeaderboard(userId, limit = 100) {
-    // Get all accepted friendships where user is either requester or receiver
-    const friendships = await prisma.friendship.findMany({
+    // Get all users the current user follows
+    const follows = await prisma.follow.findMany({
       where: {
-        OR: [
-          { requesterId: userId },
-          { receiverId: userId }
-        ],
-        status: 'ACCEPTED'
+        followerId: userId
       }
     });
 
-    const friendIds = friendships.map(f => f.requesterId === userId ? f.receiverId : f.requesterId);
+    const friendIds = follows.map(f => f.followingId);
     
     // Always include the requesting user in their own friends leaderboard to see where they rank
     friendIds.push(userId);

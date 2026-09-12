@@ -1,5 +1,7 @@
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
+import api from "../api/axiosConfig";
 
 type View = "global" | "friends";
 
@@ -191,7 +193,7 @@ function LeaderRow({ entry, index }: { entry: typeof GLOBAL[0]; index: number })
         <div className="flex items-center justify-between sm:justify-end gap-6 sm:gap-8 text-xs flex-shrink-0 w-full sm:w-auto mt-2 sm:mt-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[rgba(255,255,255,0.05)] relative z-10">
           <div className="text-left sm:text-right">
              <p className="text-[9px] uppercase tracking-widest text-[rgba(232,232,240,0.4)] font-['Rajdhani'] mb-0.5">Total XP</p>
-            <p className="font-black stat-num text-sm md:text-base" style={{ color: "#00f0ff", dropShadow: "0 0 5px rgba(0,240,255,0.3)" }}>
+            <p className="font-black stat-num text-sm md:text-base" style={{ color: "#00f0ff", filter: "drop-shadow(0 0 5px rgba(0,240,255,0.3))" }}>
               {entry.xp.toLocaleString()}
             </p>
           </div>
@@ -199,7 +201,7 @@ function LeaderRow({ entry, index }: { entry: typeof GLOBAL[0]; index: number })
             <p className="text-[9px] uppercase tracking-widest text-[rgba(232,232,240,0.4)] font-['Rajdhani'] mb-0.5">Streak</p>
             <p className="flex items-center gap-1 justify-start sm:justify-end">
               <span className="flame-pulse inline-block text-xs md:text-sm">🔥</span>
-              <span className="font-black stat-num text-sm md:text-base" style={{ color: "#ec4899", dropShadow: "0 0 5px rgba(236,72,153,0.3)" }}>{entry.streak}</span>
+              <span className="font-black stat-num text-sm md:text-base" style={{ color: "#ec4899", filter: "drop-shadow(0 0 5px rgba(236,72,153,0.3))" }}>{entry.streak}</span>
             </p>
           </div>
           <div className="w-12 text-right">
@@ -221,9 +223,70 @@ function LeaderRow({ entry, index }: { entry: typeof GLOBAL[0]; index: number })
 
 export default function Leaderboard() {
   const [view, setView] = useState<View>("global");
-  const data = view === "global" ? GLOBAL : FRIENDS;
-  const you = data.find((e) => e.you);
-  const remaining = data.slice(3);
+  const [globalData, setGlobalData] = useState<any[]>([]);
+  const [friendsData, setFriendsData] = useState<any[]>([]);
+  const { user } = useSelector((state: any) => state.auth);
+
+  useEffect(() => {
+    fetchLeaderboards();
+  }, []);
+
+  const fetchLeaderboards = async () => {
+    try {
+      const [globalRes, friendsRes] = await Promise.all([
+        api.get("/leaderboard/global"),
+        api.get("/leaderboard/friends")
+      ]);
+
+      if (globalRes.data?.success) {
+        setGlobalData(formatData(globalRes.data.data));
+      }
+      if (friendsRes.data?.success) {
+        setFriendsData(formatData(friendsRes.data.data));
+      }
+    } catch (err) {
+      console.error("Failed to fetch leaderboards", err);
+    }
+  };
+
+  const getRankTier = (xp: number) => {
+    if (xp >= 120000) return { title: "Grand Master", tier: 8 };
+    if (xp >= 60000) return { title: "Master", tier: 7 };
+    if (xp >= 30000) return { title: "Expert", tier: 6 };
+    if (xp >= 15000) return { title: "Specialist", tier: 5 };
+    if (xp >= 6000) return { title: "Adept", tier: 4 };
+    if (xp >= 2000) return { title: "Journeyman", tier: 3 };
+    if (xp >= 1000) return { title: "Apprentice", tier: 2 };
+    return { title: "Novice", tier: 1 };
+  };
+
+  const formatData = (items: any[]) => {
+    return items.map((item, index) => {
+      const xpVal = item.xp || item.weeklyXP || 0;
+      const { title, tier } = getRankTier(xpVal);
+      // Try to parse an emoji from avatarId if it looks like one, else default to sword
+      const emojiMatch = item.user?.avatarId ? item.user.avatarId.match(/[\p{Emoji}]/u) : null;
+      const avatar = emojiMatch ? emojiMatch[0] : "⚔️";
+
+      return {
+        rank: item.rank || index + 1,
+        name: item.user?.username || "Unknown",
+        rankTitle: title,
+        tier: tier,
+        level: item.user?.level || 1,
+        xp: xpVal,
+        streak: item.currentStreak || 0,
+        change: 0,
+        avatar: avatar,
+        you: item.user?.id === user?.id,
+        guild: "None"
+      };
+    });
+  };
+
+  const currentData = view === "global" ? (globalData.length > 0 ? globalData : GLOBAL) : (friendsData.length > 0 ? friendsData : FRIENDS);
+  const youEntry = currentData.find((e) => e.you);
+  const remaining = currentData.slice(3);
 
   return (
     <div className="relative min-h-screen pb-20 pt-8 px-4 md:px-8 max-w-5xl mx-auto selection:bg-[#00f0ff] selection:text-[#0a0a12]">
@@ -265,7 +328,7 @@ export default function Leaderboard() {
         </div>
       </div>
 
-      {you && (
+      {youEntry && (
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -278,7 +341,7 @@ export default function Leaderboard() {
           </div>
           <div className="text-right flex items-baseline gap-2">
             <span className="text-[10px] uppercase tracking-widest text-[#00f0ff] font-['Rajdhani']">Rank</span>
-            <span className="font-black text-2xl stat-num text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">#{you.rank}</span>
+            <span className="font-black text-2xl stat-num text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">#{youEntry.rank}</span>
           </div>
         </motion.div>
       )}
@@ -286,7 +349,7 @@ export default function Leaderboard() {
       {/* Podium Area */}
       <div className="mb-16 relative">
          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-full bg-gradient-to-b from-[rgba(0,240,255,0.2)] to-transparent pointer-events-none" />
-        <Podium entries={data} />
+        <Podium entries={currentData} />
       </div>
 
       <div className="flex items-center gap-4 mb-6 opacity-70">
