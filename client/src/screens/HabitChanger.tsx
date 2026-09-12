@@ -1,5 +1,8 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState, AppDispatch } from "../store/store";
+import { planHabit, clearHabitPlan } from "../store/slices/aiSlice";
 
 interface HabitTask {
   title: string;
@@ -21,26 +24,7 @@ const TYPE_COLORS: Record<string, string> = {
   track: "#ec4899",
 };
 
-function generateHabitPlan(habit: string): HabitTask[] {
-  if (habit.toLowerCase().includes("phone") || habit.toLowerCase().includes("scroll")) {
-    return [
-      { title: "Audit: track screen time for 24h without judgment", xp: 50, day: 1, type: "track" },
-      { title: "Remove social apps from home screen — friction hack", xp: 80, day: 1, type: "cue" },
-      { title: "Replace first 10 min of phone use with journaling", xp: 100, day: 2, type: "replace" },
-      { title: "Set a 'phone-free zone' in your bedroom", xp: 90, day: 3, type: "cue" },
-      { title: "Design a non-phone reward for hitting 7 days", xp: 60, day: 4, type: "reward" },
-      { title: "Log daily screen time for 7 days straight", xp: 120, day: 7, type: "track" },
-    ];
-  }
-  return [
-    { title: "Awareness check — journal current habit pattern", xp: 50, day: 1, type: "track" },
-    { title: "Identify the cue that triggers the habit", xp: 70, day: 1, type: "cue" },
-    { title: "Design a healthier replacement behavior", xp: 100, day: 2, type: "replace" },
-    { title: "Implement the replacement for 3 consecutive days", xp: 130, day: 3, type: "replace" },
-    { title: "Create a reward to reinforce the new loop", xp: 80, day: 5, type: "reward" },
-    { title: "7-day habit review — score your consistency", xp: 120, day: 7, type: "track" },
-  ];
-}
+// Dynamic generation removed in favor of Redux action
 
 function VioletParticle({ delay }: { delay: number }) {
   return (
@@ -64,21 +48,30 @@ function VioletParticle({ delay }: { delay: number }) {
 }
 
 export default function HabitChanger() {
+  const dispatch = useDispatch<AppDispatch>();
+  const { habitPlan, status, error } = useSelector((state: RootState) => state.ai);
+
   const [habit, setHabit] = useState("");
   const [generating, setGenerating] = useState(false);
   const [plan, setPlan] = useState<HabitTask[] | null>(null);
   const [accepted, setAccepted] = useState(false);
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!habit.trim()) return;
     setGenerating(true);
     setPlan(null);
     setAccepted(false);
-    setTimeout(() => {
-      setPlan(generateHabitPlan(habit));
+    try {
+      const resultAction = await dispatch(planHabit({ habitGoal: habit }));
+      if (planHabit.fulfilled.match(resultAction)) {
+        setPlan(resultAction.payload.tasks || []);
+      }
+    } finally {
       setGenerating(false);
-    }, 2200);
+    }
   };
+
+  const currentPlan = habitPlan || plan;
 
   return (
     <div className="relative min-h-screen pb-20 pt-8 px-4 md:px-8 max-w-4xl mx-auto selection:bg-[#8b5cf6] selection:text-[#0a0a12]">
@@ -203,7 +196,7 @@ export default function HabitChanger() {
                   >
                     {/* Timeline Node */}
                     <div className="absolute left-[13px] md:left-[21px] top-1/2 -translate-y-1/2 w-4 h-4 bg-transparent border-2 rounded-full z-10"
-                      style={{ borderColor: TYPE_COLORS[task.type], boxShadow: `0 0 10px ${TYPE_COLORS[task.type]}40` }} />
+                      style={{ borderColor: TYPE_COLORS[task.type] || '#8b5cf6', boxShadow: `0 0 10px ${TYPE_COLORS[task.type] || '#8b5cf6'}40` }} />
                     
                     <div className="p-4 md:p-5 bg-[rgba(20,20,30,0.4)] backdrop-blur-md border border-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.15)] transition-all group"
                       style={{ clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%)" }}>
@@ -213,14 +206,14 @@ export default function HabitChanger() {
                           <div className="flex items-center gap-3 mb-2">
                             <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest px-2 py-0.5 border"
                               style={{ 
-                                background: `${TYPE_COLORS[task.type]}15`, 
-                                color: TYPE_COLORS[task.type],
-                                borderColor: `${TYPE_COLORS[task.type]}40`,
+                                background: `${TYPE_COLORS[task.type] || '#8b5cf6'}15`, 
+                                color: TYPE_COLORS[task.type] || '#8b5cf6',
+                                borderColor: `${TYPE_COLORS[task.type] || '#8b5cf6'}40`,
                                 fontFamily: "Rajdhani, sans-serif"
                               }}>
-                              {TYPE_LABELS[task.type]}
+                              {TYPE_LABELS[task.type] || 'Habit'}
                             </span>
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-[rgba(232,232,240,0.4)]">Day {task.day}</span>
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-[rgba(232,232,240,0.4)]">Day {task.day || i + 1}</span>
                           </div>
                           <p className="text-sm md:text-base font-bold text-white font-['Inter']">{task.title}</p>
                         </div>
@@ -228,7 +221,7 @@ export default function HabitChanger() {
                         <div className="flex items-center gap-2 flex-shrink-0 sm:self-start bg-[rgba(0,0,0,0.3)] px-3 py-1.5 border border-[rgba(255,255,255,0.05)]"
                           style={{ clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)" }}>
                           <span className="text-[#00f0ff] text-lg leading-none">✦</span>
-                          <span className="text-sm font-black stat-num text-[#00f0ff] drop-shadow-[0_0_5px_rgba(0,240,255,0.3)]">+{task.xp} XP</span>
+                          <span className="text-sm font-black stat-num text-[#00f0ff] drop-shadow-[0_0_5px_rgba(0,240,255,0.3)]">+{task.xp || 50} XP</span>
                         </div>
                       </div>
                     </div>

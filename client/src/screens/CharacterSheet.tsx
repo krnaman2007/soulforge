@@ -1,4 +1,9 @@
 import { motion } from "framer-motion";
+import { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState, AppDispatch } from "../store/store";
+import { fetchCurrentUser } from "../store/slices/authSlice";
+import { fetchMyAchievementsSummary } from "../store/slices/achievementSlice";
 import XPBar from "../components/XPBar";
 
 const ATTRIBUTES = [
@@ -82,6 +87,41 @@ function StatBar({ attr, index }: { attr: typeof ATTRIBUTES[0]; index: number })
 }
 
 export default function CharacterSheet() {
+  const dispatch = useDispatch<AppDispatch>();
+  const { user, character } = useSelector((state: RootState) => state.auth);
+  const { mySummary, unlockedAchievements } = useSelector((state: RootState) => state.achievements);
+
+  useEffect(() => {
+    if (!user) dispatch(fetchCurrentUser());
+    dispatch(fetchMyAchievementsSummary());
+  }, [dispatch, user]);
+
+  const level = character?.level || 1;
+  const xp = character?.xp || 0;
+  // Approximation for next level XP
+  const nextLevelXP = 1000 * Math.pow(1.5, level - 1);
+
+  // Derive ATTRIBUTES from character stats if available
+  const activeAttributes = character ? [
+    { name: "Strength", value: character.strength || 0, max: 100, color: "#8b5cf6", desc: "Physical power & endurance" },
+    { name: "Intellect", value: character.intellect || 0, max: 100, color: "#10e07f", desc: "Knowledge & problem solving" },
+    { name: "Discipline", value: character.discipline || 0, max: 100, color: "#ec4899", desc: "Consistency & habit adherence" },
+    { name: "Health", value: character.health || 0, max: 100, color: "#f472b6", desc: "Overall vitality" },
+    { name: "Creativity", value: character.creativity || 0, max: 100, color: "#60a5fa", desc: "Novel thinking & expression" },
+    { name: "Social", value: character.social || 0, max: 100, color: "#00f0ff", desc: "Relationships & networking" },
+  ] : ATTRIBUTES;
+
+  const unlockedTitles = unlockedAchievements.filter(a => a.type === 'title').map(a => ({
+    name: a.rewardTitle || a.name,
+    unlocked: true,
+    equipped: false, // You could store equipped title in user profile
+    desc: a.description
+  }));
+  const activeTitles = unlockedTitles.length > 0 ? unlockedTitles : TITLES;
+
+  const streak = character?.currentStreak || 0;
+  const maxStreak = character?.longestStreak || 0;
+
   return (
     <div className="relative min-h-screen pb-20 pt-8 px-4 md:px-8 max-w-6xl mx-auto selection:bg-[#00f0ff] selection:text-[#0a0a12]">
       {/* Background Layer */}
@@ -131,14 +171,14 @@ export default function CharacterSheet() {
                     clipPath: "polygon(50% 0%, 95% 25%, 95% 75%, 50% 100%, 5% 75%, 5% 25%)",
                     boxShadow: "0 0 15px rgba(0,240,255,0.6)",
                   }}>
-                  7
+                  {level}
                 </div>
               </div>
 
               {/* Character Details */}
               <div className="flex-1 text-center sm:text-left">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
-                  <h2 className="text-3xl font-black uppercase tracking-wide text-white" style={{ fontFamily: "Rajdhani, sans-serif" }}>Aiden</h2>
+                  <h2 className="text-3xl font-black uppercase tracking-wide text-white" style={{ fontFamily: "Rajdhani, sans-serif" }}>{user?.username || "Aiden"}</h2>
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 self-center sm:self-auto"
                     style={{
                       background: "rgba(96,165,250,0.1)",
@@ -156,12 +196,14 @@ export default function CharacterSheet() {
                     background: "rgba(0,240,255,0.15)", 
                     borderLeft: "2px solid #00f0ff",
                   }}>
-                  <span className="text-xs font-bold uppercase tracking-widest text-[#00f0ff] font-['Rajdhani']">The Architect</span>
+                  <span className="text-xs font-bold uppercase tracking-widest text-[#00f0ff] font-['Rajdhani']">
+                    {activeTitles.find(t => t.equipped)?.name || "The Architect"}
+                  </span>
                 </div>
                 
                 <p className="text-[10px] uppercase tracking-[0.2em] mb-4 text-[#8b5cf6] font-bold">Tier II // Work & Learning Focused</p>
                 
-                <XPBar current={3420} max={5000} level={7} />
+                <XPBar current={xp} max={nextLevelXP} level={level} />
               </div>
             </div>
 
@@ -169,7 +211,7 @@ export default function CharacterSheet() {
             <div className="grid grid-cols-3 gap-2 mt-8 pt-6 border-t border-[rgba(255,255,255,0.05)] relative z-10">
               {[
                 { label: "Total Quests", value: "142", color: "#00f0ff" },
-                { label: "Best Streak", value: "23d", color: "#ec4899" },
+                { label: "Best Streak", value: `${maxStreak}d`, color: "#ec4899" },
                 { label: "Rank Tier", value: "3 / 9", color: "#60a5fa" },
               ].map((s) => (
                 <div key={s.label} className="p-3 text-center bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]"
@@ -210,7 +252,7 @@ export default function CharacterSheet() {
             </div>
             
             <div className="grid gap-3">
-              {TITLES.map((t, i) => (
+              {activeTitles.map((t: any, i: number) => (
                 <motion.div 
                   key={t.name} 
                   initial={{ opacity: 0, x: -20 }} 
@@ -266,7 +308,7 @@ export default function CharacterSheet() {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {ATTRIBUTES.map((attr, i) => <StatBar key={attr.name} attr={attr} index={i} />)}
+              {activeAttributes.map((attr: any, i: number) => <StatBar key={attr.name} attr={attr} index={i} />)}
             </div>
           </motion.div>
 

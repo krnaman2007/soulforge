@@ -1,5 +1,10 @@
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState, AppDispatch } from "../store/store";
+import { fetchRecentActivities, fetchActivityStats } from "../store/slices/activitySlice";
+import { fetchDailyChallenge } from "../store/slices/challengeSlice";
+import { fetchCurrentUser } from "../store/slices/authSlice";
 import XPBar from "../components/XPBar";
 import LevelUpModal from "../components/LevelUpModal";
 import PenaltyModal from "../components/PenaltyModal";
@@ -29,12 +34,30 @@ const fadeUp = {
 };
 
 export default function Dashboard() {
+  const dispatch = useDispatch<AppDispatch>();
+  const { user, character } = useSelector((state: RootState) => state.auth);
+  const { recent, stats } = useSelector((state: RootState) => state.activity);
+  const { dailyChallenge } = useSelector((state: RootState) => state.challenges);
+
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [showPenalty, setShowPenalty] = useState(false);
   const [showRankUp, setShowRankUp] = useState(false);
-  const [streak] = useState(7);
-  const [coins] = useState(1240);
-  const [debuffActive] = useState(true);
+  
+  // Use real character data or fallback
+  const streak = character?.currentStreak || 0;
+  const coins = character?.coins || 0;
+  const level = character?.level || 1;
+  const currentXp = character?.xp || 0;
+  
+  // Placeholder debuff logic
+  const [debuffActive] = useState(false);
+
+  useEffect(() => {
+    dispatch(fetchCurrentUser());
+    dispatch(fetchRecentActivities(4));
+    dispatch(fetchActivityStats('today'));
+    dispatch(fetchDailyChallenge());
+  }, [dispatch]);
 
   return (
     <div className="relative min-h-screen pb-20 pt-8 px-4 md:px-8 max-w-7xl mx-auto selection:bg-[#00f0ff] selection:text-[#0a0a12]">
@@ -133,7 +156,7 @@ export default function Dashboard() {
             </div>
 
             <div className="text-center mb-6 relative z-10">
-              <h3 className="font-black text-2xl uppercase tracking-wide text-white" style={{ fontFamily: "Rajdhani, sans-serif" }}>Aiden</h3>
+              <h3 className="font-black text-2xl uppercase tracking-wide text-white" style={{ fontFamily: "Rajdhani, sans-serif" }}>{user?.name || "Player"}</h3>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 mt-2"
                 style={{
                   background: "rgba(96,165,250,0.1)",
@@ -141,13 +164,13 @@ export default function Dashboard() {
                   clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))",
                 }}>
                 <span className="text-[#60a5fa] text-[10px] animate-pulse">◉</span>
-                <span className="text-xs font-black uppercase tracking-widest text-[#60a5fa] font-['Rajdhani']">Journeyman</span>
+                <span className="text-xs font-black uppercase tracking-widest text-[#60a5fa] font-['Rajdhani']">Level {level}</span>
               </div>
               <p className="text-[10px] uppercase tracking-[0.2em] mt-3 text-[#8b5cf6] font-bold">The Architect // Tier II</p>
             </div>
 
             <div className="mb-6 relative z-10">
-              <XPBar current={3420} max={5000} level={7} className="w-full" />
+              <XPBar current={currentXp} max={level * 1000} level={level} className="w-full" />
             </div>
 
             {/* Debuff indicator */}
@@ -169,7 +192,12 @@ export default function Dashboard() {
 
             {/* Stat mini bars */}
             <div className="grid grid-cols-2 gap-3 w-full mt-auto relative z-10">
-              {STATS.map((s, i) => (
+              {[
+                { label: "Strength", value: character?.strength || 10, color: "#8b5cf6" },
+                { label: "Intellect", value: character?.intellect || 10, color: "#10e07f" },
+                { label: "Discipline", value: character?.discipline || 10, color: "#00f0ff" },
+                { label: "Health", value: character?.health || 10, color: "#ec4899" },
+              ].map((s, i) => (
                 <div key={s.label} className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] transition-colors hover:border-[rgba(255,255,255,0.1)]" style={{ clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))" }}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[10px] uppercase font-bold tracking-widest text-[rgba(232,232,240,0.5)] font-['Rajdhani']">{s.label}</span>
@@ -178,7 +206,7 @@ export default function Dashboard() {
                   <div className="h-1.5 w-full bg-[rgba(0,0,0,0.5)] border border-[rgba(255,255,255,0.1)]" style={{ clipPath: "polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 0 100%)" }}>
                     <motion.div
                       initial={{ width: 0 }}
-                      animate={{ width: `${s.value}%` }}
+                      animate={{ width: `${Math.min(100, s.value * 2)}%` }}
                       transition={{ type: "spring", stiffness: 60, damping: 20, delay: 0.5 + i * 0.1 }}
                       className="h-full"
                       style={{ background: `linear-gradient(90deg, ${s.color}66, ${s.color})`, boxShadow: `0 0 5px ${s.color}`, clipPath: "polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 0 100%)" }}
@@ -228,9 +256,9 @@ export default function Dashboard() {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
-                  { label: "XP Yield", value: "200", color: "#00f0ff", icon: "✦" },
-                  { label: "Loot Gained", value: "+75", color: "#00f0ff", icon: "◈" },
-                  { label: "Active Streak", value: "7d", color: "#ec4899", icon: "🔥" },
+                  { label: "XP Yield", value: stats?.totalXP || 0, color: "#00f0ff", icon: "✦" },
+                  { label: "Loot Gained", value: `+${stats?.totalCoins || 0}`, color: "#00f0ff", icon: "◈" },
+                  { label: "Active Streak", value: `${streak}d`, color: "#ec4899", icon: "🔥" },
                 ].map((s, i) => (
                   <motion.div 
                     key={s.label}
@@ -264,7 +292,9 @@ export default function Dashboard() {
               </div>
               
               <div className="space-y-3">
-                {RECENT_QUESTS.map((q, i) => (
+                {recent.length > 0 ? recent.map((r, i) => (
+                  <QuestItem key={r.id || i} activity={r} index={i} />
+                )) : RECENT_QUESTS.map((q, i) => (
                   <QuestItem key={i} quest={q} index={i} />
                 ))}
               </div>
@@ -313,12 +343,19 @@ export default function Dashboard() {
   );
 }
 
-function QuestItem({ quest, index }: { quest: typeof RECENT_QUESTS[0]; index: number }) {
-  const [done, setDone] = useState(quest.done);
+function QuestItem({ quest, activity, index }: { quest?: any; activity?: any; index: number }) {
+  const isActivity = !!activity;
+  const title = isActivity ? (activity.task?.title || activity.description) : quest.title;
+  const xp = isActivity ? activity.xp : quest.xp;
+  const coins = isActivity ? activity.coins : quest.coins;
+  const isDone = isActivity ? true : quest.done;
+  const isOverdue = isActivity ? false : quest.overdue;
+
+  const [done, setDone] = useState(isDone);
   const [verifying, setVerifying] = useState(false);
 
   const handleCheck = () => {
-    if (done || quest.overdue) return;
+    if (done || isOverdue || isActivity) return;
     setVerifying(true);
     setTimeout(() => { setVerifying(false); setDone(true); }, 1800);
   };
@@ -330,10 +367,10 @@ function QuestItem({ quest, index }: { quest: typeof RECENT_QUESTS[0]; index: nu
       transition={{ delay: index * 0.1, type: "spring" }}
       className="group relative flex items-center gap-4 p-4 transition-all duration-300"
       style={{
-        background: quest.overdue
+        background: isOverdue
           ? "rgba(220,38,38,0.05)"
           : done ? "rgba(16,224,127,0.03)" : "rgba(255,255,255,0.02)",
-        border: `1px solid ${quest.overdue ? "rgba(220,38,38,0.3)" : done ? "rgba(16,224,127,0.15)" : "rgba(255,255,255,0.05)"}`,
+        border: `1px solid ${isOverdue ? "rgba(220,38,38,0.3)" : done ? "rgba(16,224,127,0.15)" : "rgba(255,255,255,0.05)"}`,
         clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))",
       }}
     >
@@ -342,12 +379,12 @@ function QuestItem({ quest, index }: { quest: typeof RECENT_QUESTS[0]; index: nu
         className="w-6 h-6 flex items-center justify-center flex-shrink-0 transition-all cursor-pointer relative"
         style={{
           background: done ? "#10e07f" : "rgba(0,0,0,0.5)",
-          border: `1px solid ${done ? "#10e07f" : quest.overdue ? "rgba(220,38,38,0.5)" : "rgba(255,255,255,0.3)"}`,
+          border: `1px solid ${done ? "#10e07f" : isOverdue ? "rgba(220,38,38,0.5)" : "rgba(255,255,255,0.3)"}`,
           clipPath: "polygon(50% 0%, 95% 25%, 95% 75%, 50% 100%, 5% 75%, 5% 25%)",
           boxShadow: done ? "0 0 10px rgba(16,224,127,0.5)" : "none"
         }}
       >
-        {!done && !quest.overdue && <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity" />}
+        {!done && !isOverdue && <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity" />}
         {done && (
           <motion.svg initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 400, damping: 15 }}
             width="12" height="10" viewBox="0 0 10 8" fill="none">
@@ -364,25 +401,25 @@ function QuestItem({ quest, index }: { quest: typeof RECENT_QUESTS[0]; index: nu
       ) : (
         <div className="flex-1">
           <p className="text-sm md:text-base font-bold transition-colors" style={{
-            color: quest.overdue ? "#dc2626" : done ? "rgba(232,232,240,0.4)" : "white",
+            color: isOverdue ? "#dc2626" : done ? "rgba(232,232,240,0.4)" : "white",
             textDecoration: done ? "line-through" : "none",
             fontFamily: "Inter, sans-serif"
           }}>
-            {quest.title}
+            {title}
           </p>
         </div>
       )}
 
       {!verifying && (
         <div className="flex items-center gap-3 md:gap-6 flex-shrink-0">
-          {quest.overdue ? (
+          {isOverdue ? (
             <span className="text-[10px] md:text-xs font-black uppercase tracking-widest px-2 py-1 bg-[rgba(220,38,38,0.1)] border border-[rgba(220,38,38,0.3)] text-[#dc2626] font-['Rajdhani']">Failed</span>
           ) : done ? (
             <span className="text-[10px] md:text-xs font-black uppercase tracking-widest px-2 py-1 bg-[rgba(16,224,127,0.1)] border border-[rgba(16,224,127,0.3)] text-[#10e07f] font-['Rajdhani']">Cleared</span>
           ) : (
             <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-3 text-right">
-              <span className="text-xs font-black uppercase tracking-widest text-[#00f0ff] font-['Rajdhani'] drop-shadow-[0_0_5px_rgba(0,240,255,0.4)]">+{quest.xp} XP</span>
-              <span className="text-xs font-black uppercase tracking-widest text-[#ec4899] font-['Rajdhani']">◈ {quest.coins}</span>
+              <span className="text-xs font-black uppercase tracking-widest text-[#00f0ff] font-['Rajdhani'] drop-shadow-[0_0_5px_rgba(0,240,255,0.4)]">+{xp} XP</span>
+              <span className="text-xs font-black uppercase tracking-widest text-[#ec4899] font-['Rajdhani']">◈ {coins}</span>
             </div>
           )}
         </div>

@@ -1,25 +1,12 @@
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState, AppDispatch } from "../store/store";
+import { fetchGlobalLeaderboard, fetchFriendsLeaderboard, fetchMyLeaderboardRank } from "../store/slices/leaderboardSlice";
 
 type View = "global" | "friends";
 
-const GLOBAL = [
-  { rank: 1, name: "Zara Chen", rankTitle: "Grand Master", tier: 8, level: 42, xp: 128400, streak: 87, change: 0, avatar: "🦅", you: false, guild: "Apex" },
-  { rank: 2, name: "Marcus Webb", rankTitle: "Grand Master", tier: 8, level: 39, xp: 118200, streak: 61, change: 2, avatar: "⚡", you: false, guild: "Storm" },
-  { rank: 3, name: "Priya Nair", rankTitle: "Master", tier: 7, level: 37, xp: 109600, streak: 44, change: -1, avatar: "🌙", you: false, guild: "Night Owls" },
-  { rank: 4, name: "Devon Asher", rankTitle: "Expert", tier: 6, level: 35, xp: 98100, streak: 33, change: 1, avatar: "🔥", you: false, guild: "Inferno" },
-  { rank: 5, name: "Sofia Reyes", rankTitle: "Specialist", tier: 5, level: 33, xp: 87300, streak: 29, change: -2, avatar: "🚀", you: false, guild: "Cosmos" },
-  { rank: 6, name: "Kira Stone", rankTitle: "Adept", tier: 4, level: 31, xp: 76400, streak: 18, change: 3, avatar: "🌟", you: false, guild: "Lumina" },
-  { rank: 7, name: "James Park", rankTitle: "Adept", tier: 4, level: 28, xp: 64200, streak: 22, change: 0, avatar: "💎", you: false, guild: "Crystal" },
-  { rank: 8, name: "Aiden", rankTitle: "Journeyman", tier: 3, level: 7, xp: 3420, streak: 7, change: 0, avatar: "⚔️", you: true, guild: "None" },
-];
-
-const FRIENDS = [
-  { rank: 1, name: "Alex Torres", rankTitle: "Journeyman", tier: 3, level: 22, xp: 48200, streak: 15, change: 0, avatar: "☄", you: false, guild: "Shadow" },
-  { rank: 2, name: "Jamie Liu", rankTitle: "Apprentice", tier: 2, level: 18, xp: 34600, streak: 9, change: 1, avatar: "🛠", you: false, guild: "Iron Hands" },
-  { rank: 3, name: "Aiden", rankTitle: "Journeyman", tier: 3, level: 7, xp: 3420, streak: 7, change: 1, avatar: "⚔️", you: true, guild: "None" },
-  { rank: 4, name: "Sam Rivera", rankTitle: "Novice", tier: 1, level: 5, xp: 1840, streak: 3, change: -1, avatar: "🗺", you: false, guild: "None" },
-];
+// Static data removed in favor of Redux state
 
 // Tier → color map
 const TIER_COLORS: Record<number, string> = {
@@ -34,7 +21,7 @@ const PODIUM_CONFIG = [
   { bg: "rgba(205,127,50,0.1)", border: "rgba(205,127,50,0.3)", color: "#cd7f32", glow: "rgba(205,127,50,0.15)", label: "III", scale: 0.85, zIndex: 10 },
 ];
 
-function Podium({ entries }: { entries: typeof GLOBAL }) {
+function Podium({ entries }: { entries: any[] }) {
   const top3 = entries.slice(0, 3);
   // Order: 2nd, 1st, 3rd
   const ordered = [top3[1], top3[0], top3[2]];
@@ -123,7 +110,7 @@ function Podium({ entries }: { entries: typeof GLOBAL }) {
   );
 }
 
-function LeaderRow({ entry, index }: { entry: typeof GLOBAL[0]; index: number }) {
+function LeaderRow({ entry, index }: { entry: any; index: number }) {
   const tc = TIER_COLORS[entry.tier] || "#9ca3af";
   const isTop3 = entry.rank <= 3;
 
@@ -191,7 +178,7 @@ function LeaderRow({ entry, index }: { entry: typeof GLOBAL[0]; index: number })
         <div className="flex items-center justify-between sm:justify-end gap-6 sm:gap-8 text-xs flex-shrink-0 w-full sm:w-auto mt-2 sm:mt-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[rgba(255,255,255,0.05)] relative z-10">
           <div className="text-left sm:text-right">
              <p className="text-[9px] uppercase tracking-widest text-[rgba(232,232,240,0.4)] font-['Rajdhani'] mb-0.5">Total XP</p>
-            <p className="font-black stat-num text-sm md:text-base" style={{ color: "#00f0ff", dropShadow: "0 0 5px rgba(0,240,255,0.3)" }}>
+            <p className="font-black stat-num text-sm md:text-base" style={{ color: "#00f0ff", filter: "drop-shadow(0 0 5px rgba(0,240,255,0.3))" }}>
               {entry.xp.toLocaleString()}
             </p>
           </div>
@@ -199,7 +186,7 @@ function LeaderRow({ entry, index }: { entry: typeof GLOBAL[0]; index: number })
             <p className="text-[9px] uppercase tracking-widest text-[rgba(232,232,240,0.4)] font-['Rajdhani'] mb-0.5">Streak</p>
             <p className="flex items-center gap-1 justify-start sm:justify-end">
               <span className="flame-pulse inline-block text-xs md:text-sm">🔥</span>
-              <span className="font-black stat-num text-sm md:text-base" style={{ color: "#ec4899", dropShadow: "0 0 5px rgba(236,72,153,0.3)" }}>{entry.streak}</span>
+              <span className="font-black stat-num text-sm md:text-base" style={{ color: "#ec4899", filter: "drop-shadow(0 0 5px rgba(236,72,153,0.3))" }}>{entry.streak}</span>
             </p>
           </div>
           <div className="w-12 text-right">
@@ -220,9 +207,35 @@ function LeaderRow({ entry, index }: { entry: typeof GLOBAL[0]; index: number })
 }
 
 export default function Leaderboard() {
+  const dispatch = useDispatch<AppDispatch>();
+  const { global, friends, me } = useSelector((state: RootState) => state.leaderboard);
+  const authUser = useSelector((state: RootState) => state.auth.user);
+
+  useEffect(() => {
+    dispatch(fetchGlobalLeaderboard(100));
+    dispatch(fetchFriendsLeaderboard(100));
+    dispatch(fetchMyLeaderboardRank());
+  }, [dispatch]);
+
   const [view, setView] = useState<View>("global");
-  const data = view === "global" ? GLOBAL : FRIENDS;
-  const you = data.find((e) => e.you);
+  
+  const mapEntry = (e: any, index: number) => ({
+    rank: e.rank || index + 1,
+    name: e.user?.username || "Unknown",
+    rankTitle: "Journeyman", // Placeholder until title is added to state
+    tier: 3, // Placeholder
+    level: e.user?.level || 1,
+    xp: e.xp || 0,
+    streak: e.currentStreak || 0,
+    change: 0,
+    avatar: e.user?.avatarId ? "👤" : "🌟",
+    you: e.user?.id === authUser?.id,
+    guild: "None", // Placeholder
+  });
+
+  const rawData = view === "global" ? global : friends;
+  const data = rawData.map(mapEntry);
+  const you = data.find((e) => e.you) || (me ? mapEntry(me, me.rank ? me.rank - 1 : 999) : null);
   const remaining = data.slice(3);
 
   return (

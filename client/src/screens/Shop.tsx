@@ -1,5 +1,8 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState, AppDispatch } from "../store/store";
+import { fetchShopCatalog, purchaseItem } from "../store/slices/shopSlice";
 
 type Category = "all" | "avatars" | "skins" | "frames" | "effects" | "titles";
 type Rarity = "common" | "rare" | "epic" | "legendary";
@@ -25,21 +28,7 @@ const RARITY = {
   legendary: { label: "Legendary", color: "#00f0ff", bg: "rgba(0,240,255,0.15)", border: "rgba(0,240,255,0.4)", glow: "rgba(0,240,255,0.7)" },
 };
 
-const ITEMS: ShopItem[] = [
-  { id: "streak-recovery", name: "Streak Recovery", desc: "Restore a broken streak. One-time use.", icon: "🛡", cost: 200, category: "all", pinned: true, rarity: "rare", owned: false },
-  { id: "a1", name: "Void Knight", desc: "A warrior forged in dark matter", icon: "🗡", cost: 450, category: "avatars", rarity: "rare", owned: false },
-  { id: "a2", name: "Cyber Sage", desc: "Wisdom radiating cyan energy", icon: "☀", cost: 550, category: "avatars", rarity: "epic", owned: true },
-  { id: "a3", name: "Ember Drake", desc: "The apex predator of fire", icon: "🔥", cost: 900, category: "avatars", rarity: "legendary", owned: false, rankRequired: "Expert", rankTier: 6 },
-  { id: "f1", name: "Cyan Halo", desc: "Electric cyan profile frame", icon: "◎", cost: 300, category: "frames", rarity: "rare", owned: false },
-  { id: "f2", name: "Cosmic Ring", desc: "Deep space rotating frame", icon: "◉", cost: 400, category: "frames", rarity: "epic", owned: true },
-  { id: "f3", name: "Prismatic Crown", desc: "Enlightened-exclusive legendary frame", icon: "♛", cost: 2000, category: "frames", rarity: "legendary", owned: false, rankRequired: "Enlightened", rankTier: 9 },
-  { id: "e1", name: "Ember Trail", desc: "Floating ember particles on your card", icon: "✦", cost: 600, category: "effects", rarity: "epic", owned: false },
-  { id: "e2", name: "Starfield Aura", desc: "Miniature starfield background", icon: "★", cost: 700, category: "effects", rarity: "epic", owned: false },
-  { id: "t1", name: "The Obsidian", desc: "Rare dark-prestige title", icon: "◈", cost: 800, category: "titles", rarity: "rare", owned: false },
-  { id: "t2", name: "Forgemaster", desc: "Master tier unlock only", icon: "⚒", cost: 1000, category: "titles", rarity: "legendary", owned: false, rankRequired: "Master", rankTier: 7 },
-  { id: "s1", name: "Void UI Theme", desc: "Deep violet interface skin", icon: "◐", cost: 350, category: "skins", rarity: "common", owned: false },
-  { id: "s2", name: "Neon Theme", desc: "Cyan-on-dark interface skin", icon: "◑", cost: 350, category: "skins", rarity: "rare", owned: false },
-];
+// Static ITEMS removed in favor of Redux state
 
 const CATEGORIES: { id: Category; label: string }[] = [
   { id: "all", label: "All" },
@@ -52,11 +41,11 @@ const CATEGORIES: { id: Category; label: string }[] = [
 
 const USER_RANK_TIER = 3; // Journeyman
 
-function ShopSlot({ item, coins, onBuy }: { item: ShopItem; coins: number; onBuy: (id: string, cost: number) => void }) {
+function ShopSlot({ item, coins, onBuy }: { item: any; coins: number; onBuy: (id: string, cost: number) => void }) {
   const [hover, setHover] = useState(false);
-  const r = RARITY[item.rarity];
+  const r = RARITY[(item.rarity as Rarity) || 'common'] || RARITY.common;
   const rankLocked = item.rankTier !== undefined && USER_RANK_TIER < item.rankTier;
-  const canAfford = coins >= item.cost && !rankLocked && !item.owned;
+  const canAfford = coins >= (item.price || item.cost) && !rankLocked && !(item.isOwned || item.owned);
 
   return (
     <motion.div
@@ -106,16 +95,16 @@ function ShopSlot({ item, coins, onBuy }: { item: ShopItem; coins: number; onBuy
             boxShadow: hover && !rankLocked ? `0 0 20px ${r.glow}` : "none",
           }}>
           <span style={{ filter: hover && !rankLocked ? `drop-shadow(0 0 10px ${r.color})` : "none" }}>
-             {rankLocked ? "🔒" : item.icon}
+             {rankLocked ? "🔒" : (item.metadata?.icon || item.icon || "✦")}
           </span>
         </div>
 
-        <h3 className="font-black text-lg md:text-xl text-center mb-1 uppercase tracking-wider relative z-10 transition-colors" style={{ fontFamily: "Rajdhani, sans-serif", color: item.owned ? r.color : rankLocked ? "rgba(232,232,240,0.4)" : "#fff" }}>
+        <h3 className="font-black text-lg md:text-xl text-center mb-1 uppercase tracking-wider relative z-10 transition-colors" style={{ fontFamily: "Rajdhani, sans-serif", color: (item.isOwned || item.owned) ? r.color : rankLocked ? "rgba(232,232,240,0.4)" : "#fff" }}>
           {item.name}
         </h3>
         
         <p className="text-[10px] md:text-xs text-center flex-1 mb-5 relative z-10 font-['Inter'] uppercase tracking-widest leading-relaxed" style={{ color: "rgba(232,232,240,0.5)" }}>
-          {item.desc}
+          {item.description || item.desc}
         </p>
 
         {/* Rank-locked label */}
@@ -130,16 +119,16 @@ function ShopSlot({ item, coins, onBuy }: { item: ShopItem; coins: number; onBuy
           <div className="flex items-center justify-between w-full">
             <span className="text-sm md:text-base font-black flex items-center gap-1.5 uppercase tracking-widest" style={{ color: rankLocked ? "rgba(232,232,240,0.3)" : "#00f0ff", fontFamily: "Rajdhani, sans-serif" }}>
               <span className="text-[10px]">◈</span>
-              {item.cost.toLocaleString()}
+              {(item.price || item.cost || 0).toLocaleString()}
             </span>
-            {item.owned ? (
+            {(item.isOwned || item.owned) ? (
               <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 flex items-center gap-1" style={{ background: r.bg, color: r.color, border: `1px solid ${r.border}`, clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))" }}>
                 <span>✓</span> Acquired
               </span>
             ) : (
               <motion.button
                 whileTap={{ scale: 0.95 }}
-                onClick={() => canAfford && onBuy(item.id, item.cost)}
+                onClick={() => canAfford && onBuy(item.id, item.price || item.cost)}
                 disabled={!canAfford || rankLocked}
                 className="text-[10px] md:text-xs px-4 py-1.5 font-black uppercase tracking-widest transition-all relative overflow-hidden group/btn disabled:cursor-not-allowed"
                 style={{
@@ -162,18 +151,32 @@ function ShopSlot({ item, coins, onBuy }: { item: ShopItem; coins: number; onBuy
 }
 
 export default function Shop() {
+  const dispatch = useDispatch<AppDispatch>();
+  const { catalog } = useSelector((state: RootState) => state.shop);
+
+  useEffect(() => {
+    dispatch(fetchShopCatalog());
+  }, [dispatch]);
+
   const [tab, setTab] = useState<Category>("all");
-  const [coins, setCoins] = useState(1240);
   const [toast, setToast] = useState<string | null>(null);
 
-  const handleBuy = (id: string, cost: number) => {
-    setCoins((c) => c - cost);
-    setToast("Item Acquired successfully.");
-    setTimeout(() => setToast(null), 2500);
+  const handleBuy = async (id: string, cost: number) => {
+    const result = await dispatch(purchaseItem(id));
+    if (purchaseItem.fulfilled.match(result)) {
+      setToast("Item Acquired successfully.");
+      setTimeout(() => setToast(null), 2500);
+    } else {
+      setToast("Insufficient funds or error.");
+      setTimeout(() => setToast(null), 2500);
+    }
   };
 
-  const visible = (tab === "all" ? ITEMS : ITEMS.filter((i) => i.category === tab))
-    .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+  const activeItems = catalog?.items || [];
+  const currentCoins = catalog?.coins || 0;
+
+  const visible = (tab === "all" ? activeItems : activeItems.filter((i: any) => i.type === tab || i.category === tab))
+    .sort((a: any, b: any) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
 
   return (
     <div className="p-6 md:p-8 max-w-6xl mx-auto min-h-screen bg-transparent relative overflow-hidden">
@@ -218,7 +221,7 @@ export default function Shop() {
           <div className="flex flex-col">
              <span className="text-[8px] uppercase tracking-widest text-[rgba(0,240,255,0.7)] font-black leading-none mb-0.5">Available Balance</span>
              <span className="font-black text-xl md:text-2xl stat-num leading-none drop-shadow-[0_0_8px_rgba(0,240,255,0.5)]" style={{ color: "#00f0ff", fontFamily: "Rajdhani, sans-serif" }}>
-               {coins.toLocaleString()}
+               {currentCoins.toLocaleString()}
              </span>
           </div>
         </div>
@@ -271,7 +274,7 @@ export default function Shop() {
                transition={{ delay: i * 0.03, type: "spring", stiffness: 300, damping: 25 }}
                className="h-full"
              >
-               <ShopSlot item={item} coins={coins} onBuy={handleBuy} />
+               <ShopSlot item={item} coins={currentCoins} onBuy={handleBuy} />
              </motion.div>
            ))}
         </AnimatePresence>

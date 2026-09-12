@@ -1,5 +1,8 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState, AppDispatch } from "../store/store";
+import { fetchQuests, Quest } from "../store/slices/questSlice";
 import GlassCard from "../components/GlassCard";
 
 const PROJECTS = [
@@ -89,9 +92,11 @@ function ProgressRing({ pct, color, size = 60 }: { pct: number; color: string; s
   );
 }
 
-function ProjectDetail({ project, onBack }: { project: typeof PROJECTS[0]; onBack: () => void }) {
-  const tasks = PROJECT_TASKS[project.id] || [];
-  const pct = Math.round((project.completed / project.tasks) * 100);
+function ProjectDetail({ project, onBack }: { project: any; onBack: () => void }) {
+  const tasks = project.objectives || PROJECT_TASKS[project.id as keyof typeof PROJECT_TASKS] || [];
+  const completedTasks = project.status === 'completed' ? tasks.length : (project.progress?.current || project.completed || 0);
+  const totalTasks = tasks.length || project.tasks || 1;
+  const pct = Math.round((completedTasks / totalTasks) * 100);
 
   return (
     <motion.div
@@ -105,114 +110,143 @@ function ProjectDetail({ project, onBack }: { project: typeof PROJECTS[0]; onBac
         <span className="text-lg leading-none group-hover:-translate-x-1 transition-transform">←</span> Return to Archive
       </button>
 
-      <div className="relative p-6 md:p-8 bg-[rgba(15,15,22,0.7)] border border-[rgba(255,255,255,0.05)] overflow-hidden group" style={{ clipPath: "polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))" }}>
-         {/* Holographic background elements */}
-         <div className="absolute top-0 right-0 w-64 h-64 opacity-10 pointer-events-none blur-3xl" style={{ background: `radial-gradient(circle, ${project.color}, transparent 70%)` }} />
-         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none opacity-20" />
-         
-         <div className="absolute top-0 left-0 w-2 h-full" style={{ background: project.color, boxShadow: `0 0 15px ${project.color}` }} />
+      {project && (() => {
+        const title = project.title || project.name || "Untitled Campaign";
+        const color = project.color || "#00f0ff";
+        const xpBonus = project.xpBonus !== undefined ? project.xpBonus : (project.bonusXP || 0);
+        const coins = project.coins !== undefined ? project.coins : (project.bonusCoins || 0);
+        const completedTasks = project.status === 'completed' 
+          ? (project.totalTasks || project.tasks || 1) 
+          : (typeof project.progress === 'number' ? project.progress : (project.progress?.current || project.completedTasks || project.completed || 0));
+        const totalTasks = project.totalTasks || project.tasks || 1;
+        const pct = Math.round((completedTasks / totalTasks) * 100);
 
-        <div className="flex flex-col md:flex-row items-start md:items-center gap-6 md:gap-8 relative z-10 pl-4">
-          <div className="w-20 h-20 md:w-24 md:h-24 hex-clip flex items-center justify-center text-4xl flex-shrink-0"
-            style={{ 
-              background: `linear-gradient(135deg, ${project.color}20, rgba(10,10,15,0.8))`, 
-              border: `1px solid ${project.color}50`,
-              boxShadow: `inset 0 0 20px ${project.color}20` 
-            }}>
-            <span style={{ filter: `drop-shadow(0 0 8px ${project.color}80)` }}>{project.icon}</span>
-          </div>
-          
-          <div className="flex-1">
-             <div className="text-[10px] uppercase font-bold tracking-[0.3em] mb-1 font-['Rajdhani']" style={{ color: project.color }}>
-               Active Campaign
-             </div>
-            <h2 className="text-3xl md:text-5xl font-black mb-2 uppercase tracking-wider text-white" style={{ fontFamily: "Rajdhani, sans-serif" }}>{project.title}</h2>
-            <p className="text-[10px] md:text-xs uppercase tracking-widest mb-6 font-['Inter']" style={{ color: "rgba(232,232,240,0.5)" }}>{project.description}</p>
-            
-            <div className="flex flex-wrap items-center gap-4 md:gap-6 text-sm">
-              <div className="flex items-center gap-3">
-                <ProgressRing pct={pct} color={project.color} size={48} />
-                <div className="flex flex-col">
-                  <span className="font-black text-lg leading-none" style={{ color: project.color, fontFamily: "Rajdhani, sans-serif" }}>{pct}%</span>
-                  <span className="text-[9px] uppercase tracking-widest" style={{ color: "rgba(232,232,240,0.4)" }}>Completion</span>
+        return (
+          <>
+            <div className="relative p-6 md:p-8 bg-[rgba(15,15,22,0.7)] border border-[rgba(255,255,255,0.05)] overflow-hidden group" style={{ clipPath: "polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))" }}>
+               {/* Holographic background elements */}
+               <div className="absolute top-0 right-0 w-64 h-64 opacity-10 pointer-events-none blur-3xl" style={{ background: `radial-gradient(circle, ${color}, transparent 70%)` }} />
+               <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none opacity-20" />
+               
+               <div className="absolute top-0 left-0 w-2 h-full" style={{ background: color, boxShadow: `0 0 15px ${color}` }} />
+
+              <div className="flex flex-col md:flex-row items-start md:items-center gap-6 md:gap-8 relative z-10 pl-4">
+                <div className="w-20 h-20 md:w-24 md:h-24 hex-clip flex items-center justify-center text-4xl flex-shrink-0"
+                  style={{ 
+                    background: `linear-gradient(135deg, ${color}20, rgba(10,10,15,0.8))`, 
+                    border: `1px solid ${color}50`,
+                    boxShadow: `inset 0 0 20px ${color}20` 
+                  }}>
+                  <span style={{ filter: `drop-shadow(0 0 8px ${color}80)` }}>{project.icon || "🚀"}</span>
+                </div>
+                
+                <div className="flex-1">
+                   <div className="text-[10px] uppercase font-bold tracking-[0.3em] mb-1 font-['Rajdhani']" style={{ color: color }}>
+                     Active Campaign
+                   </div>
+                  <h2 className="text-3xl md:text-5xl font-black mb-2 uppercase tracking-wider text-white" style={{ fontFamily: "Rajdhani, sans-serif" }}>{title}</h2>
+                  <p className="text-[10px] md:text-xs uppercase tracking-widest mb-6 font-['Inter']" style={{ color: "rgba(232,232,240,0.5)" }}>{project.description}</p>
+                  
+                  <div className="flex flex-wrap items-center gap-4 md:gap-6 text-sm">
+                    <div className="flex items-center gap-3">
+                      <ProgressRing pct={pct} color={color} size={48} />
+                      <div className="flex flex-col">
+                        <span className="font-black text-lg leading-none" style={{ color: color, fontFamily: "Rajdhani, sans-serif" }}>{pct}%</span>
+                        <span className="text-[9px] uppercase tracking-widest" style={{ color: "rgba(232,232,240,0.4)" }}>Completion</span>
+                      </div>
+                    </div>
+                    
+                    <div className="h-8 w-px bg-white/10 hidden md:block" />
+
+                    <div className="flex gap-2">
+                      <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-1.5 flex items-center gap-1.5"
+                        style={{ background: "rgba(0,240,255,0.1)", color: "#00f0ff", border: "1px solid rgba(0,240,255,0.3)", clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))" }}>
+                         <span className="text-xs">✦</span> {xpBonus} XP
+                      </span>
+                      <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-1.5 flex items-center gap-1.5"
+                        style={{ background: "rgba(0,240,255,0.1)", color: "#00f0ff", border: "1px solid rgba(0,240,255,0.3)", clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))" }}>
+                         <span className="text-xs">◈</span> {coins}
+                      </span>
+                      <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-1.5 flex items-center gap-1.5"
+                        style={{ background: "rgba(255,255,255,0.05)", color: "rgba(232,232,240,0.6)", border: "1px solid rgba(255,255,255,0.1)", clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))" }}>
+                         <span className="text-xs opacity-70">⏱</span> {project.dueDate || "N/A"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
-              
-              <div className="h-8 w-px bg-white/10 hidden md:block" />
-
-              <div className="flex gap-2">
-                <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-1.5 flex items-center gap-1.5"
-                  style={{ background: "rgba(0,240,255,0.1)", color: "#00f0ff", border: "1px solid rgba(0,240,255,0.3)", clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))" }}>
-                   <span className="text-xs">✦</span> {project.xpBonus} XP
-                </span>
-                <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-1.5 flex items-center gap-1.5"
-                  style={{ background: "rgba(0,240,255,0.1)", color: "#00f0ff", border: "1px solid rgba(0,240,255,0.3)", clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))" }}>
-                   <span className="text-xs">◈</span> {project.coins}
-                </span>
-                <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-1.5 flex items-center gap-1.5"
-                  style={{ background: "rgba(255,255,255,0.05)", color: "rgba(232,232,240,0.6)", border: "1px solid rgba(255,255,255,0.1)", clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))" }}>
-                   <span className="text-xs opacity-70">⏱</span> {project.dueDate}
-                </span>
-              </div>
             </div>
-          </div>
-        </div>
-      </div>
 
-      <div className="space-y-3 mt-8">
-         <div className="flex items-center gap-3 mb-4">
-            <span className="text-[#00f0ff] animate-pulse">◈</span>
-            <h3 className="text-lg font-black uppercase tracking-widest font-['Rajdhani'] text-white">Campaign Objectives</h3>
-            <div className="flex-1 h-px bg-gradient-to-r from-[rgba(255,255,255,0.1)] to-transparent" />
-         </div>
+            <div className="space-y-3 mt-8">
+               <div className="flex items-center gap-3 mb-4">
+                  <span className="text-[#00f0ff] animate-pulse">◈</span>
+                  <h3 className="text-lg font-black uppercase tracking-widest font-['Rajdhani'] text-white">Campaign Objectives</h3>
+                  <div className="flex-1 h-px bg-gradient-to-r from-[rgba(255,255,255,0.1)] to-transparent" />
+               </div>
 
-        {tasks.map((task, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 + i * 0.08 }}
-            className="group"
-          >
-            <div className="p-4 flex items-center gap-4 bg-[rgba(15,15,22,0.6)] border border-[rgba(255,255,255,0.03)] hover:bg-[rgba(20,20,30,0.8)] hover:border-[rgba(255,255,255,0.1)] transition-all cursor-pointer relative overflow-hidden" 
-                 style={{ clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))" }}>
-               
-               {/* Hover effect glow */}
-               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.02)] to-transparent -translate-x-full group-hover:animate-[shimmer_1s_infinite] pointer-events-none" />
+              {tasks.map((task: any, i: number) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 + i * 0.08 }}
+                  className="group"
+                >
+                  <div className="p-4 flex items-center gap-4 bg-[rgba(15,15,22,0.6)] border border-[rgba(255,255,255,0.03)] hover:bg-[rgba(20,20,30,0.8)] hover:border-[rgba(255,255,255,0.1)] transition-all cursor-pointer relative overflow-hidden" 
+                       style={{ clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))" }}>
+                     
+                     {/* Hover effect glow */}
+                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.02)] to-transparent -translate-x-full group-hover:animate-[shimmer_1s_infinite] pointer-events-none" />
 
-              <div className="w-6 h-6 border flex items-center justify-center flex-shrink-0 transition-all z-10"
-                style={{
-                  background: task.done ? project.color : "transparent",
-                  borderColor: task.done ? project.color : "rgba(255,255,255,0.2)",
-                  transform: task.done ? "rotate(45deg)" : "rotate(0deg)",
-                  boxShadow: task.done ? `0 0 10px ${project.color}80` : "none"
-                }}>
-                {task.done && <span className="text-black text-xs font-black" style={{ transform: "rotate(-45deg)" }}>✓</span>}
-              </div>
-              
-              <div className="flex-1 z-10">
-                 <p className="text-sm font-bold uppercase tracking-wider transition-colors" style={{
-                   color: task.done ? "rgba(232,232,240,0.3)" : "#e8e8f0",
-                   textDecoration: task.done ? "line-through" : "none",
-                   fontFamily: "Rajdhani, sans-serif"
-                 }}>
-                   {task.title}
-                 </p>
-              </div>
+                    <div className="w-6 h-6 border flex items-center justify-center flex-shrink-0 transition-all z-10"
+                      style={{
+                        background: task.done ? color : "transparent",
+                        borderColor: task.done ? color : "rgba(255,255,255,0.2)",
+                        transform: task.done ? "rotate(45deg)" : "rotate(0deg)",
+                        boxShadow: task.done ? `0 0 10px ${color}80` : "none"
+                      }}>
+                      {task.done && <span className="text-black text-xs font-black" style={{ transform: "rotate(-45deg)" }}>✓</span>}
+                    </div>
+                    
+                    <div className="flex-1 z-10">
+                       <p className="text-sm font-bold uppercase tracking-wider transition-colors" style={{
+                         color: task.done ? "rgba(232,232,240,0.3)" : "#e8e8f0",
+                         textDecoration: task.done ? "line-through" : "none",
+                         fontFamily: "Rajdhani, sans-serif"
+                       }}>
+                         {task.title}
+                       </p>
+                    </div>
 
-              <span className="text-[10px] font-black uppercase tracking-widest z-10" style={{ color: task.done ? "rgba(0,240,255,0.3)" : "#00f0ff" }}>
-                 +{task.xp} XP
-              </span>
+                    <span className="text-[10px] font-black uppercase tracking-widest z-10" style={{ color: task.done ? "rgba(0,240,255,0.3)" : "#00f0ff" }}>
+                       +{task.xp || 0} XP
+                    </span>
+                  </div>
+                </motion.div>
+              ))}
             </div>
-          </motion.div>
-        ))}
-      </div>
+          </>
+        );
+      })()}
     </motion.div>
   );
 }
 
 export default function Projects() {
-  const [selected, setSelected] = useState<typeof PROJECTS[0] | null>(null);
+  const dispatch = useDispatch<AppDispatch>();
+  const { quests, status } = useSelector((state: RootState) => state.quests);
+
+  useEffect(() => {
+    dispatch(fetchQuests());
+  }, [dispatch]);
+
+  const activeQuests = quests.filter((q) => q.status === "active");
+  const availableQuests = quests.filter((q) => q.status !== "active");
+
+  const [activeTab, setActiveTab] = useState<"available" | "active">("available");
+  const allProjects: any[] = [...activeQuests, ...availableQuests].length > 0 ? [...activeQuests, ...availableQuests] : PROJECTS;
+
+  const [selected, setSelected] = useState<any | null>(null);
 
   return (
     <div className="p-6 md:p-8 max-w-6xl mx-auto min-h-screen bg-transparent">
@@ -230,11 +264,19 @@ export default function Projects() {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6">
-              {PROJECTS.map((p, i) => {
-                const pct = Math.round((p.completed / p.tasks) * 100);
+              {allProjects.map((p, i) => {
+                const title = p.title || p.name || "Untitled Campaign";
+                const xpBonus = p.xpBonus !== undefined ? p.xpBonus : (p.bonusXP || 0);
+                const coins = p.coins !== undefined ? p.coins : (p.bonusCoins || 0);
+                const completedTasks = p.status === 'completed' 
+                  ? (p.totalTasks || p.tasks || 1) 
+                  : (typeof p.progress === 'number' ? p.progress : (p.progress?.current || p.completedTasks || p.completed || 0));
+                const totalTasks = p.totalTasks || p.tasks || 1;
+                const pct = Math.round((completedTasks / totalTasks) * 100);
+                const color = p.color || "#00f0ff";
                 return (
                   <motion.div
-                    key={p.id}
+                    key={p.id || i}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.1 }}
@@ -245,28 +287,28 @@ export default function Projects() {
                       style={{ clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))" }}
                     >
                       {/* Hover Effects */}
-                      <div className="absolute top-0 right-0 w-32 h-32 opacity-0 group-hover:opacity-10 transition-opacity pointer-events-none blur-3xl" style={{ background: `radial-gradient(circle, ${p.color}, transparent 70%)` }} />
+                      <div className="absolute top-0 right-0 w-32 h-32 opacity-0 group-hover:opacity-10 transition-opacity pointer-events-none blur-3xl" style={{ background: `radial-gradient(circle, ${color}, transparent 70%)` }} />
                       <div className="absolute inset-0 bg-gradient-to-br from-[rgba(255,255,255,0.03)] to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                       
                       {/* Left accent border */}
-                      <div className="absolute top-0 left-0 w-1 h-full opacity-50 group-hover:opacity-100 transition-opacity" style={{ background: p.color, boxShadow: `0 0 10px ${p.color}` }} />
+                      <div className="absolute top-0 left-0 w-1 h-full opacity-50 group-hover:opacity-100 transition-opacity" style={{ background: color, boxShadow: `0 0 10px ${color}` }} />
 
                       <div className="p-6 md:p-8 relative z-10 flex flex-col h-full">
                         <div className="flex items-start justify-between mb-6">
                           <div className="w-14 h-14 hex-clip flex items-center justify-center text-2xl"
-                            style={{ background: `${p.color}20`, border: `1px solid ${p.color}40`, boxShadow: `inset 0 0 10px ${p.color}20` }}>
-                            <span style={{ filter: `drop-shadow(0 0 5px ${p.color})` }}>{p.icon}</span>
+                            style={{ background: `${color}20`, border: `1px solid ${color}40`, boxShadow: `inset 0 0 10px ${color}20` }}>
+                            <span style={{ filter: `drop-shadow(0 0 5px ${color})` }}>{p.icon || '🚀'}</span>
                           </div>
                           <div className="relative">
-                            <ProgressRing pct={pct} color={p.color} size={54} />
+                            <ProgressRing pct={pct} color={color} size={54} />
                              <div className="absolute inset-0 flex items-center justify-center">
-                               <span className="text-[10px] font-black" style={{ color: p.color, fontFamily: "Rajdhani, sans-serif" }}>{pct}%</span>
+                               <span className="text-[10px] font-black" style={{ color: color, fontFamily: "Rajdhani, sans-serif" }}>{pct}%</span>
                              </div>
                           </div>
                         </div>
                         
                         <div className="flex-1">
-                           <h3 className="text-xl md:text-2xl font-black uppercase tracking-wider mb-2 text-white group-hover:text-[#00f0ff] transition-colors" style={{ fontFamily: "Rajdhani, sans-serif" }}>{p.title}</h3>
+                           <h3 className="text-xl md:text-2xl font-black uppercase tracking-wider mb-2 text-white group-hover:text-[#00f0ff] transition-colors" style={{ fontFamily: "Rajdhani, sans-serif" }}>{title}</h3>
                            <p className="text-[10px] md:text-xs uppercase tracking-widest leading-relaxed mb-6 font-['Inter'] line-clamp-2" style={{ color: "rgba(232,232,240,0.5)" }}>{p.description}</p>
                         </div>
                         
@@ -274,10 +316,10 @@ export default function Projects() {
                            <div className="flex items-center justify-between">
                              <div className="flex items-center gap-1.5">
                                 <span className="text-[#00f0ff] text-xs">✦</span>
-                                <span className="text-[10px] font-black uppercase tracking-widest text-[#00f0ff]">{p.xpBonus} XP Bonus</span>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-[#00f0ff]">{xpBonus} XP Bonus</span>
                              </div>
                              <span className="text-[10px] font-black uppercase tracking-widest text-[rgba(232,232,240,0.4)]">
-                               {p.completed} / {p.tasks} OBJS
+                               {completedTasks} / {totalTasks} OBJS
                              </span>
                            </div>
 
@@ -287,7 +329,7 @@ export default function Projects() {
                                animate={{ width: `${pct}%` }}
                                transition={{ type: "spring", stiffness: 50, damping: 20, delay: 0.3 + i * 0.1 }}
                                className="h-full rounded-full relative"
-                               style={{ background: p.color, boxShadow: `0 0 8px ${p.color}80` }}
+                               style={{ background: color, boxShadow: `0 0 8px ${color}80` }}
                              >
                                 <div className="absolute inset-0 bg-white/20 w-full animate-[shimmer_2s_infinite]" />
                              </motion.div>

@@ -1,5 +1,8 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState, AppDispatch } from "../store/store";
+import { generateQuestCampaign, clearCampaignStatus } from "../store/slices/aiSlice";
 import GlassCard from "../components/GlassCard";
 
 interface GeneratedTask {
@@ -10,38 +13,7 @@ interface GeneratedTask {
   day: number;
 }
 
-function generateTasks(goal: string): GeneratedTask[] {
-  const examples: Record<string, GeneratedTask[]> = {
-    default: [
-      { title: "Research and outline your approach", xp: 80, coins: 32, diff: "Easy", day: 1 },
-      { title: "Complete foundation milestone", xp: 120, coins: 48, diff: "Medium", day: 1 },
-      { title: "Build on momentum — intermediate step", xp: 150, coins: 60, diff: "Medium", day: 2 },
-      { title: "Challenge session — push limits", xp: 180, coins: 72, diff: "Hard", day: 3 },
-      { title: "Review and consolidate progress", xp: 90, coins: 36, diff: "Easy", day: 3 },
-      { title: "Final push — deliver the result", xp: 200, coins: 80, diff: "Hard", day: 5 },
-    ],
-  };
-  if (goal.toLowerCase().includes("run") || goal.toLowerCase().includes("fitness")) {
-    return [
-      { title: "Day 1: 20-min easy run — establish baseline", xp: 80, coins: 32, diff: "Easy", day: 1 },
-      { title: "Day 2: Dynamic stretching + mobility work", xp: 60, coins: 24, diff: "Easy", day: 2 },
-      { title: "Day 3: 30-min interval run (1:2 ratio)", xp: 120, coins: 48, diff: "Medium", day: 3 },
-      { title: "Day 5: Long slow distance — 45 minutes", xp: 150, coins: 60, diff: "Medium", day: 5 },
-      { title: "Day 7: Full 5K run attempt", xp: 200, coins: 80, diff: "Hard", day: 7 },
-    ];
-  }
-  if (goal.toLowerCase().includes("learn") || goal.toLowerCase().includes("course") || goal.toLowerCase().includes("study")) {
-    return [
-      { title: "Map the full learning path — outline 5 milestones", xp: 70, coins: 28, diff: "Easy", day: 1 },
-      { title: "Complete first module + take notes", xp: 100, coins: 40, diff: "Easy", day: 1 },
-      { title: "Build a small practice project", xp: 150, coins: 60, diff: "Medium", day: 3 },
-      { title: "Spaced repetition review session", xp: 80, coins: 32, diff: "Easy", day: 4 },
-      { title: "Teach-back exercise — explain what you learned", xp: 120, coins: 48, diff: "Medium", day: 5 },
-      { title: "Apply in a real project or portfolio piece", xp: 220, coins: 88, diff: "Hard", day: 7 },
-    ];
-  }
-  return examples.default;
-}
+// Dynamic generation removed in favor of Redux action
 
 const DIFF_COLORS: Record<string, string> = {
   Easy: "#10e07f", // Emerald
@@ -73,23 +45,28 @@ function HoloParticle({ delay, color = "#8b5cf6" }: { delay: number; color?: str
 }
 
 export default function AIPlanner() {
+  const dispatch = useDispatch<AppDispatch>();
+  const { campaignStatus, status, error } = useSelector((state: RootState) => state.ai);
+
+  useEffect(() => {
+    return () => {
+      dispatch(clearCampaignStatus());
+    };
+  }, [dispatch]);
+
   const [goal, setGoal] = useState("");
-  const [generating, setGenerating] = useState(false);
-  const [tasks, setTasks] = useState<GeneratedTask[] | null>(null);
   const [accepted, setAccepted] = useState(false);
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!goal.trim()) return;
-    setGenerating(true);
-    setTasks(null);
-    setTimeout(() => {
-      setTasks(generateTasks(goal));
-      setGenerating(false);
-    }, 2400);
+    dispatch(generateQuestCampaign({ goal }));
   };
 
-  const totalXP = tasks?.reduce((s, t) => s + t.xp, 0) ?? 0;
-  const totalCoins = tasks?.reduce((s, t) => s + t.coins, 0) ?? 0;
+  const tasks = campaignStatus?.tasks || null;
+  const generating = status === "loading";
+
+  const totalXP = tasks?.reduce((s: number, t: any) => s + t.xp, 0) ?? 0;
+  const totalCoins = tasks?.reduce((s: number, t: any) => s + t.coins, 0) ?? 0;
 
   return (
     <div className="relative min-h-screen pb-20 pt-8 px-4 md:px-8 max-w-4xl mx-auto selection:bg-[#8b5cf6] selection:text-[#0a0a12]">
@@ -198,7 +175,7 @@ export default function AIPlanner() {
             )}
 
             <div className="grid gap-4">
-              {tasks.map((task, i) => (
+              {tasks.map((task: any, i: number) => (
                 <motion.div
                   key={i}
                   initial={{ opacity: 0, x: -20, rotateX: 20 }}
@@ -225,12 +202,12 @@ export default function AIPlanner() {
                     <div className="flex-1">
                       <p className="text-sm md:text-base font-bold text-white mb-2">{task.title}</p>
                       <div className="flex flex-wrap items-center gap-3 text-[10px] md:text-xs font-['Rajdhani'] uppercase font-bold tracking-wider">
-                        <div className="flex items-center gap-1" style={{ color: DIFF_COLORS[task.diff] }}>
-                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: DIFF_COLORS[task.diff], boxShadow: `0 0 5px ${DIFF_COLORS[task.diff]}` }} />
-                          {task.diff}
+                        <div className="flex items-center gap-1" style={{ color: DIFF_COLORS[task.diff || 'Medium'] || '#00f0ff' }}>
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: DIFF_COLORS[task.diff || 'Medium'] || '#00f0ff', boxShadow: `0 0 5px ${DIFF_COLORS[task.diff || 'Medium'] || '#00f0ff'}` }} />
+                          {task.diff || 'Medium'}
                         </div>
                         <span className="text-[rgba(232,232,240,0.3)]">/</span>
-                        <span className="text-[rgba(232,232,240,0.6)]">Day {task.day}</span>
+                        <span className="text-[rgba(232,232,240,0.6)]">Day {task.day || i + 1}</span>
                         <span className="text-[rgba(232,232,240,0.3)]">/</span>
                         <span className="text-[#8b5cf6] border border-[#8b5cf6] px-2 py-0.5" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%)" }}>
                           AI-GENERATED
@@ -239,8 +216,8 @@ export default function AIPlanner() {
                     </div>
                     
                     <div className="text-left md:text-right flex md:flex-col gap-4 md:gap-1 mt-4 md:mt-0 font-['Rajdhani'] font-black text-sm tracking-wider">
-                      <p className="text-[#00f0ff] drop-shadow-[0_0_5px_rgba(0,240,255,0.4)]">+{task.xp} XP</p>
-                      <p className="text-[#ec4899]">◈ {task.coins}</p>
+                      <p className="text-[#00f0ff] drop-shadow-[0_0_5px_rgba(0,240,255,0.4)]">+{task.xp || 100} XP</p>
+                      <p className="text-[#ec4899]">◈ {task.coins || 50}</p>
                     </div>
                   </div>
                 </motion.div>
@@ -255,7 +232,7 @@ export default function AIPlanner() {
                 className="flex flex-col md:flex-row gap-4 mt-8"
               >
                 <button
-                  onClick={() => { setTasks(null); setGoal(""); }}
+                  onClick={() => { dispatch(clearCampaignStatus()); setGoal(""); }}
                   className="flex-1 px-8 py-3 font-black uppercase tracking-[0.2em] text-xs md:text-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.1)] text-[rgba(232,232,240,0.5)] hover:text-white hover:border-[rgba(255,255,255,0.3)] transition-all duration-300 font-['Rajdhani']"
                   style={{ clipPath: "polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)" }}
                 >

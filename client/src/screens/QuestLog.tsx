@@ -1,5 +1,9 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState, AppDispatch } from "../store/store";
+import { fetchTasks, completeTask } from "../store/slices/taskSlice";
+import { fetchQuests } from "../store/slices/questSlice";
 import GlassCard from "../components/GlassCard";
 
 type Tab = "daily" | "projects" | "ai";
@@ -78,13 +82,18 @@ function CountdownTimer({ deadline }: { deadline: string }) {
   );
 }
 
-function QuestCard({ task, index }: { task: Quest; index: number }) {
-  const [done, setDone] = useState(task.done);
+function QuestCard({ task, index, onComplete }: { task: any; index: number; onComplete?: (id: string) => void }) {
+  const [done, setDone] = useState(task.done || task.isCompleted);
   const [verifying, setVerifying] = useState(false);
 
+  const isOverdue = task.overdue || false;
+
   const handleComplete = () => {
-    if (done || verifying || task.overdue) return;
+    if (done || verifying || isOverdue) return;
     setVerifying(true);
+    if (onComplete && task.id) {
+      onComplete(task.id);
+    }
     setTimeout(() => { setVerifying(false); setDone(true); }, 2000);
   };
 
@@ -98,37 +107,37 @@ function QuestCard({ task, index }: { task: Quest; index: number }) {
       <div
         className="p-5 md:p-6 flex items-start gap-5 transition-all duration-300 relative overflow-hidden"
         style={{
-          background: task.overdue
+          background: isOverdue
             ? "rgba(220,38,38,0.05)"
             : done ? "rgba(16,224,127,0.05)" : "rgba(15,15,22,0.7)",
-          border: `1px solid ${task.overdue ? "rgba(220,38,38,0.3)" : done ? "rgba(16,224,127,0.3)" : "rgba(255,255,255,0.05)"}`,
+          border: `1px solid ${isOverdue ? "rgba(220,38,38,0.3)" : done ? "rgba(16,224,127,0.3)" : "rgba(255,255,255,0.05)"}`,
           clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))",
-          boxShadow: task.overdue ? "inset 0 0 20px rgba(220,38,38,0.1)" : done ? "inset 0 0 20px rgba(16,224,127,0.1)" : "none",
+          boxShadow: isOverdue ? "inset 0 0 20px rgba(220,38,38,0.1)" : done ? "inset 0 0 20px rgba(16,224,127,0.1)" : "none",
         }}
       >
         {/* Animated background on hover (if not done/overdue) */}
-        {!done && !task.overdue && (
+        {!done && !isOverdue && (
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.03)] to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] pointer-events-none" />
         )}
         
         {/* Left Accent Bar */}
         <div className="absolute top-0 left-0 w-1.5 h-full transition-colors duration-300" 
              style={{ 
-               background: task.overdue ? "#ef4444" : done ? "#10e07f" : "rgba(255,255,255,0.1)",
-               boxShadow: task.overdue ? "0 0 10px #ef4444" : done ? "0 0 10px #10e07f" : "none"
+               background: isOverdue ? "#ef4444" : done ? "#10e07f" : "rgba(255,255,255,0.1)",
+               boxShadow: isOverdue ? "0 0 10px #ef4444" : done ? "0 0 10px #10e07f" : "none"
              }} />
 
         {/* Checkbox */}
         <button
           onClick={handleComplete}
-          disabled={!!task.overdue}
+          disabled={!!isOverdue}
           className="mt-1 w-8 h-8 flex items-center justify-center flex-shrink-0 transition-all duration-300 relative z-10"
           style={{
-            background: done ? "rgba(16,224,127,0.2)" : task.overdue ? "rgba(220,38,38,0.1)" : verifying ? "rgba(139,92,246,0.2)" : "rgba(255,255,255,0.02)",
-            border: `1.5px solid ${done ? "#10e07f" : task.overdue ? "#ef4444" : verifying ? "#8b5cf6" : "rgba(255,255,255,0.2)"}`,
+            background: done ? "rgba(16,224,127,0.2)" : isOverdue ? "rgba(220,38,38,0.1)" : verifying ? "rgba(139,92,246,0.2)" : "rgba(255,255,255,0.02)",
+            border: `1.5px solid ${done ? "#10e07f" : isOverdue ? "#ef4444" : verifying ? "#8b5cf6" : "rgba(255,255,255,0.2)"}`,
             transform: "rotate(45deg)",
-            boxShadow: done ? "0 0 15px rgba(16,224,127,0.5)" : task.overdue ? "0 0 15px rgba(239,68,68,0.3)" : verifying ? "0 0 15px rgba(139,92,246,0.5)" : "none",
-            cursor: (done || task.overdue || verifying) ? "default" : "pointer"
+            boxShadow: done ? "0 0 15px rgba(16,224,127,0.5)" : isOverdue ? "0 0 15px rgba(239,68,68,0.3)" : verifying ? "0 0 15px rgba(139,92,246,0.5)" : "none",
+            cursor: (done || isOverdue || verifying) ? "default" : "pointer"
           }}
         >
           {done && (
@@ -141,7 +150,7 @@ function QuestCard({ task, index }: { task: Quest; index: number }) {
             <motion.div animate={{ rotate: -360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                         className="w-4 h-4 border-2 border-[#8b5cf6] border-t-transparent rounded-full" />
           )}
-          {task.overdue && !done && (
+          {isOverdue && !done && (
              <span className="text-[#ef4444] font-black text-xs" style={{ transform: "rotate(-45deg)" }}>✕</span>
           )}
         </button>
@@ -157,7 +166,7 @@ function QuestCard({ task, index }: { task: Quest; index: number }) {
           )}
           {!verifying && (
             <p className="text-base md:text-lg font-black tracking-wider uppercase transition-colors" style={{
-              color: task.overdue ? "rgba(239,68,68,0.8)" : done ? "rgba(232,232,240,0.3)" : "#fff",
+              color: isOverdue ? "rgba(239,68,68,0.8)" : done ? "rgba(232,232,240,0.3)" : "#fff",
               textDecoration: done ? "line-through" : "none",
               fontFamily: "Rajdhani, sans-serif"
             }}>
@@ -169,14 +178,14 @@ function QuestCard({ task, index }: { task: Quest; index: number }) {
             <div className="flex flex-wrap items-center gap-3 mt-3">
               <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-1 flex items-center"
                 style={{
-                  background: `linear-gradient(90deg, ${TAG_COLORS[task.tag] || "#8b5cf6"}20, transparent)`,
-                  color: TAG_COLORS[task.tag] || "#8b5cf6",
-                  borderLeft: `2px solid ${TAG_COLORS[task.tag] || "#8b5cf6"}`,
+                  background: `linear-gradient(90deg, ${TAG_COLORS[task.tag || 'work']}20, transparent)`,
+                  color: TAG_COLORS[task.tag || 'work'] || "#8b5cf6",
+                  borderLeft: `2px solid ${TAG_COLORS[task.tag || 'work'] || "#8b5cf6"}`,
                 }}>
-                {task.tag}
+                {task.tag || (task.metadata?.tags && task.metadata.tags[0]) || 'task'}
               </span>
               
-              <DiffGem diff={task.diff} />
+              <DiffGem diff={task.diff || (task.difficulty === 1 ? 'Easy' : task.difficulty === 2 ? 'Medium' : 'Hard')} />
               
               {task.ai && (
                 <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest px-2 py-1 flex items-center gap-1.5"
@@ -185,7 +194,7 @@ function QuestCard({ task, index }: { task: Quest; index: number }) {
                 </span>
               )}
               
-              {task.overdue && task.deadline && (
+              {isOverdue && task.deadline && (
                 <div className="ml-auto">
                    <CountdownTimer deadline={task.deadline} />
                 </div>
@@ -195,11 +204,11 @@ function QuestCard({ task, index }: { task: Quest; index: number }) {
         </div>
 
         <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-          <span className="text-xs md:text-sm font-black uppercase tracking-widest flex items-center gap-1" style={{ color: task.overdue ? "rgba(0,240,255,0.4)" : "#00f0ff", fontFamily: "Rajdhani, sans-serif" }}>
-             <span className="text-[10px]">✦</span> +{task.xp} XP
+          <span className="text-xs md:text-sm font-black uppercase tracking-widest flex items-center gap-1" style={{ color: isOverdue ? "rgba(0,240,255,0.4)" : "#00f0ff", fontFamily: "Rajdhani, sans-serif" }}>
+             <span className="text-[10px]">✦</span> +{task.xp || task.rewardXP || 0} XP
           </span>
-          <span className="text-[10px] md:text-xs font-black uppercase tracking-widest flex items-center gap-1" style={{ color: task.overdue ? "rgba(0,240,255,0.4)" : "#00f0ff", fontFamily: "Rajdhani, sans-serif" }}>
-             <span className="text-[10px]">◈</span> {task.coins}
+          <span className="text-[10px] md:text-xs font-black uppercase tracking-widest flex items-center gap-1" style={{ color: isOverdue ? "rgba(0,240,255,0.4)" : "#00f0ff", fontFamily: "Rajdhani, sans-serif" }}>
+             <span className="text-[10px]">◈</span> {task.coins || task.rewardCoins || 0}
           </span>
         </div>
       </div>
@@ -207,10 +216,32 @@ function QuestCard({ task, index }: { task: Quest; index: number }) {
   );
 }
 
-const tabData: Record<Tab, Quest[]> = { daily: DAILY, projects: PROJECT_TASKS, ai: AI_SUGGESTED };
-
 export default function QuestLog() {
+  const dispatch = useDispatch<AppDispatch>();
+  const { tasks } = useSelector((state: RootState) => state.tasks);
+  const { quests: allQuests } = useSelector((state: RootState) => state.quests);
+  const activeQuests = allQuests.filter((q) => q.status === "active");
+
+  useEffect(() => {
+    dispatch(fetchTasks());
+    dispatch(fetchQuests());
+  }, [dispatch]);
+
   const [tab, setTab] = useState<Tab>("daily");
+
+  const handleCompleteTask = (id: string) => {
+    dispatch(completeTask(id));
+  };
+
+  const getTabData = () => {
+    if (tab === 'daily') {
+      return tasks.length > 0 ? tasks : DAILY;
+    }
+    if (tab === 'projects') {
+      return activeQuests.length > 0 ? activeQuests : PROJECT_TASKS;
+    }
+    return AI_SUGGESTED;
+  };
 
   return (
     <div className="p-6 md:p-8 max-w-4xl mx-auto min-h-screen bg-transparent">
@@ -275,8 +306,8 @@ export default function QuestLog() {
               </div>
             </div>
           )}
-          {tabData[tab].map((task, i) => (
-            <QuestCard key={task.title} task={task} index={i} />
+          {getTabData().map((task: any, i: number) => (
+            <QuestCard key={task.id || task.title} task={task} index={i} onComplete={handleCompleteTask} />
           ))}
         </motion.div>
       </AnimatePresence>

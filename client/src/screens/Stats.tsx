@@ -1,4 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState, AppDispatch } from "../store/store";
+import { fetchActivityStats, fetchActivityFeed } from "../store/slices/activitySlice";
+import { fetchCurrentUser } from "../store/slices/authSlice";
 import { motion } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine, CartesianGrid } from "recharts";
 import GlassCard from "../components/GlassCard";
@@ -94,7 +98,22 @@ const CustomReferenceLabel = (props: any) => {
 };
 
 export default function Stats() {
+  const dispatch = useDispatch<AppDispatch>();
+  const { stats } = useSelector((state: RootState) => state.activity);
+  const { character } = useSelector((state: RootState) => state.auth);
+
+  useEffect(() => {
+    dispatch(fetchCurrentUser());
+    dispatch(fetchActivityStats('all'));
+  }, [dispatch]);
+
   const [hoveredRank, setHoveredRank] = useState<{ rank: any, x: number, y: number } | null>(null);
+
+  // Use real data where possible
+  const maxStreak = character?.longestStreak || 0;
+  const totalQuests = stats?.questsCompleted || 0;
+  const totalTasks = stats?.tasksCompleted || 0;
+  const totalXP = stats?.totalXP || 0;
 
   return (
     <div className="p-6 md:p-8 max-w-5xl mx-auto min-h-screen bg-transparent relative overflow-hidden">
@@ -141,10 +160,10 @@ export default function Stats() {
       {/* Personal records */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8 relative z-10">
         {[
-          { label: "Max Streak", value: "23 DAYS", icon: "🔥", color: "#ec4899", glow: "rgba(236,72,153,0.2)" },
-          { label: "Missions Cleared", value: "142", icon: "⚔", color: "#00f0ff", glow: "rgba(0,240,255,0.2)" },
+          { label: "Max Streak", value: `${maxStreak} DAYS`, icon: "🔥", color: "#ec4899", glow: "rgba(236,72,153,0.2)" },
+          { label: "Missions Cleared", value: (totalTasks + totalQuests).toString(), icon: "⚔", color: "#00f0ff", glow: "rgba(0,240,255,0.2)" },
           { label: "Peak Velocity", value: "500 XP", icon: "✦", color: "#8b5cf6", glow: "rgba(139,92,246,0.2)" },
-          { label: "Total Yield", value: "28.4K", icon: "◈", color: "#10e07f", glow: "rgba(16,224,127,0.2)" },
+          { label: "Total Yield", value: totalXP > 1000 ? `${(totalXP / 1000).toFixed(1)}K` : totalXP.toString(), icon: "◈", color: "#10e07f", glow: "rgba(16,224,127,0.2)" },
         ].map((r, i) => (
           <motion.div
             key={r.label}

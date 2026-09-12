@@ -1,5 +1,8 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState, AppDispatch } from "../store/store";
+import { fetchCurrentUser } from "../store/slices/authSlice";
 import GlassCard from "../components/GlassCard";
 import Starfield from "../components/Starfield";
 
@@ -15,8 +18,7 @@ export const RANKS = [
   { id: "enlightened", name: "Enlightened", xpMin: 250000, xpMax: Infinity, tier: 9, color: "#a78bfa", icon: "◈", desc: "Beyond rank. Beyond limit. Total mastery and inner peace." },
 ];
 
-const CURRENT_XP = 3420;
-const CURRENT_RANK = RANKS.find((r, i) => CURRENT_XP >= r.xpMin && (CURRENT_XP < r.xpMax || r.xpMax === Infinity)) || RANKS[1];
+// CURRENT_XP and CURRENT_RANK are now derived in the component
 
 // Defining organic positions and scaling for the journey
 const JOURNEY_STAGES = [
@@ -40,7 +42,7 @@ const NODE_POSITIONS = JOURNEY_STAGES.map((stage) => {
 
 const TOTAL_HEIGHT = currentY + 500; // Extra space at bottom
 
-function JourneyNode({ rank, index, isCurrent, isCompleted }: { rank: typeof RANKS[0]; index: number; isCurrent: boolean; isCompleted: boolean }) {
+function JourneyNode({ rank, index, isCurrent, isCompleted, currentXP }: { rank: typeof RANKS[0]; index: number; isCurrent: boolean; isCompleted: boolean; currentXP: number }) {
   const stage = NODE_POSITIONS[index];
   const isFuture = !isCurrent && !isCompleted;
   const nodeColor = rank.color;
@@ -256,7 +258,7 @@ function JourneyNode({ rank, index, isCurrent, isCompleted }: { rank: typeof RAN
                     <div className="flex justify-between items-center text-xs font-semibold">
                       <span className="text-gray-500 uppercase tracking-wider text-[11px]">Progress</span>
                       <span style={{ color: isCurrent ? "#0ea5e9" : "#10e07f" }}>
-                        {isCompleted ? "100%" : `${Math.floor(((CURRENT_XP - rank.xpMin) / (rank.xpMax - rank.xpMin)) * 100)}%`}
+                        {isCompleted ? "100%" : `${Math.floor(Math.max(0, Math.min(100, ((currentXP - rank.xpMin) / (rank.xpMax - rank.xpMin)) * 100)))}%`}
                       </span>
                     </div>
                   ) : (
@@ -282,6 +284,15 @@ function JourneyNode({ rank, index, isCurrent, isCompleted }: { rank: typeof RAN
 }
 
 export default function ProgressionPath() {
+  const dispatch = useDispatch<AppDispatch>();
+  const { user, character } = useSelector((state: RootState) => state.auth);
+
+  useEffect(() => {
+    if (!user) dispatch(fetchCurrentUser());
+  }, [dispatch, user]);
+
+  const CURRENT_XP = character?.xp || 0;
+  const CURRENT_RANK = RANKS.find((r) => CURRENT_XP >= r.xpMin && (CURRENT_XP < r.xpMax || r.xpMax === Infinity)) || RANKS[0];
   const currentIndex = RANKS.findIndex((r) => r.id === CURRENT_RANK.id);
   
   // Create continuous SVG Path data using calculated absolute coordinates
@@ -427,7 +438,8 @@ export default function ProgressionPath() {
               rank={rank} 
               index={i} 
               isCurrent={i === currentIndex} 
-              isCompleted={i < currentIndex} 
+              isCompleted={i < currentIndex}
+              currentXP={CURRENT_XP}
             />
           ))}
         </div>
