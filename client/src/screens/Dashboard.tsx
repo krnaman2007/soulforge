@@ -5,6 +5,7 @@ import { RootState, AppDispatch } from "../store/store";
 import { fetchRecentActivities, fetchActivityStats } from "../store/slices/activitySlice";
 import { fetchDailyChallenge } from "../store/slices/challengeSlice";
 import { fetchCurrentUser } from "../store/slices/authSlice";
+import { getLevelProgress } from "../utils/rpg";
 import XPBar from "../components/XPBar";
 import LevelUpModal from "../components/LevelUpModal";
 import PenaltyModal from "../components/PenaltyModal";
@@ -36,6 +37,7 @@ export default function Dashboard() {
   const coins = character?.coins || 0;
   const level = character?.level || 1;
   const currentXp = character?.xp || 0;
+  const levelProgress = getLevelProgress(level, currentXp);
   
   // Placeholder debuff logic
   const [debuffActive] = useState(false);
@@ -158,7 +160,7 @@ export default function Dashboard() {
             </div>
 
             <div className="mb-6 relative z-10">
-              <XPBar current={currentXp} max={Math.floor(100 * Math.pow(level, 1.6))} level={level} className="w-full" />
+              <XPBar current={currentXp} max={levelProgress.requiredXP} level={level} className="w-full" />
             </div>
 
             {/* Debuff indicator */}
