@@ -5,7 +5,8 @@ import { RootState, AppDispatch } from "../store/store";
 import { fetchRecentActivities, fetchActivityStats } from "../store/slices/activitySlice";
 import { fetchDailyChallenge } from "../store/slices/challengeSlice";
 import { fetchCurrentUser } from "../store/slices/authSlice";
-import { getLevelProgress } from "../utils/rpg";
+import { getTotalXP, getLevelProgress } from "../utils/rpg";
+import { RANKS } from "./ProgressionPath";
 import XPBar from "../components/XPBar";
 import LevelUpModal from "../components/LevelUpModal";
 import PenaltyModal from "../components/PenaltyModal";
@@ -38,6 +39,9 @@ export default function Dashboard() {
   const level = character?.level || 1;
   const currentXp = character?.xp || 0;
   const levelProgress = getLevelProgress(level, currentXp);
+  
+  const CURRENT_XP = getTotalXP(level, currentXp);
+  const CURRENT_RANK = RANKS.find((r) => CURRENT_XP >= r.xpMin && (CURRENT_XP < r.xpMax || r.xpMax === Infinity)) || RANKS[0];
   
   // Placeholder debuff logic
   const [debuffActive] = useState(false);
@@ -149,18 +153,23 @@ export default function Dashboard() {
               <h3 className="font-black text-2xl uppercase tracking-wide text-white" style={{ fontFamily: "Rajdhani, sans-serif" }}>{user?.name || "Player"}</h3>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 mt-2"
                 style={{
-                  background: "rgba(96,165,250,0.1)",
-                  border: "1px solid rgba(96,165,250,0.4)",
+                  background: `${CURRENT_RANK.color}1a`,
+                  border: `1px solid ${CURRENT_RANK.color}66`,
                   clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))",
                 }}>
-                <span className="text-[#60a5fa] text-[10px] animate-pulse">◉</span>
-                <span className="text-xs font-black uppercase tracking-widest text-[#60a5fa] font-['Rajdhani']">Level {level}</span>
+                <span className="text-[10px] animate-pulse" style={{ color: CURRENT_RANK.color }}>{CURRENT_RANK.icon}</span>
+                <span className="text-xs font-black uppercase tracking-widest font-['Rajdhani']" style={{ color: CURRENT_RANK.color }}>Level {level}</span>
               </div>
-              <p className="text-[10px] uppercase tracking-[0.2em] mt-3 text-[#8b5cf6] font-bold">{character?.titleId ? character.titleId.replace('title_', '').toUpperCase() : 'NOVICE'} // TIER {Math.floor(level / 10) + 1}</p>
+              <p className="text-[10px] uppercase tracking-[0.2em] mt-3 font-bold" style={{ color: CURRENT_RANK.color }}>
+                {CURRENT_RANK.name} // TIER {CURRENT_RANK.tier}
+              </p>
             </div>
 
             <div className="mb-6 relative z-10">
-              <XPBar current={currentXp} max={levelProgress.requiredXP} level={level} className="w-full" />
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[rgba(232,232,240,0.5)]">Lifetime Progress</span>
+              </div>
+              <XPBar current={CURRENT_XP} max={getTotalXP(level + 1, 0)} level={level} className="w-full" />
             </div>
 
             {/* Debuff indicator */}
@@ -232,7 +241,7 @@ export default function Dashboard() {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
-                  { label: "XP Yield", value: stats?.totalXP || 0, color: "#00f0ff", icon: "✦" },
+                  { label: "Today's XP", value: stats?.totalXP || 0, color: "#00f0ff", icon: "✦" },
                   { label: "Loot Gained", value: `+${stats?.totalCoins || 0}`, color: "#00f0ff", icon: "◈" },
                   { label: "Active Streak", value: `${streak}d`, color: "#ec4899", icon: "🔥" },
                 ].map((s, i) => (
@@ -283,42 +292,7 @@ export default function Dashboard() {
 
       <div className="my-10 h-px w-full bg-gradient-to-r from-transparent via-[rgba(139,92,246,0.3)] to-transparent" />
 
-      {/* AI insight */}
-      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="preserve-3d">
-        <div className="relative p-6 md:p-8 bg-[rgba(10,10,15,0.8)] backdrop-blur-xl border border-[rgba(139,92,246,0.3)] overflow-hidden group"
-          style={{ clipPath: "polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))" }}>
-          
-          <div className="absolute inset-0 bg-gradient-to-r from-[rgba(139,92,246,0.1)] to-transparent opacity-50" />
-          
-          <div className="flex flex-col md:flex-row items-start md:items-center gap-6 relative z-10">
-            <div className="w-12 h-12 flex items-center justify-center text-xl flex-shrink-0 animate-pulse"
-              style={{ 
-                background: "linear-gradient(135deg, rgba(139,92,246,0.2), transparent)", 
-                border: "1px solid rgba(139,92,246,0.5)", 
-                color: "#c084fc",
-                clipPath: "polygon(50% 0%, 95% 25%, 95% 75%, 50% 100%, 5% 75%, 5% 25%)",
-                boxShadow: "0 0 15px rgba(139,92,246,0.3) inset"
-              }}>
-              ✦
-            </div>
-            <div className="flex-1">
-              <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] mb-2 text-[#8b5cf6] font-['Rajdhani'] flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-[#8b5cf6] rounded-full" />
-                Soulforge AI // Strategic Insight
-              </p>
-              <p className="text-sm md:text-base font-['Inter'] text-[rgba(232,232,240,0.8)] leading-relaxed">
-                {stats?.totalActivities && stats.totalActivities > 0 
-                  ? `You've completed ${stats.totalActivities} activities recently, yielding ${stats.totalXP} XP. Consider initializing a new Mastery Challenge quest to maintain momentum.`
-                  : `Your activity logs are currently empty. Initialize a new quest or habit to begin your progression journey.`}
-              </p>
-            </div>
-            <button className="px-6 py-2 bg-[rgba(139,92,246,0.1)] border border-[#8b5cf6] text-[#8b5cf6] text-[10px] md:text-xs font-black uppercase tracking-[0.2em] hover:bg-[#8b5cf6] hover:text-white transition-colors font-['Rajdhani']"
-              style={{ clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)" }}>
-              Generate Challenge
-            </button>
-          </div>
-        </div>
-      </motion.div>
+
     </div>
   );
 }
