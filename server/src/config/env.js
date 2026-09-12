@@ -15,8 +15,9 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(3000),
   FRONTEND_URL: z.string().default('http://localhost:5173'),
 
-  // Email / Resend (Optional - logs to console in development if unset)
-  RESEND_API_KEY: z.string().optional().default(''),
+  // Email / Mailjet (Optional - logs to console in development if unset)
+  MAILJET_API_KEY: z.string().optional().default(''),
+  MAILJET_SECRET_KEY: z.string().optional().default(''),
   EMAIL_FROM: z.string().optional().default('SoulForge <no-reply@soulforge.gg>'),
 
   // Google OAuth (Optional - accepts ID tokens or client code)
