@@ -1,11 +1,16 @@
 function formatLog(level, message, ...meta) {
   const timestamp = new Date().toISOString();
+  let reqIdPrefix = '';
+
   const metaString = meta.length
     ? ' ' +
       meta
         .map((item) => {
           if (item instanceof Error) return item.stack || item.message;
           if (typeof item === 'object') {
+            if (item && item.requestId) {
+              reqIdPrefix = `[ReqID: ${item.requestId}] `;
+            }
             try {
               return JSON.stringify(item);
             } catch {
@@ -17,7 +22,7 @@ function formatLog(level, message, ...meta) {
         .join(' ')
     : '';
 
-  return `[${timestamp}] [${level.toUpperCase()}]: ${message}${metaString}`;
+  return `[${timestamp}] [${level.toUpperCase()}]: ${reqIdPrefix}${message}${metaString}`;
 }
 
 const logger = {

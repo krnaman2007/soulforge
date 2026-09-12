@@ -25,7 +25,17 @@ function errorHandler(err, _req, res, _next) {
   const message = err && err.message ? err.message : 'Internal Server Error';
   const stack = env.NODE_ENV === 'development' && err && err.stack ? err.stack : undefined;
 
-  console.error('Unhandled Exception:', err);
+  const logger = require('../errorlogging/logger');
+  logger.error('Unhandled Exception:', {
+    error: err.message,
+    stack: env.NODE_ENV === 'development' ? err.stack : undefined,
+    requestId: _req.requestId,
+    method: _req.method,
+    route: _req.originalUrl,
+    userId: _req.user ? _req.user.id : undefined,
+    code: err.code || 'INTERNAL_SERVER_ERROR',
+    status: 500
+  });
 
   return sendError(
     res,

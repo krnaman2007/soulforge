@@ -8,6 +8,7 @@ const envSchema = z.object({
   DIRECT_URL: z.string().optional(),
   JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters').default('soulforge_secret_jwt_key_tech_zephyr_4_hackathon_2026'),
   LLM_API_KEY: z.string().optional().default(''),
+  GROQ_API_KEY: z.string().optional().default(''),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().default(3000),
   FRONTEND_URL: z.string().default('http://localhost:5173'),

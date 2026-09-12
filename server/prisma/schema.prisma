@@ -11,12 +11,46 @@ datasource db {
 // =========================================================================
 
 enum Category {
+  PHYSICAL
   INTELLECT
   STRENGTH
   DISCIPLINE
   HEALTH
   CREATIVITY
   SOCIAL
+  LEADERSHIP
+  FINANCE
+  CAREER
+  EMOTIONAL
+  LEARNING
+  PERSONAL_GROWTH
+}
+
+enum QuestType {
+  ONE_TIME
+  DAILY
+  RECURRING
+  MILESTONE
+  HABIT
+  PROJECT
+  LEARNING
+  CHALLENGE
+}
+
+enum TimeScale {
+  MINUTES
+  LESS_THAN_HOUR
+  HOURS
+  HALF_DAY
+  FULL_DAY
+  MULTI_DAY
+  MULTI_WEEK
+}
+
+enum SuspicionLevel {
+  NORMAL
+  SUSPICIOUS
+  HIGH_RISK
 }
 
 enum Priority {
@@ -149,13 +183,21 @@ model Character {
   xp    Int @default(0)
   coins Int @default(50)
 
-  // 6 Life RPG Attributes
+  // 6 Original Life RPG Attributes
   strength   Int @default(10)
   intellect  Int @default(10)
   discipline Int @default(10)
   health     Int @default(10)
   creativity Int @default(10)
   social     Int @default(10)
+
+  // 6 Expanded Attributes
+  leadership Int @default(10)
+  finance    Int @default(10)
+  career     Int @default(10)
+  emotional  Int @default(10)
+  learning   Int @default(10)
+  personalGrowth Int @default(10)
 
   // Consecutive Day Tracking
   currentStreak  Int       @default(0)
@@ -185,7 +227,11 @@ model Task {
 
   title       String
   description String?
-  category    Category   @default(INTELLECT)
+  primaryAttribute Category @default(INTELLECT)
+  secondaryAttributes Category[]
+  questType    QuestType?
+  timeScale    TimeScale?
+  suspicion    SuspicionLevel @default(NORMAL)
   priority    Priority   @default(MEDIUM)
   difficulty  Difficulty @default(MEDIUM)
   effort      Effort     @default(MEDIUM)
