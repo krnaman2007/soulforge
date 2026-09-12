@@ -1,213 +1,463 @@
-import { useState } from "react";
-import { motion } from "framer-motion";
+import { useState, useRef } from "react";
+import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import GlassCard from "../components/GlassCard";
+import Starfield from "../components/Starfield";
 
 export const RANKS = [
-  { id: "novice", name: "Novice", xpMin: 0, xpMax: 1000, tier: 1, color: "#9ca3af", icon: "◇", desc: "Every forge begins here." },
-  { id: "apprentice", name: "Apprentice", xpMin: 1000, xpMax: 2000, tier: 2, color: "#9ca3af", icon: "◈", desc: "Learning the craft." },
-  { id: "journeyman", name: "Journeyman", xpMin: 2000, xpMax: 6000, tier: 3, color: "#60a5fa", icon: "◉", desc: "The path is taking shape." },
-  { id: "adept", name: "Adept", xpMin: 6000, xpMax: 15000, tier: 4, color: "#60a5fa", icon: "⬡", desc: "Skill sharpens like steel." },
-  { id: "specialist", name: "Specialist", xpMin: 15000, xpMax: 30000, tier: 5, color: "#e2e8f0", icon: "◎", desc: "The professional emerges." },
-  { id: "expert", name: "Expert", xpMin: 30000, xpMax: 60000, tier: 6, color: "#cd7f32", icon: "▲", desc: "Bronze-tempered resolve." },
-  { id: "master", name: "Master", xpMin: 60000, xpMax: 120000, tier: 7, color: "#f6ad37", icon: "★", desc: "Gold burns in the veins." },
-  { id: "grandmaster", name: "Grand Master", xpMin: 120000, xpMax: 250000, tier: 8, color: "#f6ad37", icon: "✦", desc: "Few reach this height." },
-  { id: "enlightened", name: "Enlightened", xpMin: 250000, xpMax: Infinity, tier: 9, color: "prismatic", icon: "◈", desc: "Beyond rank. Beyond limit." },
+  { id: "novice", name: "Novice", xpMin: 0, xpMax: 1000, tier: 1, color: "#9ca3af", icon: "◇", desc: "Every forge begins here. Establish your foundations and learn the basics." },
+  { id: "apprentice", name: "Apprentice", xpMin: 1000, xpMax: 2000, tier: 2, color: "#9ca3af", icon: "◈", desc: "Learning the craft. Take on more challenging tasks to hone your skills." },
+  { id: "journeyman", name: "Journeyman", xpMin: 2000, xpMax: 6000, tier: 3, color: "#60a5fa", icon: "◉", desc: "The path is taking shape. Your consistency is starting to pay off." },
+  { id: "adept", name: "Adept", xpMin: 6000, xpMax: 15000, tier: 4, color: "#60a5fa", icon: "⬡", desc: "Skill sharpens like steel. You are becoming a force to be reckoned with." },
+  { id: "specialist", name: "Specialist", xpMin: 15000, xpMax: 30000, tier: 5, color: "#e2e8f0", icon: "◎", desc: "The professional emerges. Precision and focus define your daily actions." },
+  { id: "expert", name: "Expert", xpMin: 30000, xpMax: 60000, tier: 6, color: "#cd7f32", icon: "▲", desc: "Bronze-tempered resolve. Others look to you for guidance." },
+  { id: "master", name: "Master", xpMin: 60000, xpMax: 120000, tier: 7, color: "#f6ad37", icon: "★", desc: "Gold burns in the veins. Mastery over mind, body, and craft." },
+  { id: "grandmaster", name: "Grand Master", xpMin: 120000, xpMax: 250000, tier: 8, color: "#f6ad37", icon: "✦", desc: "Few reach this height. Your legacy is being forged into legend." },
+  { id: "enlightened", name: "Enlightened", xpMin: 250000, xpMax: Infinity, tier: 9, color: "#a78bfa", icon: "◈", desc: "Beyond rank. Beyond limit. Total mastery and inner peace." },
 ];
 
 const CURRENT_XP = 3420;
 const CURRENT_RANK = RANKS.find((r, i) => CURRENT_XP >= r.xpMin && (CURRENT_XP < r.xpMax || r.xpMax === Infinity)) || RANKS[1];
 
-function JourneyNode({ rank, index, isCurrent, isCompleted }: { rank: typeof RANKS[0]; index: number; isCurrent: boolean; isCompleted: boolean }) {
-  const isLeft = index % 2 === 0;
-  const isLast = index === RANKS.length - 1;
-  const isFuture = !isCurrent && !isCompleted;
-  const isPrismatic = rank.color === "prismatic";
-  const nodeColor = isPrismatic ? "#a78bfa" : rank.color;
-  const [isHovered, setIsHovered] = useState(false);
+// Defining organic positions and scaling for the journey
+const JOURNEY_STAGES = [
+  { x: 50, yOffset: 0, scale: 1, isMilestone: false },       // Novice
+  { x: 65, yOffset: 200, scale: 1, isMilestone: false },     // Apprentice
+  { x: 80, yOffset: 220, scale: 1.2, isMilestone: true },    // Journeyman (Milestone 1)
+  { x: 60, yOffset: 260, scale: 1.2, isMilestone: false },   // Adept
+  { x: 35, yOffset: 300, scale: 1.3, isMilestone: false },   // Specialist
+  { x: 20, yOffset: 330, scale: 1.5, isMilestone: true },    // Expert (Milestone 2)
+  { x: 45, yOffset: 380, scale: 1.5, isMilestone: false },   // Master
+  { x: 70, yOffset: 450, scale: 1.7, isMilestone: false },   // Grand Master
+  { x: 50, yOffset: 550, scale: 2.2, isMilestone: true },    // Enlightened (Final Destination)
+];
 
-  // For the SVG path connecting to the NEXT node
-  // The next node will be on the opposite side.
-  const xStart = isLeft ? 30 : 70;
-  const xEnd = isLeft ? 70 : 30;
+// Calculate absolute Y positions
+let currentY = 40;
+const NODE_POSITIONS = JOURNEY_STAGES.map((stage) => {
+  currentY += stage.yOffset;
+  return { ...stage, y: currentY };
+});
+
+const TOTAL_HEIGHT = currentY + 500; // Extra space at bottom
+
+function JourneyNode({ rank, index, isCurrent, isCompleted }: { rank: typeof RANKS[0]; index: number; isCurrent: boolean; isCompleted: boolean }) {
+  const stage = NODE_POSITIONS[index];
+  const isFuture = !isCurrent && !isCompleted;
+  const nodeColor = rank.color;
+  const [isHovered, setIsHovered] = useState(false);
+  
+  // Decide which side to place the permanent label and hover card
+  const isLeft = stage.x < 50;
+
+  // Parallax effect based on scroll
+  const { scrollY } = useScroll();
+  const yParallax = useTransform(scrollY, [stage.y - 800, stage.y + 800], [40, -40]);
+  const opacityReveal = useTransform(scrollY, [stage.y - 1200, stage.y - 400], [0, 1]);
+
+  // Increased base size for much larger nodes
+  const baseSize = 64; 
+  const size = baseSize * stage.scale;
+  const nodeShapeClass = stage.isMilestone ? "rotate-45 rounded-[2rem]" : "rounded-full";
+  const contentShapeClass = stage.isMilestone ? "-rotate-45" : "";
 
   return (
-    <div className="relative w-full h-32 md:h-40 flex justify-center">
-      {/* SVG Connecting Path to the Next Node */}
-      {!isLast && (
-        <svg className="absolute top-1/2 left-0 w-full h-full pointer-events-none z-0" preserveAspectRatio="none" viewBox="0 0 100 100">
-          <motion.path
-            initial={{ pathLength: 0 }}
-            whileInView={{ pathLength: 1 }}
-            viewport={{ once: true, margin: "-50px" }}
-            transition={{ duration: 0.8, ease: "easeInOut" }}
-            d={`M ${xStart},0 C ${xStart},50 ${xEnd},50 ${xEnd},100`}
-            fill="none"
-            stroke={isCompleted ? nodeColor : "rgba(255,255,255,0.05)"}
-            strokeWidth="3"
-            strokeDasharray={isFuture ? "8 8" : "none"}
-            vectorEffect="non-scaling-stroke"
-            style={{ filter: isCompleted ? `drop-shadow(0 0 4px ${nodeColor})` : "none" }}
-          />
-        </svg>
+    <motion.div 
+      className="absolute z-10"
+      style={{ 
+        top: `${stage.y}px`, 
+        left: `${stage.x}%`, 
+        y: yParallax,
+        opacity: opacityReveal,
+        transform: 'translate(-50%, -50%)'
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Background Ambience / Glow */}
+      {(isCurrent || stage.isMilestone) && (
+        <motion.div 
+          animate={isCurrent ? { opacity: [0.15, 0.4, 0.15], scale: [1, 1.1, 1] } : { opacity: [0.1, 0.2, 0.1] }}
+          transition={{ duration: isCurrent ? 3 : 5, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none blur-3xl"
+          style={{
+            width: size * 3,
+            height: size * 3,
+            background: isCurrent ? "#0ea5e9" : nodeColor,
+            zIndex: -1
+          }}
+        />
       )}
 
-      {/* Node Container */}
-      <div 
-        className="absolute top-1/2 -translate-y-1/2 z-10"
-        style={{ left: `${isLeft ? 30 : 70}%`, transform: 'translate(-50%, -50%)' }}
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        whileInView={{ scale: 1, opacity: 1 }}
+        viewport={{ once: true, margin: "-100px" }}
+        transition={{ type: "spring", stiffness: 100, damping: 20 }}
+        className="relative cursor-pointer flex flex-col items-center justify-center"
       >
-        <motion.div
-          initial={{ scale: 0, opacity: 0 }}
-          whileInView={{ scale: 1, opacity: 1 }}
-          viewport={{ once: true, margin: "-50px" }}
-          transition={{ type: "spring", stiffness: 200, damping: 20 }}
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-          className="relative cursor-pointer flex flex-col items-center"
+        
+        {/* Permanent Level Label (Fades out when hovered to make room for card) */}
+        <div 
+          className={`absolute flex flex-col pointer-events-none transition-opacity duration-300 ${
+            isLeft 
+              ? 'right-[calc(100%+24px)] items-end text-right' 
+              : 'left-[calc(100%+24px)] items-start text-left'
+          } ${isHovered ? 'opacity-0' : 'opacity-100'}`}
+          style={{ width: '160px' }}
         >
-          {/* Main Node Circle */}
+          <span className="text-[11px] md:text-xs uppercase tracking-widest font-black drop-shadow-md mb-0.5" 
+                style={{ color: isFuture ? "rgba(255,255,255,0.4)" : isCurrent ? "#0ea5e9" : nodeColor }}>
+            Level {index + 1 > 9 ? index + 1 : `0${index + 1}`}
+          </span>
+          <span className="font-black text-lg md:text-2xl tracking-wide drop-shadow-xl leading-none" 
+                style={{ color: isFuture ? "rgba(255,255,255,0.3)" : "#fff", fontFamily: "Rajdhani, sans-serif" }}>
+            {rank.name}
+          </span>
+          {stage.isMilestone && (
+            <span className="px-2 py-0.5 rounded-sm text-[9px] font-black uppercase tracking-widest mt-1.5" 
+                  style={{ background: `rgba(255,255,255,0.05)`, color: "rgba(255,255,255,0.6)", border: `1px solid rgba(255,255,255,0.15)` }}>
+              Milestone
+            </span>
+          )}
+        </div>
+
+        {/* Current Node: Animated Orbiting Rings */}
+        {isCurrent && (
+          <>
+            <motion.div 
+              animate={{ rotate: 360, scale: [1, 1.05, 1] }} 
+              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+              className="absolute pointer-events-none rounded-full border border-dashed"
+              style={{ 
+                width: size * 1.6, 
+                height: size * 1.6,
+                borderColor: "#0ea5e9", 
+                opacity: 0.5 
+              }} 
+            />
+            <motion.div 
+              animate={{ scale: [1, 1.25, 1], opacity: [0.6, 0, 0.6] }}
+              transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute pointer-events-none rounded-full" 
+              style={{ 
+                width: size * 1.35, 
+                height: size * 1.35,
+                border: `2px solid #0ea5e9` 
+              }} 
+            />
+          </>
+        )}
+
+        {/* Outer Ring */}
+        <div className={`absolute transition-all duration-300 ${nodeShapeClass}`} 
+             style={{ 
+               width: size + 24,
+               height: size + 24,
+               border: `2px solid ${isFuture ? "rgba(255,255,255,0.05)" : isCurrent ? "#0ea5e9" : nodeColor}80`,
+               background: isCurrent ? "rgba(14,165,233,0.05)" : "rgba(255,255,255,0.02)",
+               backdropFilter: "blur(12px)",
+               transform: isHovered && !isFuture ? "scale(1.05)" : "scale(1)"
+             }} />
+        
+        {/* Main Node Body */}
+        <motion.div 
+          animate={isCurrent ? { y: [0, -8, 0] } : {}}
+          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+          whileHover={!isFuture ? { scale: 1.1 } : { scale: 1.05 }}
+          className={`flex items-center justify-center transition-all duration-500 relative z-10 ${nodeShapeClass}`}
+          style={{
+            width: size,
+            height: size,
+            background: isFuture ? "rgba(10,10,15,0.8)" : isCurrent ? `linear-gradient(135deg, rgba(14,165,233,0.2), rgba(10,10,25,1))` : `linear-gradient(135deg, ${nodeColor}33, rgba(20,20,40,0.9))`,
+            border: `3px solid ${isFuture ? "rgba(255,255,255,0.1)" : isCurrent ? "#0ea5e9" : nodeColor}`,
+            boxShadow: isCurrent 
+              ? `0 0 50px rgba(14,165,233,0.5), inset 0 0 25px rgba(14,165,233,0.4)` 
+              : isCompleted 
+                ? `0 0 30px ${nodeColor}55, inset 0 0 15px ${nodeColor}33` 
+                : "inset 0 0 15px rgba(0,0,0,0.8)",
+            color: isFuture ? "rgba(255,255,255,0.15)" : isCurrent ? "#0ea5e9" : nodeColor,
+          }}
+        >
+          <span className={`${contentShapeClass} font-bold drop-shadow-md`} style={{ fontSize: `${size * 0.35}px` }}>
+            {isFuture ? (
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-40">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+            ) : rank.icon}
+          </span>
+        </motion.div>
+
+        {/* Completion Badge */}
+        {isCompleted && (
           <motion.div 
-            whileHover={!isFuture ? { scale: 1.1 } : { scale: 1.05 }}
-            className={`w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center transition-all duration-300 ${isCurrent ? 'scale-110' : ''}`}
-            style={{
-              background: isFuture ? "rgba(255,255,255,0.03)" : `linear-gradient(135deg, rgba(18,18,46,1), rgba(18,18,46,0.8))`,
-              border: `2px solid ${isFuture ? "rgba(255,255,255,0.1)" : nodeColor}`,
-              boxShadow: isCurrent 
-                ? `0 0 20px ${nodeColor}88, inset 0 0 10px ${nodeColor}44` 
-                : isCompleted 
-                  ? `0 0 10px ${nodeColor}44` 
-                  : "none",
-              color: isFuture ? "rgba(255,255,255,0.2)" : nodeColor,
-              filter: isPrismatic && !isFuture ? `drop-shadow(0 0 8px #a78bfa)` : undefined,
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            className="absolute rounded-full flex items-center justify-center z-20 font-bold shadow-[0_0_20px_rgba(16,224,127,0.6)]"
+            style={{ 
+              width: size * 0.35, 
+              height: size * 0.35,
+              bottom: stage.isMilestone ? -8 : 0, 
+              right: stage.isMilestone ? -8 : 0,
+              background: "linear-gradient(135deg, #10e07f, #059669)", 
+              color: "#000", 
+              border: "3px solid #0a0a12",
+              fontSize: `${size * 0.18}px`
             }}
           >
-            <span className={isPrismatic && !isFuture ? "prismatic-text text-2xl font-bold" : "text-xl md:text-2xl font-bold"}>
-              {isFuture ? "🔒" : rank.icon}
-            </span>
+            ✓
           </motion.div>
+        )}
 
-          {/* Current Level Ring Animation */}
-          {isCurrent && (
-            <div className="absolute inset-0 rounded-full animate-ping pointer-events-none" 
-                 style={{ border: `2px solid ${nodeColor}`, opacity: 0.5, animationDuration: '2.5s' }} />
-          )}
-          
-          {/* Checkmark for completed */}
-          {isCompleted && (
-            <div className="absolute -bottom-1 -right-1 w-5 h-5 md:w-6 md:h-6 rounded-full flex items-center justify-center text-[10px] md:text-xs pointer-events-none"
-                 style={{ background: "#10e07f", color: "#000", border: "2px solid #0a0a12" }}>
-              ✓
+        {/* Current Level CTA */}
+        {isCurrent && (
+          <div className="absolute top-[calc(100%+32px)] flex flex-col items-center gap-2 z-20">
+            <motion.div 
+              animate={{ y: [0, 8, 0] }} 
+              transition={{ duration: 1.5, repeat: Infinity }}
+              className="text-[#0ea5e9] text-xl font-bold"
+            >
+              ↓
+            </motion.div>
+            <div className="text-[12px] md:text-[14px] uppercase font-black px-6 py-3 rounded-lg whitespace-nowrap tracking-widest shadow-[0_0_30px_rgba(14,165,233,0.5)] bg-gradient-to-r from-[#0ea5e9] to-[#38bdf8] text-black">
+              CONTINUE
             </div>
-          )}
-
-          {/* Level Number Badge */}
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-bold tracking-wider pointer-events-none whitespace-nowrap"
-               style={{ background: isFuture ? "rgba(255,255,255,0.1)" : nodeColor, color: isFuture ? "rgba(255,255,255,0.5)" : "#000" }}>
-            LVL {index + 1}
           </div>
+        )}
 
-          {/* Current Level CTA Label under node */}
-          {isCurrent && (
-            <div className="absolute top-full mt-2 text-[10px] uppercase font-bold px-2 py-1 rounded whitespace-nowrap pointer-events-none"
-                 style={{ background: `${nodeColor}20`, color: nodeColor, border: `1px solid ${nodeColor}40` }}>
-              Continue
-            </div>
+        {/* Interactive Hover Card */}
+        <AnimatePresence>
+          {isHovered && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 10, x: isLeft ? 20 : -20 }}
+              animate={{ opacity: 1, scale: 1, y: 0, x: isHovered ? 0 : (isLeft ? 20 : -20) }}
+              exit={{ opacity: 0, scale: 0.9, y: 5 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              className={`absolute top-1/2 -translate-y-1/2 ${isLeft ? 'left-full ml-10' : 'right-full mr-10'} w-72 md:w-80 z-50 pointer-events-none`}
+            >
+              <GlassCard className="p-6 shadow-[0_30px_60px_rgba(0,0,0,0.9)] border border-white/10 relative overflow-hidden group">
+                <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full blur-3xl opacity-20 transition-opacity" style={{ background: isCurrent ? "#0ea5e9" : nodeColor }} />
+                
+                <div className="flex items-start justify-between gap-3 mb-3 relative z-10">
+                  <div className="flex flex-col">
+                    <span className="text-[11px] uppercase tracking-widest font-black mb-1" style={{ color: isFuture ? "rgba(255,255,255,0.3)" : isCurrent ? "#0ea5e9" : nodeColor }}>
+                      Level {index + 1 > 9 ? index + 1 : `0${index + 1}`}
+                    </span>
+                    <span className="font-black text-2xl md:text-3xl tracking-wide leading-none" style={{ color: isFuture ? "rgba(255,255,255,0.5)" : "#fff", fontFamily: "Rajdhani, sans-serif" }}>
+                      {rank.name}
+                    </span>
+                  </div>
+                </div>
+                
+                <p className="text-[13px] text-gray-300 leading-relaxed mb-5 relative z-10">{rank.desc}</p>
+                
+                <div className="flex flex-col gap-2 pt-4 relative z-10" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                  {!isFuture ? (
+                    <div className="flex justify-between items-center text-xs font-semibold">
+                      <span className="text-gray-500 uppercase tracking-wider text-[11px]">Progress</span>
+                      <span style={{ color: isCurrent ? "#0ea5e9" : "#10e07f" }}>
+                        {isCompleted ? "100%" : `${Math.floor(((CURRENT_XP - rank.xpMin) / (rank.xpMax - rank.xpMin)) * 100)}%`}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex justify-between items-center text-xs font-semibold">
+                      <span className="text-gray-500 uppercase tracking-wider text-[11px]">Requirement</span>
+                      <span className="text-gray-400">{(rank.xpMin / 1000).toFixed(0)}K XP</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center text-xs font-semibold">
+                    <span className="text-gray-500 uppercase tracking-wider text-[11px]">Status</span>
+                    <span style={{ color: isCompleted ? "#10e07f" : isCurrent ? "#0ea5e9" : "rgba(255,255,255,0.3)" }}>
+                      {isCompleted ? "Unlocked & Conquered" : isCurrent ? "Currently Active" : "Locked"}
+                    </span>
+                  </div>
+                </div>
+              </GlassCard>
+            </motion.div>
           )}
-
-          {/* Hover Tooltip Card */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, x: isLeft ? 10 : -10 }}
-            animate={{ opacity: isHovered ? 1 : 0, scale: isHovered ? 1 : 0.9, x: isHovered ? 0 : (isLeft ? 10 : -10) }}
-            className={`absolute top-1/2 -translate-y-1/2 ${isLeft ? 'left-full ml-4 md:ml-6' : 'right-full mr-4 md:mr-6'} w-40 md:w-48 pointer-events-none z-50`}
-            style={{ display: isHovered ? 'block' : 'none' }}
-          >
-            <GlassCard className="p-3 shadow-2xl">
-              <div className="flex items-center gap-2 mb-1">
-                <span className={isPrismatic ? "prismatic-text font-bold text-sm md:text-base" : "font-bold text-sm md:text-base"} style={{ color: !isPrismatic ? nodeColor : undefined }}>
-                  {rank.name}
-                </span>
-                {isCompleted && <span className="text-[10px]" style={{ color: "#10e07f" }}>✓</span>}
-              </div>
-              <p className="text-[10px] md:text-xs" style={{ color: "rgba(232,232,240,0.5)" }}>{rank.desc}</p>
-              {!isFuture && (
-                <div className="mt-2 pt-2 text-[10px] md:text-xs font-semibold" style={{ borderTop: "1px solid rgba(255,255,255,0.1)", color: "#f6ad37" }}>
-                  {rank.xpMax === Infinity ? `${(rank.xpMin / 1000).toFixed(0)}K+ XP` : `${(rank.xpMin / 1000).toFixed(0)}K - ${(rank.xpMax / 1000).toFixed(0)}K XP`}
-                </div>
-              )}
-              {isFuture && (
-                <div className="mt-2 pt-2 text-[10px] md:text-xs font-semibold" style={{ borderTop: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.3)" }}>
-                  Requires {(rank.xpMin / 1000).toFixed(0)}K XP to unlock
-                </div>
-              )}
-            </GlassCard>
-          </motion.div>
-        </motion.div>
-      </div>
-    </div>
+        </AnimatePresence>
+      </motion.div>
+    </motion.div>
   );
 }
 
 export default function ProgressionPath() {
   const currentIndex = RANKS.findIndex((r) => r.id === CURRENT_RANK.id);
-  const completedCount = currentIndex;
+  
+  // Create continuous SVG Path data using calculated absolute coordinates
+  const generatePath = (count: number) => {
+    if (count <= 1) return "";
+    return Array.from({ length: count }).map((_, i) => {
+      const pos = NODE_POSITIONS[i];
+      const x = pos.x;
+      const y = pos.y;
+      
+      if (i === 0) return `M ${x},${y}`;
+      
+      const prevPos = NODE_POSITIONS[i - 1];
+      const prevX = prevPos.x;
+      const prevY = prevPos.y;
+      
+      // Control points vertically tangent to create perfect, smooth S-curves
+      const cy1 = prevY + (y - prevY) / 2;
+      const cy2 = y - (y - prevY) / 2;
+      
+      return `C ${prevX},${cy1} ${x},${cy2} ${x},${y}`;
+    }).join(" ");
+  };
+
+  const fullPathData = generatePath(RANKS.length);
+  const completedPathData = generatePath(currentIndex + 1);
 
   return (
-    <div className="p-4 md:p-6 max-w-2xl mx-auto space-y-8 overflow-hidden pb-20">
-      <div className="text-center mt-4">
-        <h1 className="text-3xl md:text-4xl font-bold mb-2" style={{ fontFamily: "Rajdhani, sans-serif" }}>Your Journey</h1>
-        <p className="text-xs md:text-sm max-w-md mx-auto" style={{ color: "rgba(232,232,240,0.5)" }}>
-          Follow the path of the forge. Complete each stage to ascend to Enlightenment.
-        </p>
-        
-        {/* Overall Progress Indicator */}
-        <div className="mt-6 flex flex-col items-center">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xl md:text-2xl font-bold" style={{ color: "#f6ad37" }}>{completedCount}</span>
-            <span className="text-xs md:text-sm" style={{ color: "rgba(232,232,240,0.4)" }}>/ {RANKS.length} Ranks Completed</span>
-          </div>
-          <div className="w-48 md:w-64 h-1.5 rounded-full overflow-hidden relative" style={{ background: "rgba(255,255,255,0.05)" }}>
-            <motion.div 
-              initial={{ width: 0 }}
-              whileInView={{ width: `${(completedCount / RANKS.length) * 100}%` }}
-              viewport={{ once: true }}
-              transition={{ duration: 1.5, delay: 0.2, ease: "easeOut" }}
-              className="absolute top-0 left-0 h-full rounded-full" 
-              style={{ background: "#f6ad37", boxShadow: "0 0 10px #f6ad37" }} 
-            />
-          </div>
-        </div>
+    <div className="relative min-h-screen bg-[#030308] overflow-hidden selection:bg-cyan-900">
+      {/* Immersive Deep Parallax Background */}
+      <div className="fixed inset-0 z-0 opacity-50 mix-blend-screen pointer-events-none">
+        <Starfield />
       </div>
 
-      {/* The Journey Map */}
-      <div className="relative mt-8 py-12 rounded-3xl" style={{ background: "rgba(255,255,255,0.01)", border: "1px solid rgba(255,255,255,0.03)" }}>
-        {RANKS.map((rank, i) => {
-          const isCurrent = i === currentIndex;
-          const isCompleted = i < currentIndex;
-          return (
+      {/* Atmospheric Ambient Gradients */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-[#0ea5e9]/10 to-transparent blur-3xl opacity-40" />
+        <div className="absolute bottom-0 right-0 w-full h-[800px] bg-gradient-to-t from-[#a78bfa]/15 to-transparent blur-3xl opacity-30" />
+      </div>
+
+      <div className="relative z-10 max-w-[1400px] mx-auto w-full px-4 md:px-8">
+        {/* Cinematic Header Intro */}
+        <div className="text-center pt-24 pb-12 relative z-20">
+          <motion.h1 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1 }}
+            className="text-5xl md:text-8xl font-black mb-6 tracking-wide" 
+            style={{ fontFamily: "Rajdhani, sans-serif", textShadow: "0 0 50px rgba(14,165,233,0.4)" }}
+          >
+            The Ascent
+          </motion.h1>
+          <motion.p 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1, delay: 0.3 }}
+            className="text-sm md:text-xl max-w-3xl mx-auto leading-relaxed px-6" 
+            style={{ color: "rgba(232,232,240,0.6)" }}
+          >
+            Forge your legacy. Follow the winding path, overcome trials, and evolve into the ultimate master. The journey grows with you.
+          </motion.p>
+          
+          {/* Header Progress Tracker */}
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1, delay: 0.6 }}
+            className="mt-16 flex flex-col items-center"
+          >
+            <div className="flex items-end gap-3 mb-4">
+              <span className="text-4xl md:text-6xl font-black leading-none" style={{ color: "#0ea5e9", fontFamily: "Rajdhani, sans-serif" }}>{currentIndex}</span>
+              <span className="text-sm md:text-lg font-semibold uppercase tracking-widest pb-1.5" style={{ color: "rgba(232,232,240,0.4)" }}>/ {RANKS.length} Mastered</span>
+            </div>
+            <div className="w-72 md:w-[500px] h-3 rounded-full overflow-hidden relative bg-white/5 border border-white/10 shadow-[0_0_30px_rgba(14,165,233,0.15)]">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${(currentIndex / RANKS.length) * 100}%` }}
+                transition={{ duration: 2.5, delay: 1, ease: "easeOut" }}
+                className="absolute top-0 left-0 h-full rounded-full bg-gradient-to-r from-cyan-600 via-[#0ea5e9] to-[#818cf8]" 
+                style={{ boxShadow: "0 0 20px #0ea5e9" }} 
+              />
+            </div>
+          </motion.div>
+        </div>
+
+        {/* The Expansive Organic Journey Map */}
+        <div className="relative w-full mx-auto mt-16" style={{ height: `${TOTAL_HEIGHT}px` }}>
+          
+          {/* SVG Map Path using absolute Y pixels and % X coordinates */}
+          <svg 
+            className="absolute inset-0 w-full h-full pointer-events-none" 
+            preserveAspectRatio="none" 
+            viewBox={`0 0 100 ${TOTAL_HEIGHT}`}
+          >
+            <defs>
+               <filter id="glow-path" x="-50%" y="-50%" width="200%" height="200%">
+                   <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                   <feMerge>
+                       <feMergeNode in="coloredBlur"/>
+                       <feMergeNode in="SourceGraphic"/>
+                   </feMerge>
+               </filter>
+               <linearGradient id="path-gradient" x1="0" y1="0" x2="0" y2="100%">
+                  <stop offset="0%" stopColor="#10e07f" />
+                  <stop offset="40%" stopColor="#0ea5e9" />
+                  <stop offset="80%" stopColor="#6366f1" />
+                  <stop offset="100%" stopColor="#a78bfa" />
+               </linearGradient>
+            </defs>
+            
+            <path 
+              d={fullPathData} 
+              fill="none" 
+              stroke="rgba(255,255,255,0.06)" 
+              strokeWidth="2.5" 
+              vectorEffect="non-scaling-stroke" 
+              strokeDasharray="6 12"
+              strokeLinecap="round"
+            />
+            
+            {/* Flowing Energy Path */}
+            <motion.path
+              animate={{ strokeDashoffset: [0, -80] }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+              d={completedPathData}
+              fill="none"
+              stroke="url(#path-gradient)"
+              strokeWidth="6"
+              vectorEffect="non-scaling-stroke"
+              filter="url(#glow-path)"
+              strokeDasharray="20 20"
+              style={{
+                strokeLinecap: "round",
+                strokeLinejoin: "round"
+              }}
+            />
+          </svg>
+
+          {/* Render Nodes mapped across the expansive path */}
+          {RANKS.map((rank, i) => (
             <JourneyNode 
               key={rank.id} 
               rank={rank} 
               index={i} 
-              isCurrent={isCurrent} 
-              isCompleted={isCompleted} 
+              isCurrent={i === currentIndex} 
+              isCompleted={i < currentIndex} 
             />
-          );
-        })}
-      </div>
+          ))}
+        </div>
 
-      {/* Footer Callout */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ delay: 0.5 }}
-        className="flex justify-center mt-10"
-      >
-        <GlassCard className="px-5 py-3 flex items-center gap-4 hover:bg-white/5 transition-colors cursor-default">
-          <span className="text-xs md:text-sm" style={{ color: "rgba(232,232,240,0.5)" }}>Total XP:</span>
-          <span className="text-lg md:text-xl font-bold" style={{ color: "#f6ad37" }}>{CURRENT_XP.toLocaleString()}</span>
-        </GlassCard>
-      </motion.div>
+        {/* Footer Destination / Stats */}
+        <motion.div 
+          initial={{ opacity: 0, y: 50 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 1.2, type: "spring" }}
+          className="flex justify-center pb-40 relative z-20"
+        >
+          <GlassCard className="px-12 py-10 flex flex-col md:flex-row items-center gap-8 md:gap-16 hover:bg-white/5 transition-all duration-500 cursor-default border border-white/10 shadow-[0_40px_80px_rgba(0,0,0,0.8)] backdrop-blur-xl relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent skew-x-12 translate-x-[-150%] group-hover:translate-x-[150%] transition-transform duration-1000" />
+            <div className="flex flex-col items-center md:items-end">
+              <span className="text-base uppercase tracking-widest font-bold text-gray-500 mb-2">Total XP Forged</span>
+              <span className="text-5xl md:text-6xl font-black text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.3)]" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+                {CURRENT_XP.toLocaleString()} <span className="text-2xl text-[#0ea5e9]">XP</span>
+              </span>
+            </div>
+            <div className="hidden md:block w-px h-24 bg-gradient-to-b from-transparent via-white/20 to-transparent" />
+            <div className="flex flex-col items-center md:items-start mt-4 md:mt-0">
+              <span className="text-base uppercase tracking-widest font-bold text-gray-500 mb-2">Next Destination</span>
+              <span className="text-xl md:text-2xl font-bold text-[#f6ad37] drop-shadow-[0_0_15px_rgba(246,173,55,0.3)]">
+                {RANKS[currentIndex + 1]?.name || "Infinite Horizon"}
+              </span>
+            </div>
+          </GlassCard>
+        </motion.div>
+      </div>
     </div>
   );
 }
