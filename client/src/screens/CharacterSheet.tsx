@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "../store/store";
 import { fetchCurrentUser } from "../store/slices/authSlice";
-import { fetchMyAchievementsSummary } from "../store/slices/achievementSlice";
+import { fetchMyAchievementsSummary, fetchAllAchievements } from "../store/slices/achievementSlice";
 import XPBar from "../components/XPBar";
 
 const ATTRIBUTES = [
@@ -15,21 +15,7 @@ const ATTRIBUTES = [
   { name: "Resilience", value: 77, max: 100, color: "#f472b6", desc: "Bounce-back & adaptability" },
 ];
 
-const TITLES = [
-  { name: "The Architect", unlocked: true, equipped: true, desc: "Awarded for planning 5+ projects" },
-  { name: "Iron Will", unlocked: true, equipped: false, desc: "Completed a 14-day streak" },
-  { name: "Deep Diver", unlocked: false, equipped: false, desc: "Reach Mastery 90 to unlock" },
-  { name: "Night Owl", unlocked: false, equipped: false, desc: "Complete 10 quests after 10pm" },
-];
 
-const BADGES = [
-  { name: "First Flame", desc: "3-day streak", icon: "🔥", tier: "bronze", earned: true },
-  { name: "Steady Burn", desc: "7-day streak", icon: "🔥", tier: "silver", earned: true },
-  { name: "Iron Streak", desc: "14-day streak", icon: "🏅", tier: "cyan", earned: true },
-  { name: "Forge Fire", desc: "30-day streak", icon: "🏆", tier: "cyan", earned: false },
-  { name: "Eternal Flame", desc: "60-day streak", icon: "✦", tier: "legendary", earned: false },
-  { name: "Ascendant", desc: "100-day streak", icon: "◈", tier: "legendary", earned: false },
-];
 
 const BADGE_TIER: Record<string, { color: string; bg: string; border: string }> = {
   bronze: { color: "#cd7f32", bg: "rgba(205,127,50,0.12)", border: "rgba(205,127,50,0.25)" },
@@ -89,11 +75,12 @@ function StatBar({ attr, index }: { attr: typeof ATTRIBUTES[0]; index: number })
 export default function CharacterSheet() {
   const dispatch = useDispatch<AppDispatch>();
   const { user, character } = useSelector((state: RootState) => state.auth);
-  const { mySummary, unlockedAchievements } = useSelector((state: RootState) => state.achievements);
+  const { mySummary, unlockedAchievements, allAchievements, status } = useSelector((state: RootState) => state.achievements);
 
   useEffect(() => {
     if (!user) dispatch(fetchCurrentUser());
     dispatch(fetchMyAchievementsSummary());
+    dispatch(fetchAllAchievements(undefined));
   }, [dispatch, user]);
 
   const level = character?.level || 1;
@@ -111,16 +98,45 @@ export default function CharacterSheet() {
     { name: "Social", value: character.social || 0, max: 100, color: "#00f0ff", desc: "Relationships & networking" },
   ] : ATTRIBUTES;
 
-  const unlockedTitles = unlockedAchievements.filter(a => a.type === 'title').map(a => ({
+  const allTitles = allAchievements.filter(a => a.type === 'title').map(a => ({
     name: a.rewardTitle || a.name,
-    unlocked: true,
-    equipped: false, // You could store equipped title in user profile
+    unlocked: unlockedAchievements.some(ua => ua.id === a.id),
+    equipped: character?.titleId === a.id,
     desc: a.description
   }));
-  const activeTitles = unlockedTitles.length > 0 ? unlockedTitles : TITLES;
+  const activeTitles = allTitles;
+
+  const allBadges = allAchievements.filter(a => a.type === 'badge' || a.type === 'streak').map(a => {
+    const isUnlocked = unlockedAchievements.some(ua => ua.id === a.id);
+    let tier = "bronze";
+    if (a.rewardXP > 2000) tier = "legendary";
+    else if (a.rewardXP > 1000) tier = "cyan";
+    else if (a.rewardXP > 500) tier = "silver";
+    
+    return {
+      name: a.name,
+      desc: a.description,
+      icon: a.badge || "🏅",
+      tier,
+      earned: isUnlocked
+    }
+  });
 
   const streak = character?.currentStreak || 0;
   const maxStreak = character?.longestStreak || 0;
+
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-transparent">
+        <motion.div 
+          animate={{ rotate: 360 }} 
+          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          className="w-16 h-16 border-t-2 border-b-2 border-[#00f0ff] rounded-full hex-clip mb-4" 
+        />
+        <div className="text-[#00f0ff] font-['Rajdhani'] uppercase tracking-[0.3em] font-bold text-sm animate-pulse">Loading Character...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen pb-20 pt-8 px-4 md:px-8 max-w-6xl mx-auto selection:bg-[#00f0ff] selection:text-[#0a0a12]">
@@ -197,7 +213,7 @@ export default function CharacterSheet() {
                     borderLeft: "2px solid #00f0ff",
                   }}>
                   <span className="text-xs font-bold uppercase tracking-widest text-[#00f0ff] font-['Rajdhani']">
-                    {activeTitles.find(t => t.equipped)?.name || "The Architect"}
+                    {activeTitles.find(t => t.equipped)?.name || activeTitles.find(t => t.unlocked)?.name || "Novice"}
                   </span>
                 </div>
                 
@@ -210,7 +226,7 @@ export default function CharacterSheet() {
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-3 gap-2 mt-8 pt-6 border-t border-[rgba(255,255,255,0.05)] relative z-10">
               {[
-                { label: "Total Quests", value: "142", color: "#00f0ff" },
+                { label: "Total Quests", value: mySummary?.totalAvailable ? mySummary.totalUnlocked : "0", color: "#00f0ff" },
                 { label: "Best Streak", value: `${maxStreak}d`, color: "#ec4899" },
                 { label: "Rank Tier", value: "3 / 9", color: "#60a5fa" },
               ].map((s) => (
@@ -252,7 +268,10 @@ export default function CharacterSheet() {
             </div>
             
             <div className="grid gap-3">
-              {activeTitles.map((t: any, i: number) => (
+              {activeTitles.length === 0 ? (
+                <div className="text-[rgba(232,232,240,0.5)] text-sm italic py-4 text-center border border-[rgba(255,255,255,0.05)] bg-[rgba(0,0,0,0.2)]">No titles available.</div>
+              ) : (
+              activeTitles.map((t: any, i: number) => (
                 <motion.div 
                   key={t.name} 
                   initial={{ opacity: 0, x: -20 }} 
@@ -288,7 +307,8 @@ export default function CharacterSheet() {
                     )}
                   </div>
                 </motion.div>
-              ))}
+              ))
+              )}
             </div>
           </motion.div>
         </div>
@@ -324,8 +344,11 @@ export default function CharacterSheet() {
             </div>
             
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {BADGES.map((badge, i) => {
-                const bt = BADGE_TIER[badge.tier];
+              {allBadges.length === 0 ? (
+                <div className="col-span-full text-[rgba(232,232,240,0.5)] text-sm italic py-4 text-center border border-[rgba(255,255,255,0.05)] bg-[rgba(0,0,0,0.2)]">No badges available.</div>
+              ) : (
+              allBadges.map((badge, i) => {
+                const bt = BADGE_TIER[badge.tier] || BADGE_TIER.bronze;
                 return (
                   <motion.div
                     key={badge.name}
@@ -365,7 +388,8 @@ export default function CharacterSheet() {
                     </div>
                   </motion.div>
                 );
-              })}
+              })
+              )}
             </div>
           </motion.div>
           

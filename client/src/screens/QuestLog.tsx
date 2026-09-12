@@ -2,44 +2,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "../store/store";
-import { fetchTasks, completeTask } from "../store/slices/taskSlice";
-import { fetchQuests } from "../store/slices/questSlice";
+import { fetchTasks, completeTask, deleteTask } from "../store/slices/taskSlice";
+import { fetchQuests, deleteQuest } from "../store/slices/questSlice";
 import GlassCard from "../components/GlassCard";
+import TaskCard from "../components/TaskCard";
 
 type Tab = "daily" | "projects" | "ai";
 
-interface Quest {
-  title: string;
-  xp: number;
-  coins: number;
-  diff: "Easy" | "Medium" | "Hard";
-  ai: boolean;
-  done: boolean;
-  tag: string;
-  overdue?: boolean;
-  deadline?: string;
-}
 
-const DAILY: Quest[] = [
-  { title: "Deep work session — 90 minutes", xp: 150, coins: 60, diff: "Hard", ai: true, done: false, tag: "work" },
-  { title: "Morning workout — push day", xp: 100, coins: 40, diff: "Medium", ai: false, done: true, tag: "fitness" },
-  { title: "Read 30 pages — Atomic Habits", xp: 70, coins: 28, diff: "Easy", ai: true, done: false, tag: "learning" },
-  { title: "Journal — 10-minute reflection", xp: 50, coins: 20, diff: "Easy", ai: false, done: false, tag: "mindset" },
-  { title: "Review and respond to emails", xp: 60, coins: 24, diff: "Easy", ai: false, done: false, tag: "work", overdue: true, deadline: "Overdue — 2h ago" },
-];
-
-const PROJECT_TASKS: Quest[] = [
-  { title: "Set up CI/CD pipeline for React app", xp: 180, coins: 72, diff: "Hard", ai: true, done: false, tag: "work" },
-  { title: "Write unit tests for auth module", xp: 120, coins: 48, diff: "Medium", ai: true, done: false, tag: "work" },
-  { title: "Draft course outline — TypeScript", xp: 90, coins: 36, diff: "Medium", ai: false, done: true, tag: "learning" },
-  { title: "Database schema design", xp: 140, coins: 56, diff: "Hard", ai: false, done: false, tag: "work", overdue: true, deadline: "Overdue — 1d 4h ago" },
-];
-
-const AI_SUGGESTED: Quest[] = [
-  { title: "Practice 20 minutes of speed typing", xp: 55, coins: 22, diff: "Easy", ai: true, done: false, tag: "skill" },
-  { title: "Cold shower challenge — week 1", xp: 80, coins: 32, diff: "Medium", ai: true, done: false, tag: "fitness" },
-  { title: "Write one LinkedIn post about your learnings", xp: 65, coins: 26, diff: "Easy", ai: true, done: false, tag: "work" },
-];
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "daily", label: "Daily" },
@@ -47,56 +17,12 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "ai", label: "AI-Suggested" },
 ];
 
-const TAG_COLORS: Record<string, string> = {
-  work: "#8b5cf6",
-  fitness: "#10e07f",
-  learning: "#00f0ff",
-  mindset: "#ec4899",
-  skill: "#60a5fa",
-};
-
-// Gem difficulty icons
-function DiffGem({ diff }: { diff: "Easy" | "Medium" | "Hard" }) {
-  const config = {
-    Easy: { color: "#10e07f", icon: "◈", glow: "rgba(16,224,127,0.5)" },
-    Medium: { color: "#00f0ff", icon: "◈", glow: "rgba(0,240,255,0.5)" },
-    Hard: { color: "#ec4899", icon: "◈", glow: "rgba(236,72,153,0.5)" },
-  }[diff];
-  return (
-    <span className="text-[10px] md:text-xs font-black uppercase tracking-widest flex items-center gap-1.5"
-      style={{ color: config.color, filter: `drop-shadow(0 0 5px ${config.glow})`, fontFamily: "Rajdhani, sans-serif" }}>
-      <span>{config.icon}</span> {diff}
-    </span>
-  );
-}
-
-function CountdownTimer({ deadline }: { deadline: string }) {
-  return (
-    <motion.span
-      animate={{ opacity: [1, 0.5, 1] }}
-      transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-      className="text-[9px] md:text-[10px] font-black uppercase tracking-widest flex items-center gap-1"
-      style={{ color: "#ef4444", fontFamily: "Rajdhani, sans-serif" }}>
-      <span className="text-xs">⏱</span> {deadline}
-    </motion.span>
-  );
-}
-
-function QuestCard({ task, index, onComplete }: { task: any; index: number; onComplete?: (id: string) => void }) {
-  const [done, setDone] = useState(task.done || task.isCompleted);
-  const [verifying, setVerifying] = useState(false);
-
-  const isOverdue = task.overdue || false;
-
-  const handleComplete = () => {
-    if (done || verifying || isOverdue) return;
-    setVerifying(true);
-    if (onComplete && task.id) {
-      onComplete(task.id);
-    }
-    setTimeout(() => { setVerifying(false); setDone(true); }, 2000);
-  };
-
+function ProjectRowCard({ project, index, onDelete }: { project: any; index: number; onDelete: (id: string, type: string) => void; }) {
+  const completedTasks = project.status === 'completed' ? (project.totalTasks || project.tasks?.length || 1) : (project.completedTasks || project.progress?.current || 0);
+  const totalTasks = project.totalTasks || project.tasks?.length || 1;
+  const pct = Math.round((completedTasks / totalTasks) * 100);
+  const color = project.color || "#00f0ff";
+  
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -105,110 +31,45 @@ function QuestCard({ task, index, onComplete }: { task: any; index: number; onCo
       className="group relative"
     >
       <div
-        className="p-5 md:p-6 flex items-start gap-5 transition-all duration-300 relative overflow-hidden"
-        style={{
-          background: isOverdue
-            ? "rgba(220,38,38,0.05)"
-            : done ? "rgba(16,224,127,0.05)" : "rgba(15,15,22,0.7)",
-          border: `1px solid ${isOverdue ? "rgba(220,38,38,0.3)" : done ? "rgba(16,224,127,0.3)" : "rgba(255,255,255,0.05)"}`,
-          clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))",
-          boxShadow: isOverdue ? "inset 0 0 20px rgba(220,38,38,0.1)" : done ? "inset 0 0 20px rgba(16,224,127,0.1)" : "none",
-        }}
+        className="p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-5 transition-all duration-300 relative overflow-hidden group/card bg-[rgba(15,15,22,0.7)] hover:bg-[rgba(20,20,30,0.8)] border border-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.15)]"
+        style={{ clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))" }}
       >
-        {/* Animated background on hover (if not done/overdue) */}
-        {!done && !isOverdue && (
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.03)] to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] pointer-events-none" />
-        )}
-        
-        {/* Left Accent Bar */}
-        <div className="absolute top-0 left-0 w-1.5 h-full transition-colors duration-300" 
-             style={{ 
-               background: isOverdue ? "#ef4444" : done ? "#10e07f" : "rgba(255,255,255,0.1)",
-               boxShadow: isOverdue ? "0 0 10px #ef4444" : done ? "0 0 10px #10e07f" : "none"
-             }} />
-
-        {/* Checkbox */}
-        <button
-          onClick={handleComplete}
-          disabled={!!isOverdue}
-          className="mt-1 w-8 h-8 flex items-center justify-center flex-shrink-0 transition-all duration-300 relative z-10"
-          style={{
-            background: done ? "rgba(16,224,127,0.2)" : isOverdue ? "rgba(220,38,38,0.1)" : verifying ? "rgba(139,92,246,0.2)" : "rgba(255,255,255,0.02)",
-            border: `1.5px solid ${done ? "#10e07f" : isOverdue ? "#ef4444" : verifying ? "#8b5cf6" : "rgba(255,255,255,0.2)"}`,
-            transform: "rotate(45deg)",
-            boxShadow: done ? "0 0 15px rgba(16,224,127,0.5)" : isOverdue ? "0 0 15px rgba(239,68,68,0.3)" : verifying ? "0 0 15px rgba(139,92,246,0.5)" : "none",
-            cursor: (done || isOverdue || verifying) ? "default" : "pointer"
-          }}
+        <button 
+          onClick={(e) => { e.stopPropagation(); onDelete(project.id, 'projects'); }}
+          className="absolute top-2 right-2 opacity-0 group-hover/card:opacity-100 transition-opacity text-[rgba(255,255,255,0.3)] hover:text-[#ef4444] z-20"
+          title="Delete Campaign"
         >
-          {done && (
-            <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 500, damping: 20 }}
-                         className="text-[#10e07f] font-black text-sm" style={{ transform: "rotate(-45deg)" }}>
-              ✓
-            </motion.span>
-          )}
-          {verifying && (
-            <motion.div animate={{ rotate: -360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                        className="w-4 h-4 border-2 border-[#8b5cf6] border-t-transparent rounded-full" />
-          )}
-          {isOverdue && !done && (
-             <span className="text-[#ef4444] font-black text-xs" style={{ transform: "rotate(-45deg)" }}>✕</span>
-          )}
+          ✕
         </button>
 
-        <div className="flex-1 min-w-0 pl-2">
-          {verifying && (
-             <div className="flex flex-col gap-2">
-                <div className="h-5 bg-[rgba(139,92,246,0.2)] w-3/4 rounded relative overflow-hidden">
-                   <motion.div className="absolute top-0 left-0 h-full bg-[#8b5cf6]" initial={{ width: 0 }} animate={{ width: "100%" }} transition={{ duration: 2 }} />
-                </div>
-                <span className="text-[9px] uppercase tracking-[0.2em] text-[#8b5cf6] font-black font-['Rajdhani']">Verifying Objective Protocol...</span>
-             </div>
-          )}
-          {!verifying && (
-            <p className="text-base md:text-lg font-black tracking-wider uppercase transition-colors" style={{
-              color: isOverdue ? "rgba(239,68,68,0.8)" : done ? "rgba(232,232,240,0.3)" : "#fff",
-              textDecoration: done ? "line-through" : "none",
-              fontFamily: "Rajdhani, sans-serif"
-            }}>
-              {task.title}
-            </p>
-          )}
+        <div className="absolute top-0 left-0 w-1.5 h-full transition-colors duration-300 opacity-50 group-hover:opacity-100" style={{ background: color, boxShadow: `0 0 10px ${color}` }} />
 
-          {!verifying && (
-            <div className="flex flex-wrap items-center gap-3 mt-3">
-              <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-1 flex items-center"
-                style={{
-                  background: `linear-gradient(90deg, ${TAG_COLORS[task.tag || 'work']}20, transparent)`,
-                  color: TAG_COLORS[task.tag || 'work'] || "#8b5cf6",
-                  borderLeft: `2px solid ${TAG_COLORS[task.tag || 'work'] || "#8b5cf6"}`,
-                }}>
-                {task.tag || (task.metadata?.tags && task.metadata.tags[0]) || 'task'}
-              </span>
-              
-              <DiffGem diff={task.diff || (task.difficulty === 1 ? 'Easy' : task.difficulty === 2 ? 'Medium' : 'Hard')} />
-              
-              {task.ai && (
-                <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest px-2 py-1 flex items-center gap-1.5"
-                  style={{ background: "rgba(139,92,246,0.1)", color: "#c084fc", border: "1px solid rgba(139,92,246,0.3)", clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))" }}>
-                  <span className="text-[10px] drop-shadow-[0_0_5px_#c084fc]">✦</span> AI VERIFIED
-                </span>
-              )}
-              
-              {isOverdue && task.deadline && (
-                <div className="ml-auto">
-                   <CountdownTimer deadline={task.deadline} />
-                </div>
-              )}
+        <div className="w-12 h-12 hex-clip flex items-center justify-center text-xl flex-shrink-0"
+          style={{ background: `${color}20`, border: `1px solid ${color}40`, boxShadow: `inset 0 0 10px ${color}20` }}>
+          <span style={{ filter: `drop-shadow(0 0 5px ${color})` }}>{project.icon || '🚀'}</span>
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <p className="text-base md:text-lg font-black tracking-wider uppercase text-white group-hover:text-[#00f0ff] transition-colors" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+            {project.title || project.name}
+          </p>
+          <div className="flex items-center gap-3 mt-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-[rgba(232,232,240,0.5)]">
+              {completedTasks} / {totalTasks} Tasks
+            </span>
+            <div className="flex-1 h-1.5 rounded-full bg-[rgba(255,255,255,0.05)] overflow-hidden">
+               <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} className="h-full rounded-full" style={{ background: color, boxShadow: `0 0 8px ${color}80` }} />
             </div>
-          )}
+            <span className="text-[10px] font-black uppercase" style={{ color: color, fontFamily: "Rajdhani, sans-serif" }}>{pct}%</span>
+          </div>
         </div>
 
         <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-          <span className="text-xs md:text-sm font-black uppercase tracking-widest flex items-center gap-1" style={{ color: isOverdue ? "rgba(0,240,255,0.4)" : "#00f0ff", fontFamily: "Rajdhani, sans-serif" }}>
-             <span className="text-[10px]">✦</span> +{task.xp || task.rewardXP || 0} XP
+          <span className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1" style={{ color: "#00f0ff", fontFamily: "Rajdhani, sans-serif" }}>
+             <span className="text-xs">✦</span> +{project.xpBonus !== undefined ? project.xpBonus : (project.bonusXP || 0)} XP
           </span>
-          <span className="text-[10px] md:text-xs font-black uppercase tracking-widest flex items-center gap-1" style={{ color: isOverdue ? "rgba(0,240,255,0.4)" : "#00f0ff", fontFamily: "Rajdhani, sans-serif" }}>
-             <span className="text-[10px]">◈</span> {task.coins || task.rewardCoins || 0}
+          <span className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1" style={{ color: "#00f0ff", fontFamily: "Rajdhani, sans-serif" }}>
+             <span className="text-xs">◈</span> {project.coins !== undefined ? project.coins : (project.bonusCoins || 0)}
           </span>
         </div>
       </div>
@@ -233,14 +94,19 @@ export default function QuestLog() {
     dispatch(completeTask(id));
   };
 
+  const handleDelete = (id: string, type: string) => {
+    if (type === 'daily') dispatch(deleteTask(id));
+    else if (type === 'projects') dispatch(deleteQuest(id));
+  };
+
   const getTabData = () => {
     if (tab === 'daily') {
-      return tasks.length > 0 ? tasks : DAILY;
+      return tasks;
     }
     if (tab === 'projects') {
-      return activeQuests.length > 0 ? activeQuests : PROJECT_TASKS;
+      return activeQuests;
     }
-    return AI_SUGGESTED;
+    return [];
   };
 
   return (
@@ -306,9 +172,18 @@ export default function QuestLog() {
               </div>
             </div>
           )}
-          {getTabData().map((task: any, i: number) => (
-            <QuestCard key={task.id || task.title} task={task} index={i} onComplete={handleCompleteTask} />
-          ))}
+          {getTabData().length === 0 && tab !== "ai" ? (
+             <div className="py-12 text-center text-[rgba(232,232,240,0.5)] italic text-sm border border-[rgba(255,255,255,0.05)] bg-[rgba(15,15,22,0.6)]" style={{ clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))" }}>
+               No active objectives found for this section.
+             </div>
+          ) : (
+             getTabData().map((item: any, i: number) => {
+               if (tab === 'projects') {
+                 return <ProjectRowCard key={item.id || i} project={item} index={i} onDelete={handleDelete} />;
+               }
+               return <TaskCard key={item.id || i} task={item} index={i} onComplete={handleCompleteTask} onDelete={(id) => handleDelete(id, tab)} />;
+             })
+          )}
         </motion.div>
       </AnimatePresence>
     </div>

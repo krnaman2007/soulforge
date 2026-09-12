@@ -2,68 +2,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "../store/store";
-import { fetchQuests, Quest } from "../store/slices/questSlice";
+import { fetchQuests, deleteQuest } from "../store/slices/questSlice";
+import { completeTask, deleteTask } from "../store/slices/taskSlice";
 import GlassCard from "../components/GlassCard";
+import TaskCard from "../components/TaskCard";
 
-const PROJECTS = [
-  {
-    id: 1, title: "Learn React + TypeScript", icon: "⚛", color: "#60a5fa",
-    tasks: 12, completed: 9, xpBonus: 800, coins: 320,
-    description: "Full stack mastery from hooks to advanced patterns",
-    dueDate: "Sep 28",
-  },
-  {
-    id: 2, title: "Morning Fitness Routine", icon: "⚡", color: "#34d399",
-    tasks: 20, completed: 14, xpBonus: 600, coins: 240,
-    description: "Build the foundation of physical discipline",
-    dueDate: "Oct 5",
-  },
-  {
-    id: 3, title: "Launch Side Project", icon: "🚀", color: "#00f0ff",
-    tasks: 18, completed: 5, xpBonus: 1200, coins: 500,
-    description: "Ship something real to real users",
-    dueDate: "Nov 1",
-  },
-  {
-    id: 4, title: "Read 12 Books This Year", icon: "📚", color: "#a78bfa",
-    tasks: 24, completed: 7, xpBonus: 900, coins: 360,
-    description: "Expand your mental models and knowledge base",
-    dueDate: "Dec 31",
-  },
-];
 
-interface ProjectTask {
-  title: string;
-  xp: number;
-  done: boolean;
-}
-
-const PROJECT_TASKS: Record<number, ProjectTask[]> = {
-  1: [
-    { title: "Complete React hooks deep-dive", xp: 120, done: true },
-    { title: "Build custom useLocalStorage hook", xp: 100, done: true },
-    { title: "TypeScript generics mastery", xp: 140, done: false },
-    { title: "Context API + state management", xp: 110, done: false },
-  ],
-  2: [
-    { title: "Day 1: Foundation mobility", xp: 80, done: true },
-    { title: "Day 2: Push protocol", xp: 80, done: true },
-    { title: "Day 3: Pull protocol", xp: 80, done: false },
-    { title: "Day 4: Active recovery", xp: 60, done: false },
-  ],
-  3: [
-    { title: "Validate idea with 5 users", xp: 200, done: true },
-    { title: "Build MVP wireframes", xp: 150, done: false },
-    { title: "Set up infrastructure", xp: 180, done: false },
-    { title: "Deploy beta version", xp: 250, done: false },
-  ],
-  4: [
-    { title: "Finish Atomic Habits", xp: 120, done: true },
-    { title: "Finish Deep Work", xp: 120, done: true },
-    { title: "Start The Almanack of Naval", xp: 120, done: false },
-    { title: "Write 3 book summaries", xp: 90, done: false },
-  ],
-};
 
 function ProgressRing({ pct, color, size = 60 }: { pct: number; color: string; size?: number }) {
   const r = (size - 8) / 2;
@@ -92,10 +36,10 @@ function ProgressRing({ pct, color, size = 60 }: { pct: number; color: string; s
   );
 }
 
-function ProjectDetail({ project, onBack }: { project: any; onBack: () => void }) {
-  const tasks = project.objectives || PROJECT_TASKS[project.id as keyof typeof PROJECT_TASKS] || [];
-  const completedTasks = project.status === 'completed' ? tasks.length : (project.progress?.current || project.completed || 0);
-  const totalTasks = tasks.length || project.tasks || 1;
+function ProjectDetail({ project, onBack, onCompleteTask, onDelete, onDeleteTask }: { project: any; onBack: () => void; onCompleteTask: (id: string) => void; onDelete: (id: string) => void; onDeleteTask: (id: string) => void; }) {
+  const tasks = project.tasks || [];
+  const completedTasks = project.status === 'completed' ? (project.totalTasks || project.tasks?.length || 1) : (project.completedTasks || project.progress?.current || 0);
+  const totalTasks = project.totalTasks || project.tasks?.length || 1;
   const pct = Math.round((completedTasks / totalTasks) * 100);
 
   return (
@@ -106,9 +50,18 @@ function ProjectDetail({ project, onBack }: { project: any; onBack: () => void }
       transition={{ type: "spring", stiffness: 280, damping: 28 }}
       className="space-y-6 max-w-4xl mx-auto"
     >
-      <button onClick={onBack} className="flex items-center gap-2 text-[10px] md:text-xs uppercase tracking-[0.2em] font-black text-[#00f0ff] transition-all hover:text-white group font-['Rajdhani']">
-        <span className="text-lg leading-none group-hover:-translate-x-1 transition-transform">←</span> Return to Archive
-      </button>
+      <div className="flex items-center justify-between">
+        <button onClick={onBack} className="flex items-center gap-2 text-[10px] md:text-xs uppercase tracking-[0.2em] font-black text-[#00f0ff] transition-all hover:text-white group font-['Rajdhani']">
+          <span className="text-lg leading-none group-hover:-translate-x-1 transition-transform">←</span> Return to Archive
+        </button>
+
+        <button 
+          onClick={() => onDelete(project.id)}
+          className="flex items-center gap-2 text-[10px] md:text-xs uppercase tracking-[0.2em] font-black text-[rgba(239,68,68,0.7)] hover:text-[#ef4444] transition-all group font-['Rajdhani']"
+        >
+          Abandon Campaign <span className="text-sm group-hover:scale-110 transition-transform">✕</span>
+        </button>
+      </div>
 
       {project && (() => {
         const title = project.title || project.name || "Untitled Campaign";
@@ -184,46 +137,13 @@ function ProjectDetail({ project, onBack }: { project: any; onBack: () => void }
                   <div className="flex-1 h-px bg-gradient-to-r from-[rgba(255,255,255,0.1)] to-transparent" />
                </div>
 
-              {tasks.map((task: any, i: number) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 + i * 0.08 }}
-                  className="group"
-                >
-                  <div className="p-4 flex items-center gap-4 bg-[rgba(15,15,22,0.6)] border border-[rgba(255,255,255,0.03)] hover:bg-[rgba(20,20,30,0.8)] hover:border-[rgba(255,255,255,0.1)] transition-all cursor-pointer relative overflow-hidden" 
-                       style={{ clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))" }}>
-                     
-                     {/* Hover effect glow */}
-                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.02)] to-transparent -translate-x-full group-hover:animate-[shimmer_1s_infinite] pointer-events-none" />
-
-                    <div className="w-6 h-6 border flex items-center justify-center flex-shrink-0 transition-all z-10"
-                      style={{
-                        background: task.done ? color : "transparent",
-                        borderColor: task.done ? color : "rgba(255,255,255,0.2)",
-                        transform: task.done ? "rotate(45deg)" : "rotate(0deg)",
-                        boxShadow: task.done ? `0 0 10px ${color}80` : "none"
-                      }}>
-                      {task.done && <span className="text-black text-xs font-black" style={{ transform: "rotate(-45deg)" }}>✓</span>}
-                    </div>
-                    
-                    <div className="flex-1 z-10">
-                       <p className="text-sm font-bold uppercase tracking-wider transition-colors" style={{
-                         color: task.done ? "rgba(232,232,240,0.3)" : "#e8e8f0",
-                         textDecoration: task.done ? "line-through" : "none",
-                         fontFamily: "Rajdhani, sans-serif"
-                       }}>
-                         {task.title}
-                       </p>
-                    </div>
-
-                    <span className="text-[10px] font-black uppercase tracking-widest z-10" style={{ color: task.done ? "rgba(0,240,255,0.3)" : "#00f0ff" }}>
-                       +{task.xp || 0} XP
-                    </span>
-                  </div>
-                </motion.div>
-              ))}
+              {tasks.length === 0 ? (
+                <div className="text-[rgba(232,232,240,0.5)] text-sm italic py-4">No objectives found for this campaign.</div>
+              ) : (
+                tasks.map((task: any, i: number) => (
+                  <TaskCard key={task.id || i} task={task} index={i} onComplete={onCompleteTask} onDelete={onDeleteTask} />
+                ))
+              )}
             </div>
           </>
         );
@@ -244,15 +164,41 @@ export default function Projects() {
   const availableQuests = quests.filter((q) => q.status !== "active");
 
   const [activeTab, setActiveTab] = useState<"available" | "active">("available");
-  const allProjects: any[] = [...activeQuests, ...availableQuests].length > 0 ? [...activeQuests, ...availableQuests] : PROJECTS;
+  const allProjects: any[] = [...activeQuests, ...availableQuests];
 
   const [selected, setSelected] = useState<any | null>(null);
+
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-transparent">
+        <motion.div 
+          animate={{ rotate: 360 }} 
+          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          className="w-16 h-16 border-t-2 border-b-2 border-[#8b5cf6] rounded-full hex-clip mb-4" 
+        />
+        <div className="text-[#8b5cf6] font-['Rajdhani'] uppercase tracking-[0.3em] font-bold text-sm animate-pulse">Syncing Campaigns...</div>
+      </div>
+    );
+  }
+
+  const handleCompleteTask = (id: string) => {
+    dispatch(completeTask(id)).then(() => dispatch(fetchQuests())); // Refresh to get updated project progress
+  };
+
+  const handleDeleteProject = (id: string) => {
+    dispatch(deleteQuest(id));
+    setSelected(null);
+  };
+
+  const handleDeleteTask = (id: string) => {
+    dispatch(deleteTask(id)).then(() => dispatch(fetchQuests())); // Refresh to get updated project progress/tasks
+  };
 
   return (
     <div className="p-6 md:p-8 max-w-6xl mx-auto min-h-screen bg-transparent">
       <AnimatePresence mode="wait">
         {selected ? (
-          <ProjectDetail key="detail" project={selected} onBack={() => setSelected(null)} />
+          <ProjectDetail key="detail" project={selected} onBack={() => setSelected(null)} onCompleteTask={handleCompleteTask} onDelete={handleDeleteProject} onDeleteTask={handleDeleteTask} />
         ) : (
           <motion.div key="grid" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div className="mb-8 border-b border-[rgba(255,255,255,0.05)] pb-6">
@@ -264,82 +210,88 @@ export default function Projects() {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6">
-              {allProjects.map((p, i) => {
-                const title = p.title || p.name || "Untitled Campaign";
-                const xpBonus = p.xpBonus !== undefined ? p.xpBonus : (p.bonusXP || 0);
-                const coins = p.coins !== undefined ? p.coins : (p.bonusCoins || 0);
-                const completedTasks = p.status === 'completed' 
-                  ? (p.totalTasks || p.tasks || 1) 
-                  : (typeof p.progress === 'number' ? p.progress : (p.progress?.current || p.completedTasks || p.completed || 0));
-                const totalTasks = p.totalTasks || p.tasks || 1;
-                const pct = Math.round((completedTasks / totalTasks) * 100);
-                const color = p.color || "#00f0ff";
-                return (
-                  <motion.div
-                    key={p.id || i}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.1 }}
-                  >
-                    <div 
-                      className="group cursor-pointer bg-[rgba(15,15,22,0.6)] border border-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.15)] transition-all duration-300 relative overflow-hidden" 
-                      onClick={() => setSelected(p)}
-                      style={{ clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))" }}
+              {allProjects.length === 0 ? (
+                <div className="col-span-full py-12 text-center border border-[rgba(255,255,255,0.05)] bg-[rgba(15,15,22,0.6)]" style={{ clipPath: "polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))" }}>
+                  <p className="text-[rgba(232,232,240,0.4)] uppercase tracking-widest font-['Rajdhani']">No campaigns found in archive.</p>
+                </div>
+              ) : (
+                allProjects.map((p, i) => {
+                  const title = p.title || p.name || "Untitled Campaign";
+                  const xpBonus = p.xpBonus !== undefined ? p.xpBonus : (p.bonusXP || 0);
+                  const coins = p.coins !== undefined ? p.coins : (p.bonusCoins || 0);
+                  const completedTasks = p.status === 'completed' 
+                    ? (p.totalTasks || p.tasks?.length || 1) 
+                    : (typeof p.progress === 'number' ? p.progress : (p.completedTasks || p.progress?.current || 0));
+                  const totalTasks = p.totalTasks || p.tasks?.length || 1;
+                  const pct = Math.round((completedTasks / totalTasks) * 100);
+                  const color = p.color || "#00f0ff";
+                  return (
+                    <motion.div
+                      key={p.id || i}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.1 }}
                     >
-                      {/* Hover Effects */}
-                      <div className="absolute top-0 right-0 w-32 h-32 opacity-0 group-hover:opacity-10 transition-opacity pointer-events-none blur-3xl" style={{ background: `radial-gradient(circle, ${color}, transparent 70%)` }} />
-                      <div className="absolute inset-0 bg-gradient-to-br from-[rgba(255,255,255,0.03)] to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                      
-                      {/* Left accent border */}
-                      <div className="absolute top-0 left-0 w-1 h-full opacity-50 group-hover:opacity-100 transition-opacity" style={{ background: color, boxShadow: `0 0 10px ${color}` }} />
+                      <div 
+                        className="group cursor-pointer bg-[rgba(15,15,22,0.6)] border border-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.15)] transition-all duration-300 relative overflow-hidden" 
+                        onClick={() => setSelected(p)}
+                        style={{ clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))" }}
+                      >
+                        {/* Hover Effects */}
+                        <div className="absolute top-0 right-0 w-32 h-32 opacity-0 group-hover:opacity-10 transition-opacity pointer-events-none blur-3xl" style={{ background: `radial-gradient(circle, ${color}, transparent 70%)` }} />
+                        <div className="absolute inset-0 bg-gradient-to-br from-[rgba(255,255,255,0.03)] to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                        
+                        {/* Left accent border */}
+                        <div className="absolute top-0 left-0 w-1 h-full opacity-50 group-hover:opacity-100 transition-opacity" style={{ background: color, boxShadow: `0 0 10px ${color}` }} />
 
-                      <div className="p-6 md:p-8 relative z-10 flex flex-col h-full">
-                        <div className="flex items-start justify-between mb-6">
-                          <div className="w-14 h-14 hex-clip flex items-center justify-center text-2xl"
-                            style={{ background: `${color}20`, border: `1px solid ${color}40`, boxShadow: `inset 0 0 10px ${color}20` }}>
-                            <span style={{ filter: `drop-shadow(0 0 5px ${color})` }}>{p.icon || '🚀'}</span>
+                        <div className="p-6 md:p-8 relative z-10 flex flex-col h-full">
+                          <div className="flex items-start justify-between mb-6">
+                            <div className="w-14 h-14 hex-clip flex items-center justify-center text-2xl"
+                              style={{ background: `${color}20`, border: `1px solid ${color}40`, boxShadow: `inset 0 0 10px ${color}20` }}>
+                              <span style={{ filter: `drop-shadow(0 0 5px ${color})` }}>{p.icon || '🚀'}</span>
+                            </div>
+                            <div className="relative">
+                              <ProgressRing pct={pct} color={color} size={54} />
+                               <div className="absolute inset-0 flex items-center justify-center">
+                                 <span className="text-[10px] font-black" style={{ color: color, fontFamily: "Rajdhani, sans-serif" }}>{pct}%</span>
+                               </div>
+                            </div>
                           </div>
-                          <div className="relative">
-                            <ProgressRing pct={pct} color={color} size={54} />
-                             <div className="absolute inset-0 flex items-center justify-center">
-                               <span className="text-[10px] font-black" style={{ color: color, fontFamily: "Rajdhani, sans-serif" }}>{pct}%</span>
+                          
+                          <div className="flex-1">
+                             <h3 className="text-xl md:text-2xl font-black uppercase tracking-wider mb-2 text-white group-hover:text-[#00f0ff] transition-colors" style={{ fontFamily: "Rajdhani, sans-serif" }}>{title}</h3>
+                             <p className="text-[10px] md:text-xs uppercase tracking-widest leading-relaxed mb-6 font-['Inter'] line-clamp-2" style={{ color: "rgba(232,232,240,0.5)" }}>{p.description}</p>
+                          </div>
+                          
+                          <div className="flex flex-col gap-4 mt-auto">
+                             <div className="flex items-center justify-between">
+                               <div className="flex items-center gap-1.5">
+                                  <span className="text-[#00f0ff] text-xs">✦</span>
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-[#00f0ff]">{xpBonus} XP Bonus</span>
+                               </div>
+                               <span className="text-[10px] font-black uppercase tracking-widest text-[rgba(232,232,240,0.4)]">
+                                 {completedTasks} / {totalTasks} OBJS
+                               </span>
+                             </div>
+
+                             <div className="h-1.5 rounded-full overflow-hidden bg-[rgba(255,255,255,0.05)] w-full">
+                               <motion.div
+                                 initial={{ width: 0 }}
+                                 animate={{ width: `${pct}%` }}
+                                 transition={{ type: "spring", stiffness: 50, damping: 20, delay: 0.3 + i * 0.1 }}
+                                 className="h-full rounded-full relative"
+                                 style={{ background: color, boxShadow: `0 0 8px ${color}80` }}
+                               >
+                                  <div className="absolute inset-0 bg-white/20 w-full animate-[shimmer_2s_infinite]" />
+                               </motion.div>
                              </div>
                           </div>
-                        </div>
-                        
-                        <div className="flex-1">
-                           <h3 className="text-xl md:text-2xl font-black uppercase tracking-wider mb-2 text-white group-hover:text-[#00f0ff] transition-colors" style={{ fontFamily: "Rajdhani, sans-serif" }}>{title}</h3>
-                           <p className="text-[10px] md:text-xs uppercase tracking-widest leading-relaxed mb-6 font-['Inter'] line-clamp-2" style={{ color: "rgba(232,232,240,0.5)" }}>{p.description}</p>
-                        </div>
-                        
-                        <div className="flex flex-col gap-4 mt-auto">
-                           <div className="flex items-center justify-between">
-                             <div className="flex items-center gap-1.5">
-                                <span className="text-[#00f0ff] text-xs">✦</span>
-                                <span className="text-[10px] font-black uppercase tracking-widest text-[#00f0ff]">{xpBonus} XP Bonus</span>
-                             </div>
-                             <span className="text-[10px] font-black uppercase tracking-widest text-[rgba(232,232,240,0.4)]">
-                               {completedTasks} / {totalTasks} OBJS
-                             </span>
-                           </div>
-
-                           <div className="h-1.5 rounded-full overflow-hidden bg-[rgba(255,255,255,0.05)] w-full">
-                             <motion.div
-                               initial={{ width: 0 }}
-                               animate={{ width: `${pct}%` }}
-                               transition={{ type: "spring", stiffness: 50, damping: 20, delay: 0.3 + i * 0.1 }}
-                               className="h-full rounded-full relative"
-                               style={{ background: color, boxShadow: `0 0 8px ${color}80` }}
-                             >
-                                <div className="absolute inset-0 bg-white/20 w-full animate-[shimmer_2s_infinite]" />
-                             </motion.div>
-                           </div>
                         </div>
                       </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
+                    </motion.div>
+                  );
+                })
+              )}
             </div>
           </motion.div>
         )}
