@@ -47,11 +47,11 @@ class LeaderboardService {
       }));
     }
 
-    // For Weekly, we aggregate ActivityLog across all reward sources
+    // For Weekly, we aggregate canonical economic XP events (XP_GAINED)
     const startOfWeek = this._getWeeklyBoundary();
     const where = {
       createdAt: { gte: startOfWeek },
-      type: { in: ['TASK_COMPLETED', 'XP_GAINED', 'PROJECT_COMPLETED', 'CHALLENGE_CLAIMED', 'ACHIEVEMENT_UNLOCKED'] },
+      type: 'XP_GAINED',
       xpChange: { gt: 0 }
     };
 

@@ -195,7 +195,25 @@ class AchievementService {
             }
           });
 
-          // Route bonus XP and Coins authoritatively through RewardService
+          // Record ACHIEVEMENT_UNLOCKED action event in ActivityLog
+          await tx.activityLog.create({
+            data: {
+              userId,
+              type: 'ACHIEVEMENT_UNLOCKED',
+              xpChange: 0,
+              coinChange: 0,
+              metadata: {
+                achievementCode: ach.code,
+                achievementName: ach.name,
+                badge: ach.badge,
+                rewardTitle: ach.rewardTitle,
+                rewardXP: ach.rewardXP,
+                rewardCoins: ach.rewardCoins
+              }
+            }
+          });
+
+          // Route bonus XP and Coins authoritatively through RewardService (writes canonical XP_GAINED log)
           if (ach.rewardXP > 0 || ach.rewardCoins > 0) {
             await RewardService.grantRewards(userId, tx, {
               xp: ach.rewardXP,
@@ -285,7 +303,25 @@ class AchievementService {
             }
           });
 
-          // Route bonus XP and Coins authoritatively through RewardService
+          // Record ACHIEVEMENT_UNLOCKED action event in ActivityLog
+          await tx.activityLog.create({
+            data: {
+              userId,
+              type: 'ACHIEVEMENT_UNLOCKED',
+              xpChange: 0,
+              coinChange: 0,
+              metadata: {
+                achievementCode: ach.code,
+                achievementName: ach.name,
+                badge: ach.badge,
+                rewardTitle: ach.rewardTitle,
+                rewardXP: ach.rewardXP,
+                rewardCoins: ach.rewardCoins
+              }
+            }
+          });
+
+          // Route bonus XP and Coins authoritatively through RewardService (writes canonical XP_GAINED log)
           if (ach.rewardXP > 0 || ach.rewardCoins > 0) {
             await RewardService.grantRewards(userId, tx, {
               xp: ach.rewardXP,

@@ -2196,19 +2196,59 @@ curl -X POST http://localhost:3000/api/v1/inventory/avatar_paladin/equip \
 
 ---
 
-## 13. Common Status Codes
+## 13. Streak Recovery Subsystem
+
+The Streak Recovery Subsystem allows players who missed a calendar day to restore their broken streak for 50 coins. To protect game balance, recovery is strictly rate-limited to once per calendar week and executed as an atomic ACID transaction preventing race conditions and negative coin balances.
+
+### 13.1 Recover Broken Streak
+
+* **URL:** `/streak/recover` (or `/api/v1/streak/recover`)
+* **Method:** `POST`
+* **Auth Required:** Yes (`Bearer <token>`)
+* **Cost:** `50 Coins`
+* **Rate Limit:** `1 per calendar week` (tracked via `STREAK_RECOVERED` in `ActivityLog`)
+* **Description:** Deducts 50 coins, restores the broken streak to its previous value (or previous value + 1 if a task was already completed today), and records a `STREAK_RECOVERED` entry in the player's activity history.
+
+* **Request Body:** None required (`{}`).
+
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "success": true,
+    "message": "Streak successfully recovered!",
+    "currentStreak": 10,
+    "longestStreak": 10,
+    "remainingCoins": 50,
+    "cost": 50,
+    "recoveredAt": "2026-09-12T17:28:33.315Z"
+  }
+}
+```
+
+* **Error Responses:**
+  * `400 Bad Request` (`INSUFFICIENT_COINS`): Player has fewer than 50 coins (`currentCoins < 50`).
+  * `400 Bad Request` (`STREAK_ALREADY_ACTIVE`): Player's streak is currently active and unbroken (active today or yesterday).
+  * `400 Bad Request` (`STREAK_RECOVERY_LIMIT_REACHED`): Player has already used streak recovery during the current calendar week.
+  * `400 Bad Request` (`NO_STREAK_TO_RECOVER`): Player has never started or accumulated a streak.
+
+---
+
+## 14. Common Status Codes
 
 | Status Code | Code Constant | Reason |
 |---|---|---|
 | `200 OK` | - | Request succeeded |
 | `201 Created` | - | Resource created successfully |
-| `400 Bad Request` | `VALIDATION_ERROR`, `SELF_FOLLOW_NOT_ALLOWED`, `CHALLENGE_NOT_COMPLETED`, `TASK_ALREADY_COMPLETED`, `QUEST_DIFFICULTY_LOCKED`, `FOREIGN_KEY_VIOLATION`, `INSUFFICIENT_COINS`, `INVALID_SLOT` | Invalid input or invalid business action |
+| `400 Bad Request` | `VALIDATION_ERROR`, `SELF_FOLLOW_NOT_ALLOWED`, `CHALLENGE_NOT_COMPLETED`, `TASK_ALREADY_COMPLETED`, `QUEST_DIFFICULTY_LOCKED`, `FOREIGN_KEY_VIOLATION`, `INSUFFICIENT_COINS`, `INVALID_SLOT`, `STREAK_ALREADY_ACTIVE`, `STREAK_RECOVERY_LIMIT_REACHED`, `NO_STREAK_TO_RECOVER` | Invalid input or invalid business action |
 | `401 Unauthorized` | `UNAUTHORIZED`, `INVALID_CREDENTIALS` | Missing, invalid, or expired JWT Bearer token |
 | `403 Forbidden` | `ACCOUNT_NOT_VERIFIED`, `FORBIDDEN` | Action blocked until email is verified or access denied |
 | `404 Not Found` | `USER_NOT_FOUND`, `NOT_FOLLOWING`, `QUEST_NOT_FOUND`, `TASK_NOT_FOUND`, `ACHIEVEMENT_NOT_FOUND`, `RESOURCE_NOT_FOUND`, `CHARACTER_NOT_FOUND`, `ITEM_NOT_FOUND`, `ITEM_NOT_IN_INVENTORY` | Target resource does not exist |
 | `409 Conflict` | `EMAIL_ALREADY_EXISTS`, `USERNAME_ALREADY_EXISTS`, `ALREADY_FOLLOWING`, `CHALLENGE_ALREADY_CLAIMED`, `DUPLICATE_RESOURCE`, `ALREADY_OWNED` | Uniqueness conflict, duplicate claim, or duplicate purchase |
 | `429 Too Many Requests` | `RATE_LIMIT_EXCEEDED` | Rate limit threshold reached |
 | `500 Internal Server Error` | `INTERNAL_SERVER_ERROR` | Unexpected server condition |
+
 
 
 

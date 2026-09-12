@@ -190,7 +190,7 @@ class InventoryService {
       });
 
       return char;
-    });
+    }, { timeout: 15000, maxWait: 10000 });
 
     return {
       message: `Successfully equipped ${item.name}!`,

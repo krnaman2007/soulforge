@@ -209,6 +209,7 @@ model Character {
   // Consecutive Day Tracking
   currentStreak  Int       @default(0)
   longestStreak  Int       @default(0)
+  previousStreak Int       @default(0)
   lastActiveDate DateTime?
 
   // Equipped Cosmetics Slots

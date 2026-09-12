@@ -129,82 +129,100 @@ class ShopService {
     }
 
     // 3. Execute atomic transaction: verify coins, decrement balance, create inventory, log activity
-    const result = await prisma.$transaction(async (tx) => {
-      const character = await tx.character.findUnique({
-        where: { userId }
-      });
-
-      if (!character) {
-        throw new AppError('CHARACTER_NOT_FOUND', 'Player character record not found', 404);
-      }
-
-      if (character.coins < item.price) {
-        throw new AppError(
-          'INSUFFICIENT_COINS',
-          `Insufficient coins. Required: ${item.price}, Available: ${character.coins}`,
-          400,
-          { required: item.price, currentCoins: character.coins }
-        );
-      }
-
-      // Deduct coins
-      const updatedCharacter = await tx.character.update({
-        where: { userId },
-        data: {
-          coins: { decrement: item.price }
-        }
-      });
-
-      // Add to player inventory
-      const inventory = await tx.inventory.create({
-        data: {
-          userId,
-          itemId: item.id,
-          equipped: false
-        }
-      });
-
-      // Record ActivityLog entry for player history timeline
-      await tx.activityLog.create({
-        data: {
-          userId,
-          type: 'ITEM_PURCHASED',
-          itemId: item.id,
-          coinChange: -item.price,
-          xpChange: 0,
-          metadata: {
-            itemName: item.name,
-            itemCode: item.code,
-            itemType: item.type,
-            rarity: item.rarity,
-            price: item.price
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        // Atomic conditional decrement: guarantees row-level lock and prevents concurrency overdrafts
+        const updateResult = await tx.character.updateMany({
+          where: {
+            userId,
+            coins: { gte: item.price }
+          },
+          data: {
+            coins: { decrement: item.price }
           }
+        });
+
+        if (updateResult.count === 0) {
+          const currentChar = await tx.character.findUnique({
+            where: { userId },
+            select: { coins: true }
+          });
+          const availableCoins = currentChar ? currentChar.coins : 0;
+          throw new AppError(
+            'INSUFFICIENT_COINS',
+            `Insufficient coins. Required: ${item.price}, Available: ${availableCoins}`,
+            400,
+            { required: item.price, currentCoins: availableCoins }
+          );
         }
-      });
+
+        // Add to player inventory
+        const inventory = await tx.inventory.create({
+          data: {
+            userId,
+            itemId: item.id,
+            equipped: false
+          }
+        });
+
+        // Record ActivityLog entry for player history timeline
+        await tx.activityLog.create({
+          data: {
+            userId,
+            type: 'ITEM_PURCHASED',
+            itemId: item.id,
+            coinChange: -item.price,
+            xpChange: 0,
+            metadata: {
+              itemName: item.name,
+              itemCode: item.code,
+              itemType: item.type,
+              rarity: item.rarity,
+              price: item.price
+            }
+          }
+        });
+
+        // Fetch authoritative character coins after atomic deduction
+        const updatedCharacter = await tx.character.findUnique({
+          where: { userId },
+          select: { coins: true }
+        });
+
+        return {
+          inventory,
+          item,
+          character: {
+            coins: updatedCharacter ? updatedCharacter.coins : 0
+          }
+        };
+      }, { timeout: 15000, maxWait: 10000 });
 
       return {
-        inventory,
-        item,
-        character: {
-          coins: updatedCharacter.coins
-        }
+        message: `Successfully purchased ${result.item.name}!`,
+        item: {
+          id: result.item.id,
+          code: result.item.code,
+          name: result.item.name,
+          type: result.item.type,
+          rarity: result.item.rarity,
+          price: result.item.price,
+          metadata: result.item.metadata
+        },
+        inventoryId: result.inventory.id,
+        remainingCoins: result.character.coins
       };
-    });
-
-    return {
-      message: `Successfully purchased ${result.item.name}!`,
-      item: {
-        id: result.item.id,
-        code: result.item.code,
-        name: result.item.name,
-        type: result.item.type,
-        rarity: result.item.rarity,
-        price: result.item.price,
-        metadata: result.item.metadata
-      },
-      inventoryId: result.inventory.id,
-      remainingCoins: result.character.coins
-    };
+    } catch (error) {
+      if (error.code === 'P2002') {
+        throw new AppError(
+          'ALREADY_OWNED',
+          `You already own ${item.name} in your inventory`,
+          409,
+          { itemId: item.id, itemCode: item.code }
+        );
+      }
+      throw error;
+    }
   }
 }
 
