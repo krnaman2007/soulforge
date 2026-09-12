@@ -28,6 +28,15 @@ class ActivityController {
       next(error);
     }
   }
+
+  static async getAnalytics(req, res, next) {
+    try {
+      const analytics = await ActivityService.getActivityAnalytics(req.user.id);
+      return sendSuccess(res, analytics, 200);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = ActivityController;

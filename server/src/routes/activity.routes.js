@@ -15,5 +15,6 @@ router.use(authenticate);
 router.get('/', validateQuery(listActivityQuerySchema), ActivityController.getActivity);
 router.get('/recent', validateQuery(recentActivityQuerySchema), ActivityController.getRecent);
 router.get('/stats', validateQuery(activityStatsQuerySchema), ActivityController.getStats);
+router.get('/analytics', ActivityController.getAnalytics);
 
 module.exports = router;

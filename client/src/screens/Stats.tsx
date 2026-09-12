@@ -1,35 +1,14 @@
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "../store/store";
-import { fetchActivityStats, fetchActivityFeed } from "../store/slices/activitySlice";
+import { fetchActivityStats, fetchActivityFeed, fetchActivityAnalytics } from "../store/slices/activitySlice";
 import { fetchCurrentUser } from "../store/slices/authSlice";
 import { motion } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine, CartesianGrid } from "recharts";
 import GlassCard from "../components/GlassCard";
 import { RANKS } from "./ProgressionPath";
 
-const XP_DATA = [
-  { day: "Sep 1", xp: 120 }, { day: "Sep 2", xp: 120 }, { day: "Sep 3", xp: 320 },
-  { day: "Sep 4", xp: 500 }, { day: "Sep 5", xp: 840 }, { day: "Sep 6", xp: 1120 },
-  { day: "Sep 7", xp: 1540 }, { day: "Sep 8", xp: 1920 }, { day: "Sep 9", xp: 2420 },
-  { day: "Sep 10", xp: 2880 }, { day: "Sep 11", xp: 3200 }, { day: "Sep 12", xp: 3400 },
-];
-
-const CALENDAR = [
-  [1, 1, 0, 1, 1, 1, 1],
-  [1, 1, 1, 0, 1, 1, 1],
-  [1, 1, 1, 1, 1, 1, 0],
-  [0, 1, 1, 1, 1, 1, 1],
-  [1, 1, null, null, null, null, null],
-];
-
 const HEAT_MAX = 500;
-const HEAT_DATA: number[] = [
-  120, 0, 200, 180, 340, 280, 420,
-  380, 500, 460, 320, 200, 0, 0,
-  150, 280, 340, 400, 320, 180, 90,
-  460, 500, 380, 200, 120, 300, 420,
-];
 
 function heatColor(val: number) {
   if (val === 0) return "rgba(255,255,255,0.02)";
@@ -99,12 +78,13 @@ const CustomReferenceLabel = (props: any) => {
 
 export default function Stats() {
   const dispatch = useDispatch<AppDispatch>();
-  const { stats } = useSelector((state: RootState) => state.activity);
+  const { stats, analytics, status } = useSelector((state: RootState) => state.activity);
   const { character } = useSelector((state: RootState) => state.auth);
 
   useEffect(() => {
     dispatch(fetchCurrentUser());
     dispatch(fetchActivityStats('all'));
+    dispatch(fetchActivityAnalytics());
   }, [dispatch]);
 
   const [hoveredRank, setHoveredRank] = useState<{ rank: any, x: number, y: number } | null>(null);
@@ -114,6 +94,20 @@ export default function Stats() {
   const totalQuests = stats?.questsCompleted || 0;
   const totalTasks = stats?.tasksCompleted || 0;
   const totalXP = stats?.totalXP || 0;
+  const peakVelocity = analytics?.peakVelocity || 0;
+  const xpTrajectory = analytics?.xpTrajectory || [];
+  const activityDensity = analytics?.activityDensity || Array(28).fill(0);
+  const operationalMatrix = analytics?.operationalMatrix || [];
+  const currentMonthLabel = analytics?.currentMonthLabel || 'Current Month';
+
+  if (status === 'loading' && !analytics) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+        <div className="w-12 h-12 border-2 border-[#00f0ff] border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-[#00f0ff] font-['Rajdhani'] font-black tracking-widest uppercase">Fetching Analytics...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 md:p-8 max-w-5xl mx-auto min-h-screen bg-transparent relative overflow-hidden">
@@ -162,7 +156,7 @@ export default function Stats() {
         {[
           { label: "Max Streak", value: `${maxStreak} DAYS`, icon: "🔥", color: "#ec4899", glow: "rgba(236,72,153,0.2)" },
           { label: "Missions Cleared", value: (totalTasks + totalQuests).toString(), icon: "⚔", color: "#00f0ff", glow: "rgba(0,240,255,0.2)" },
-          { label: "Peak Velocity", value: "500 XP", icon: "✦", color: "#8b5cf6", glow: "rgba(139,92,246,0.2)" },
+          { label: "Peak Velocity", value: `${peakVelocity} XP`, icon: "✦", color: "#8b5cf6", glow: "rgba(139,92,246,0.2)" },
           { label: "Total Yield", value: totalXP > 1000 ? `${(totalXP / 1000).toFixed(1)}K` : totalXP.toString(), icon: "◈", color: "#10e07f", glow: "rgba(16,224,127,0.2)" },
         ].map((r, i) => (
           <motion.div
@@ -226,7 +220,7 @@ export default function Stats() {
              
              <div style={{ height: 280 }} className="relative z-10 w-full">
                <ResponsiveContainer width="100%" height="100%">
-                 <AreaChart data={XP_DATA} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
+                 <AreaChart data={xpTrajectory} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
                    <defs>
                      <linearGradient id="xpGrad" x1="0" y1="0" x2="0" y2="1">
                        <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.6} />
@@ -254,6 +248,7 @@ export default function Stats() {
                      tickLine={false} 
                      dx={-10}
                      tickFormatter={(val) => `${val} XP`}
+                     domain={[0, (dataMax: number) => Math.max(dataMax * 1.2, 1000)]}
                    />
                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(139,92,246,0.3)', strokeWidth: 2, strokeDasharray: '4 4' }} />
                    
@@ -306,7 +301,7 @@ export default function Stats() {
                 </h2>
                 
                 <div className="flex flex-wrap gap-1.5 md:gap-2 justify-center">
-                  {HEAT_DATA.map((val, i) => (
+                  {activityDensity.map((val, i) => (
                     <motion.div
                       key={i}
                       initial={{ opacity: 0, scale: 0 }}
@@ -359,7 +354,7 @@ export default function Stats() {
                 <h2 className="text-xs font-black mb-1 uppercase tracking-[0.2em] font-['Rajdhani'] flex items-center gap-2" style={{ color: "#e8e8f0" }}>
                    <span className="text-[#00f0ff]">★</span> Operational Matrix
                 </h2>
-                <p className="text-[9px] uppercase tracking-widest text-[rgba(232,232,240,0.4)] mb-5 font-['Inter']">September 2026</p>
+                <p className="text-[9px] uppercase tracking-widest text-[rgba(232,232,240,0.4)] mb-5 font-['Inter']">{currentMonthLabel}</p>
                 
                 <div className="grid grid-cols-7 gap-1.5 mb-2">
                   {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
@@ -368,7 +363,7 @@ export default function Stats() {
                 </div>
                 
                 <div className="space-y-1.5">
-                  {CALENDAR.map((week, wi) => (
+                  {operationalMatrix.map((week, wi) => (
                     <div key={wi} className="grid grid-cols-7 gap-1.5">
                       {week.map((day, di) => {
                         const dayNum = wi * 7 + di + 1;
