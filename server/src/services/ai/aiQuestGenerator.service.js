@@ -52,6 +52,11 @@ class AiQuestGeneratorService {
       throw new Error('Invalid AI quest plan');
     }
 
+    const difficulty = plan.difficulty || 'MEDIUM';
+    const questRewards = RPG_CONSTANTS.QUEST_DIFFICULTY_REWARDS[difficulty] || RPG_CONSTANTS.QUEST_DIFFICULTY_REWARDS.MEDIUM;
+    const bonusXP = plan.bonusXP ?? questRewards.xp;
+    const bonusCoins = plan.bonusCoins ?? questRewards.coins;
+
     try {
       const createdQuest = await prisma.$transaction(async (tx) => {
         const quest = await tx.project.create({
@@ -60,12 +65,12 @@ class AiQuestGeneratorService {
             name: plan.questName,
             description: `Campaign Goal: ${plan.goal || plan.questName}`,
             category: plan.category || 'INTELLECT',
-            difficulty: plan.difficulty || 'MEDIUM',
+            difficulty,
             type: 'PROJECT',
             status: 'ACTIVE',
             progress: 0,
-            bonusXP: questRewards.xp,
-            bonusCoins: questRewards.coins
+            bonusXP,
+            bonusCoins
           }
         });
 
