@@ -1,0 +1,1392 @@
+# SoulForge API Documentation
+
+This document outlines all backend REST API endpoints for the SoulForge Life RPG platform.
+
+* **Base URL:** `http://localhost:3000/api` (Local Dev)
+* **Default Content-Type:** `application/json`
+* **Standard Authentication:** `Authorization: Bearer <JWT_TOKEN>`
+
+---
+
+## Response Conventions
+
+### Success Response Format
+```json
+{
+  "success": true,
+  "data": { ... },
+  "message": "Optional human-readable message"
+}
+```
+
+### Error Response Format
+```json
+{
+  "success": false,
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Description of the error",
+    "details": null
+  }
+}
+```
+
+---
+
+## 1. System & Health
+
+### 1.1 Server Health Check
+Check whether the backend service is operational.
+
+* **Method:** `GET`
+* **URL:** `/api/health`
+* **Auth Required:** No
+* **Headers:** None
+* **Request Data:** None
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Life RPG API is running",
+  "timestamp": "2026-09-12T09:34:38.066Z"
+}
+```
+
+---
+
+## 2. Authentication & User Onboarding
+
+### 2.1 Register New Account
+Registers a new player with email, password, and unique handle. Sends an email verification link.
+
+* **Method:** `POST`
+* **URL:** `/api/auth/register`
+* **Auth Required:** No (Rate limited)
+* **Headers:** `Content-Type: application/json`
+* **Request Body:**
+| Field | Type | Required | Constraints | Description |
+|---|---|---|---|---|
+| `name` | string | Yes | 2 - 50 chars | Player's display name |
+| `email` | string | Yes | Valid email format | Player's unique email |
+| `username` | string | Yes | 3 - 30 chars, `[a-zA-Z0-9_]` | Unique player handle (case-insensitive) |
+| `password` | string | Yes | 6 - 100 chars | Account password |
+
+* **Example Request:**
+```json
+{
+  "name": "Alex Vance",
+  "email": "alex@example.com",
+  "username": "alex_vance",
+  "password": "SecretPassword123!"
+}
+```
+
+* **Success Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Registration successful. Please check your email for a verification link.",
+    "user": {
+      "id": "cmty5c5bj000049xdf8xvbvu6",
+      "email": "alex@example.com",
+      "username": "alex_vance",
+      "name": "Alex Vance",
+      "isVerified": false
+    },
+    "character": {
+      "level": 1,
+      "xp": 0,
+      "coins": 50,
+      "strength": 10,
+      "intellect": 10,
+      "discipline": 10,
+      "health": 10,
+      "creativity": 10,
+      "social": 10
+    },
+    "needsUsername": false
+  }
+}
+```
+
+---
+
+### 2.2 Login with Password
+Authenticates an existing verified user with email and password.
+
+* **Method:** `POST`
+* **URL:** `/api/auth/login`
+* **Auth Required:** No (Rate limited)
+* **Headers:** `Content-Type: application/json`
+* **Request Body:**
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `email` | string | Yes | Registered email |
+| `password` | string | Yes | Account password |
+
+* **Example Request:**
+```json
+{
+  "email": "alex@example.com",
+  "password": "SecretPassword123!"
+}
+```
+
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "user": {
+      "id": "cmty5c5bj000049xdf8xvbvu6",
+      "email": "alex@example.com",
+      "username": "alex_vance",
+      "name": "Alex Vance",
+      "isVerified": true
+    },
+    "character": {
+      "level": 1,
+      "xp": 0,
+      "coins": 50
+    },
+    "needsUsername": false
+  }
+}
+```
+
+---
+
+### 2.3 Logout
+Invalidates the client session.
+
+* **Method:** `POST`
+* **URL:** `/api/auth/logout`
+* **Auth Required:** No
+* **Headers:** None
+* **Request Data:** None
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Successfully logged out"
+  }
+}
+```
+
+---
+
+### 2.4 Get Current Authenticated Profile (`/me`)
+Returns current authenticated player's full profile and RPG character stats.
+
+* **Method:** `GET`
+* **URL:** `/api/auth/me`
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+* **Request Data:** None
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": "cmty5c5bj000049xdf8xvbvu6",
+      "email": "alex@example.com",
+      "username": "alex_vance",
+      "name": "Alex Vance",
+      "isVerified": true
+    },
+    "character": {
+      "level": 1,
+      "xp": 0,
+      "coins": 50,
+      "strength": 10,
+      "intellect": 10,
+      "discipline": 10,
+      "health": 10,
+      "creativity": 10,
+      "social": 10,
+      "currentStreak": 0,
+      "longestStreak": 0,
+      "avatarId": "avatar_starter",
+      "themeId": "theme_classic",
+      "titleId": "title_apprentice"
+    },
+    "needsUsername": false
+  }
+}
+```
+
+---
+
+### 2.5 Resend Email Verification Link
+Resends a verification link if expired or lost.
+
+* **Method:** `POST`
+* **URL:** `/api/auth/resend-verification`
+* **Auth Required:** No (Rate limited)
+* **Headers:** `Content-Type: application/json`
+* **Request Body:**
+```json
+{
+  "email": "alex@example.com"
+}
+```
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Verification link sent to your email address"
+  }
+}
+```
+
+---
+
+### 2.6 Verify Email Token
+Confirms email ownership and activates the user account using the token sent in the email.
+
+* **Method:** `POST`
+* **URL:** `/api/auth/verify-email`
+* **Auth Required:** No (Rate limited)
+* **Headers:** `Content-Type: application/json`
+* **Request Body:**
+```json
+{
+  "token": "c9e0098613cf980458b11ce42b9c9771efb0d3635ca3bfeaba5b263528d8aab8"
+}
+```
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Email verified successfully",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "user": {
+      "id": "cmty5c5bj000049xdf8xvbvu6",
+      "email": "alex@example.com",
+      "username": "alex_vance",
+      "name": "Alex Vance",
+      "isVerified": true
+    },
+    "character": {
+      "level": 1,
+      "xp": 0,
+      "coins": 50
+    }
+  }
+}
+```
+
+---
+
+### 2.7 Google OAuth Login
+Authenticates or registers a user with a Google OAuth ID token.
+
+* **Method:** `POST`
+* **URL:** `/api/auth/google`
+* **Auth Required:** No (Rate limited)
+* **Headers:** `Content-Type: application/json`
+* **Request Body:**
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `idToken` | string | Yes | Raw Google JWT ID Token from Google Identity Services |
+
+* **Example Request:**
+```json
+{
+  "idToken": "eyJhbGciOiJSUzI1NiIsImtpZCI6..."
+}
+```
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "user": {
+      "id": "cmty4p42x00005nxdf0x4o45h",
+      "email": "player@gmail.com",
+      "username": null,
+      "name": "Google Player",
+      "isVerified": true
+    },
+    "character": {
+      "level": 1,
+      "xp": 0,
+      "coins": 50
+    },
+    "isNewUser": true,
+    "needsUsername": true
+  }
+}
+```
+
+---
+
+### 2.8 Check Username Availability
+Checks whether a handle is available or taken (for live frontend feedback).
+
+* **Method:** `GET`
+* **URL:** `/api/auth/check-username`
+* **Auth Required:** No (Rate limited)
+* **Query Parameters:**
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `username` | string | Yes | Handle to check |
+
+* **Example:** `GET /api/auth/check-username?username=dragon_slayer`
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "available": true,
+    "username": "dragon_slayer"
+  }
+}
+```
+* **If Unavailable / Reserved (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "available": false,
+    "username": "admin",
+    "reason": "This username is reserved"
+  }
+}
+```
+
+---
+
+### 2.9 Set / Claim Username
+Enables authenticated users (especially Google OAuth users on first login) to claim their unique handle.
+
+* **Method:** `POST`
+* **URL:** `/api/auth/username`
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`, `Content-Type: application/json`
+* **Request Body:**
+| Field | Type | Required | Constraints | Description |
+|---|---|---|---|---|
+| `username` | string | Yes | 3 - 30 chars, `[a-zA-Z0-9_]` | Handle to claim |
+
+* **Example Request:**
+```json
+{
+  "username": "dragon_slayer"
+}
+```
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": "cmty4p42x00005nxdf0x4o45h",
+      "email": "player@gmail.com",
+      "username": "dragon_slayer",
+      "name": "Google Player",
+      "isVerified": true
+    },
+    "character": {
+      "level": 1,
+      "xp": 0,
+      "coins": 50
+    },
+    "needsUsername": false
+  }
+}
+```
+
+---
+
+## 3. Social Graph & Public Profiles
+
+### 3.1 Search Adventurers
+Discovers other players by display name or handle.
+
+* **Method:** `GET`
+* **URL:** `/api/users/search`
+* **Auth Required:** Optional (Returns contextual `isFollowing` if authenticated)
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>` (Optional)
+* **Query Parameters:**
+| Param | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `q` | string | Yes | - | Search query (minimum 2 characters) |
+| `page` | integer | No | 1 | Page number (min 1) |
+| `limit` | integer | No | 20 | Items per page (min 1, max 50) |
+
+* **Example:** `GET /api/users/search?q=alice&page=1&limit=20`
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "users": [
+      {
+        "id": "cmty66yc10000j3xdyb26c8jd",
+        "name": "Adventurer Alice",
+        "username": "alice_adventurer",
+        "level": 10,
+        "currentStreak": 5,
+        "avatarId": "knight",
+        "titleId": "title_apprentice",
+        "isFollowing": false
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 20,
+      "total": 1,
+      "totalPages": 1
+    }
+  }
+}
+```
+
+---
+
+### 3.2 Get Public Profile
+Retrieves an adventurer's public profile, level, streak, followers/following counts, and follow state.
+
+* **Method:** `GET`
+* **URL:** `/api/users/:userId`
+* **Auth Required:** Optional
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>` (Optional)
+* **URL Parameters:**
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `userId` | string | Yes | Target user's CUID |
+
+* **Example:** `GET /api/users/cmty66yc10000j3xdyb26c8jd`
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "cmty66yc10000j3xdyb26c8jd",
+    "name": "Adventurer Alice",
+    "username": "alice_adventurer",
+    "createdAt": "2026-09-12T09:15:49.969Z",
+    "level": 10,
+    "xp": 0,
+    "currentStreak": 5,
+    "longestStreak": 0,
+    "avatarId": "knight",
+    "themeId": "theme_classic",
+    "titleId": "title_apprentice",
+    "followersCount": 42,
+    "followingCount": 18,
+    "isFollowing": false
+  }
+}
+```
+
+---
+
+### 3.3 Follow User
+Follows target adventurer. Creates a directed one-way social relationship.
+
+* **Method:** `POST`
+* **URL:** `/api/users/:userId/follow`
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+* **URL Parameters:**
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `userId` | string | Yes | ID of the user to follow |
+* **Request Body:** None
+* **Success Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "User followed successfully",
+    "followId": "cmty6d000001j3xdabcdef12",
+    "following": true
+  }
+}
+```
+* **Error Responses:**
+  * `400 Bad Request` (`SELF_FOLLOW_NOT_ALLOWED`): If trying to follow own user ID.
+  * `404 Not Found` (`USER_NOT_FOUND`): If target user ID does not exist.
+  * `409 Conflict` (`ALREADY_FOLLOWING`): If already following target user.
+
+---
+
+### 3.4 Unfollow User
+Removes the follow relationship with target adventurer.
+
+* **Method:** `DELETE`
+* **URL:** `/api/users/:userId/follow`
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+* **URL Parameters:**
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `userId` | string | Yes | ID of the user to unfollow |
+* **Request Body:** None
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "User unfollowed successfully",
+    "following": false
+  }
+}
+```
+* **Error Responses:**
+  * `404 Not Found` (`NOT_FOLLOWING`): If no follow relationship exists.
+
+---
+
+### 3.5 Get Followers List
+Returns paginated list of users following target user.
+
+* **Method:** `GET`
+* **URL:** `/api/users/:userId/followers`
+* **Auth Required:** Optional
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>` (Optional)
+* **URL Parameters:** `userId` (string, required)
+* **Query Parameters:**
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `page` | integer | 1 | Page number (min 1) |
+| `limit` | integer | 20 | Page size (1 to 50) |
+
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "users": [
+      {
+        "id": "cmty4p42x00005nxdf0x4o45h",
+        "name": "Bob Builder",
+        "username": "bob_builder",
+        "level": 15,
+        "currentStreak": 12,
+        "avatarId": "mage",
+        "titleId": "title_apprentice",
+        "followedAt": "2026-09-12T09:20:00.000Z",
+        "isFollowing": true
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 20,
+      "total": 1,
+      "totalPages": 1
+    }
+  }
+}
+```
+
+---
+
+### 3.6 Get Following List
+Returns paginated list of users followed by target user.
+
+* **Method:** `GET`
+* **URL:** `/api/users/:userId/following`
+* **Auth Required:** Optional
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>` (Optional)
+* **URL Parameters:** `userId` (string, required)
+* **Query Parameters:**
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `page` | integer | 1 | Page number (min 1) |
+| `limit` | integer | 20 | Page size (1 to 50) |
+
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "users": [
+      {
+        "id": "cmty66yc10000j3xdyb26c8jd",
+        "name": "Adventurer Alice",
+        "username": "alice_adventurer",
+        "level": 10,
+        "currentStreak": 5,
+        "avatarId": "knight",
+        "titleId": "title_apprentice",
+        "followedAt": "2026-09-12T09:18:00.000Z",
+        "isFollowing": false
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 20,
+      "total": 1,
+      "totalPages": 1
+    }
+  }
+}
+```
+
+---
+
+## 4. Tasks & Productivity Management
+
+### 4.1 List Tasks
+Retrieves all tasks for the authenticated user.
+
+* **Method:** `GET`
+* **URL:** `/api/tasks`
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+* **Request Data:** None
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "cmty7k0100001j3xdtask001",
+      "userId": "cmty4p42x00005nxdf0x4o45h",
+      "title": "Complete 30 min morning workout",
+      "description": "HIIT and stretching session",
+      "category": "HEALTH",
+      "priority": "HIGH",
+      "difficulty": "MEDIUM",
+      "status": "PENDING",
+      "xpReward": 35,
+      "coinReward": 15,
+      "dueDate": "2026-09-13T08:00:00.000Z",
+      "completedAt": null,
+      "createdAt": "2026-09-12T10:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+### 4.2 Create Task
+Creates a new quest/task. Automatically classifies category and rewards using AI heuristics.
+
+* **Method:** `POST`
+* **URL:** `/api/tasks`
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`, `Content-Type: application/json`
+* **Request Body:**
+| Field | Type | Required | Constraints | Description |
+|---|---|---|---|---|
+| `title` | string | Yes | 3 - 255 chars | Task title |
+| `description` | string | No | max 1000 chars | Additional details |
+| `dueDate` | string | No | ISO-8601 DateTime | Due date |
+| `projectId` | string | No | Valid CUID | Link to an existing project |
+
+* **Example Request:**
+```json
+{
+  "title": "Study Systems Architecture for 2 hours",
+  "description": "Read Distributed Systems chapter 4 and take notes",
+  "dueDate": "2026-09-13T18:00:00.000Z"
+}
+```
+* **Success Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "cmty7k0100001j3xdtask002",
+    "title": "Study Systems Architecture for 2 hours",
+    "category": "INTELLECT",
+    "priority": "HIGH",
+    "difficulty": "MEDIUM",
+    "status": "PENDING",
+    "xpReward": 50,
+    "coinReward": 20,
+    "aiAnalyzed": true
+  }
+}
+```
+
+---
+
+### 4.3 Update Task
+Updates fields on an existing task.
+
+* **Method:** `PUT`
+* **URL:** `/api/tasks/:id`
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`, `Content-Type: application/json`
+* **URL Parameters:**
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `id` | string | Yes | CUID of the task |
+* **Request Body:**
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `title` | string | No | 3 - 255 chars |
+| `description` | string | No | max 1000 chars |
+| `dueDate` | string | No | ISO-8601 DateTime |
+
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "cmty7k0100001j3xdtask002",
+    "title": "Study Systems Architecture for 3 hours"
+  }
+}
+```
+
+---
+
+### 4.4 Complete Task (Claim Rewards)
+Marks a task completed, awards authoritative XP & coins to the user's character, advances streaks, and logs activity.
+
+* **Method:** `POST`
+* **URL:** `/api/tasks/:id/complete`
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+* **URL Parameters:**
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `id` | string | Yes | CUID of the task |
+* **Request Body:** None
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Task completed successfully",
+    "task": {
+      "id": "cmty7k0100001j3xdtask002",
+      "status": "COMPLETED",
+      "completedAt": "2026-09-12T10:15:00.000Z"
+    },
+    "rewards": {
+      "xpGained": 50,
+      "coinsGained": 20,
+      "attributeBoost": "INTELLECT"
+    },
+    "character": {
+      "level": 2,
+      "xp": 50,
+      "coins": 70,
+      "currentStreak": 1
+    }
+  }
+}
+```
+
+---
+
+### 4.5 Delete Task
+Deletes a task owned by the authenticated player.
+
+* **Method:** `DELETE`
+* **URL:** `/api/tasks/:id`
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+* **URL Parameters:**
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `id` | string | Yes | CUID of the task |
+* **Request Body:** None
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Task deleted successfully"
+  }
+}
+```
+
+---
+
+## 5. AI & RPG Intelligence (Groq LLM)
+
+### 5.1 Analyze Task
+Uses AI to classify an input task into the 6 Life RPG categories, estimating difficulty, effort, impact, XP, and coin rewards.
+
+* **Method:** `POST`
+* **URL:** `/api/ai/tasks/analyze`
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`, `Content-Type: application/json`
+* **Request Body:**
+| Field | Type | Required | Constraints | Description |
+|---|---|---|---|---|
+| `title` | string | Yes | 3 - 255 chars | Task name to analyze |
+| `description` | string | No | max 1000 chars | Context / notes |
+
+* **Example Request:**
+```json
+{
+  "title": "Train for 5km marathon run in park",
+  "description": "Aiming for sub-25 min pace"
+}
+```
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "category": "STRENGTH",
+    "priority": "HIGH",
+    "difficulty": "HARD",
+    "effort": "HIGH",
+    "impact": "HIGH",
+    "xpReward": 60,
+    "coinReward": 25,
+    "attribute": "STRENGTH",
+    "aiConfidence": 0.94
+  }
+}
+```
+
+---
+
+### 5.2 Plan Project
+Generates a structured RPG questline / project breakdown for a user-specified goal.
+
+* **Method:** `POST`
+* **URL:** `/api/ai/projects/plan`
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`, `Content-Type: application/json`
+* **Request Body:**
+| Field | Type | Required | Constraints | Description |
+|---|---|---|---|---|
+| `goal` | string | Yes | 3 - 200 chars | The project or major milestone |
+
+* **Example Request:**
+```json
+{
+  "goal": "Build and launch a full-stack SaaS MVP in 2 weeks"
+}
+```
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "projectName": "Full-Stack SaaS Launch Quest",
+    "category": "INTELLECT",
+    "phases": [
+      {
+        "phaseName": "Phase 1: Architecture & Database",
+        "tasks": [
+          { "title": "Design PostgreSQL schema and Prisma migrations", "category": "INTELLECT", "xp": 40 },
+          { "title": "Setup JWT Authentication and middleware", "category": "INTELLECT", "xp": 35 }
+        ]
+      },
+      {
+        "phaseName": "Phase 2: Core API & Frontend",
+        "tasks": [
+          { "title": "Build REST controllers and Zod validation", "category": "INTELLECT", "xp": 45 },
+          { "title": "Implement React UI screens and integration", "category": "CREATIVITY", "xp": 50 }
+        ]
+      }
+    ],
+    "bonusXP": 150,
+    "bonusCoins": 75
+  }
+}
+```
+
+---
+
+### 5.3 Plan Habit
+Creates a sustainable RPG habit schedule with progressive difficulty milestones.
+
+* **Method:** `POST`
+* **URL:** `/api/ai/habit-plan`
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`, `Content-Type: application/json`
+* **Request Body:**
+| Field | Type | Required | Constraints | Description |
+|---|---|---|---|---|
+| `habitGoal` | string | Yes | 3 - 200 chars | Habit to establish |
+
+* **Example Request:**
+```json
+{
+  "habitGoal": "Read 15 pages of non-fiction book every morning"
+}
+```
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "habitName": "Morning Wisdom Reading",
+    "attribute": "INTELLECT",
+    "frequency": "DAILY",
+    "starterStreakTarget": 7,
+    "milestones": [
+      { "streakDays": 7, "rewardTitle": "Curious Reader", "coins": 50 },
+      { "streakDays": 21, "rewardTitle": "Dedicated Scholar", "coins": 150 },
+      { "streakDays": 66, "rewardTitle": "Sage of the Morning", "coins": 500 }
+    ],
+    "baseDailyXP": 20,
+    "baseDailyCoins": 10
+  }
+}
+```
+
+---
+
+## 6. Quest & Campaign System
+
+Quests are meaningful objectives (backed by Projects) that group tasks together, providing thematic purpose, progress tracking, and significant milestone rewards (+XP, +Coins, and +Attributes).
+
+### 6.1 Create Quest
+Creates a new Quest with difficulty-based authoritative milestone rewards.
+
+* **Method:** `POST`
+* **URL:** `/api/quests`
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`, `Content-Type: application/json`
+* **Request Body:**
+| Field | Type | Required | Constraints | Description |
+|---|---|---|---|---|
+| `name` | string | Yes | 3 - 100 chars | Quest title |
+| `description` | string | No | Max 1000 chars | Narrative/objective description |
+| `category` | string | No | Enum (Default: `INTELLECT`) | `PHYSICAL`, `INTELLECT`, `STRENGTH`, `DISCIPLINE`, `HEALTH`, `CREATIVITY`, `SOCIAL`, `LEADERSHIP`, `FINANCE`, `CAREER`, `EMOTIONAL`, `LEARNING`, `PERSONAL_GROWTH` |
+| `difficulty` | string | No | Enum (Default: `MEDIUM`) | `EASY`, `MEDIUM`, `HARD`, `EPIC` |
+| `type` | string | No | Enum (Default: `PROJECT`) | `ONE_TIME`, `DAILY`, `RECURRING`, `MILESTONE`, `HABIT`, `PROJECT`, `LEARNING`, `CHALLENGE` |
+
+* **Authoritative Difficulty Rewards:**
+  * `EASY`: +100 XP, +50 Coins
+  * `MEDIUM`: +250 XP, +120 Coins
+  * `HARD`: +500 XP, +250 Coins
+  * `EPIC`: +1000 XP, +500 Coins
+
+* **Example Request:**
+```json
+{
+  "name": "Master JavaScript Fundamentals",
+  "description": "Master closures, event loop, and asynchronous patterns.",
+  "category": "INTELLECT",
+  "difficulty": "HARD",
+  "type": "LEARNING"
+}
+```
+* **Success Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "cmty81abc...",
+    "userId": "cmty81xyz...",
+    "name": "Master JavaScript Fundamentals",
+    "description": "Master closures, event loop, and asynchronous patterns.",
+    "category": "INTELLECT",
+    "difficulty": "HARD",
+    "type": "LEARNING",
+    "status": "ACTIVE",
+    "progress": 0,
+    "totalTasks": 0,
+    "completedTasks": 0,
+    "bonusXP": 500,
+    "bonusCoins": 250,
+    "completedAt": null,
+    "createdAt": "2026-09-12T10:00:00.000Z",
+    "updatedAt": "2026-09-12T10:00:00.000Z",
+    "tasks": []
+  }
+}
+```
+
+---
+
+### 6.2 List Quests
+Returns a paginated list of the authenticated user's quests with optional filtering.
+
+* **Method:** `GET`
+* **URL:** `/api/quests?page=1&limit=20&status=ACTIVE&category=INTELLECT&difficulty=HARD`
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+* **Query Parameters:**
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `page` | integer | No | 1 | Page number (min 1) |
+| `limit` | integer | No | 20 | Page size (1 - 50) |
+| `status` | string | No | - | Filter: `ACTIVE`, `COMPLETED`, `ON_HOLD`, `CANCELLED` |
+| `category` | string | No | - | Filter by Life RPG Category enum |
+| `difficulty` | string | No | - | Filter: `EASY`, `MEDIUM`, `HARD`, `EPIC` |
+
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "quests": [
+      {
+        "id": "cmty81abc...",
+        "userId": "cmty81xyz...",
+        "name": "Master JavaScript Fundamentals",
+        "description": "Master closures, event loop, and asynchronous patterns.",
+        "category": "INTELLECT",
+        "difficulty": "HARD",
+        "type": "LEARNING",
+        "status": "ACTIVE",
+        "progress": 0.5,
+        "totalTasks": 2,
+        "completedTasks": 1,
+        "bonusXP": 500,
+        "bonusCoins": 250,
+        "completedAt": null,
+        "createdAt": "2026-09-12T10:00:00.000Z",
+        "updatedAt": "2026-09-12T10:00:00.000Z",
+        "tasks": [
+          {
+            "id": "cmty81task1...",
+            "title": "Read MDN Closures Guide",
+            "description": "Deep dive into lexical scoping",
+            "status": "COMPLETED",
+            "difficulty": "MEDIUM",
+            "xpReward": 45,
+            "coinReward": 18,
+            "completedAt": "2026-09-12T10:05:00.000Z"
+          }
+        ]
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 20,
+      "total": 1,
+      "totalPages": 1,
+      "hasNextPage": false,
+      "hasPrevPage": false
+    }
+  }
+}
+```
+
+---
+
+### 6.3 Get Quest Details
+Retrieves complete details of a specific quest.
+
+* **Method:** `GET`
+* **URL:** `/api/quests/:id`
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+* **URL Parameters:**
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `id` | string | Yes | Quest ID |
+
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "cmty81abc...",
+    "userId": "cmty81xyz...",
+    "name": "Master JavaScript Fundamentals",
+    "description": "Master closures, event loop, and asynchronous patterns.",
+    "category": "INTELLECT",
+    "difficulty": "HARD",
+    "type": "LEARNING",
+    "status": "ACTIVE",
+    "progress": 0.5,
+    "totalTasks": 2,
+    "completedTasks": 1,
+    "bonusXP": 500,
+    "bonusCoins": 250,
+    "tasks": []
+  }
+}
+```
+
+---
+
+### 6.4 Get Quest Progress
+Retrieves lightweight progress analytics and task breakdown for a quest.
+
+* **Method:** `GET`
+* **URL:** `/api/quests/:id/progress`
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "cmty81abc...",
+    "name": "Master JavaScript Fundamentals",
+    "category": "INTELLECT",
+    "difficulty": "HARD",
+    "type": "LEARNING",
+    "status": "ACTIVE",
+    "progress": 0.5,
+    "totalTasks": 2,
+    "completedTasks": 1,
+    "bonusRewards": {
+      "xp": 500,
+      "coins": 250,
+      "attribute": "INTELLECT"
+    },
+    "tasks": []
+  }
+}
+```
+
+---
+
+### 6.5 Update Quest
+Updates metadata of an existing quest. If `difficulty` changes, milestone bonuses are authoritatively updated.
+
+* **Method:** `PATCH`
+* **URL:** `/api/quests/:id`
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`, `Content-Type: application/json`
+* **Request Body:**
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `name` | string | No | Updated title |
+| `description` | string | No | Updated description |
+| `category` | string | No | Updated Category enum |
+| `difficulty` | string | No | Updated Difficulty enum |
+| `type` | string | No | Updated QuestType enum |
+| `status` | string | No | `ACTIVE`, `COMPLETED`, `ON_HOLD`, `CANCELLED` |
+
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "cmty81abc...",
+    "name": "Master Modern JavaScript",
+    "category": "INTELLECT",
+    "difficulty": "EPIC",
+    "bonusXP": 1000,
+    "bonusCoins": 500
+  }
+}
+```
+
+---
+
+### 6.6 Delete Quest
+Deletes a quest. Any child tasks are detached (`projectId` set to `null`).
+
+* **Method:** `DELETE`
+* **URL:** `/api/quests/:id`
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Quest deleted successfully",
+    "questId": "cmty81abc..."
+  }
+}
+```
+
+---
+
+## 7. Challenge System (Daily & Weekly)
+
+Challenges track real-time activity aggregated across daily and weekly windows, unlocking claimable rewards when targets are reached.
+
+### 7.1 Get Daily Challenge Status
+Checks progress towards the daily completion quota (3 tasks/day).
+
+* **Method:** `GET`
+* **URL:** `/api/challenges/daily`
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "type": "DAILY",
+    "title": "Daily Heroics",
+    "description": "Complete 3 tasks in a single day.",
+    "periodKey": "2026-09-12",
+    "targetCount": 3,
+    "completedCount": 3,
+    "progress": 1,
+    "isCompleted": true,
+    "isClaimed": false,
+    "claimedAt": null,
+    "canClaim": true,
+    "rewards": {
+      "xp": 150,
+      "coins": 75
+    }
+  }
+}
+```
+
+---
+
+### 7.2 Get Weekly Challenge Status
+Checks progress towards the weekly completion quota (15 tasks/week).
+
+* **Method:** `GET`
+* **URL:** `/api/challenges/weekly`
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "type": "WEEKLY",
+    "title": "Weekly Grand Crusade",
+    "description": "Complete 15 tasks this week.",
+    "periodKey": "W-2026-09-07",
+    "targetCount": 15,
+    "completedCount": 7,
+    "progress": 0.47,
+    "isCompleted": false,
+    "isClaimed": false,
+    "claimedAt": null,
+    "canClaim": false,
+    "rewards": {
+      "xp": 750,
+      "coins": 400
+    }
+  }
+}
+```
+
+---
+
+### 7.3 Claim Challenge Reward
+Claims bonus rewards for a completed daily or weekly challenge. Claims are idempotent per period window.
+
+* **Method:** `POST`
+* **URL:** `/api/challenges/:type/claim`
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`, `Content-Type: application/json`
+* **URL Parameters:**
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `type` | string | Yes | `daily` or `weekly` (case-insensitive) |
+
+* **Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "success": true,
+    "message": "DAILY challenge claimed successfully",
+    "claim": {
+      "id": "cmty81claim...",
+      "type": "DAILY",
+      "periodKey": "2026-09-12",
+      "claimedAt": "2026-09-12T10:15:00.000Z"
+    },
+    "rewards": {
+      "xp": 150,
+      "coins": 75
+    },
+    "levelUp": {
+      "leveledUp": false,
+      "oldLevel": 3,
+      "newLevel": 3,
+      "nextLevelXP": 580
+    },
+    "character": {
+      "level": 3,
+      "xp": 245,
+      "nextLevelXP": 580,
+      "coins": 495
+    }
+  }
+}
+```
+* **Error Responses:**
+  * `400 Bad Request` (`CHALLENGE_NOT_COMPLETED`): When task count is below target.
+  * `409 Conflict` (`CHALLENGE_ALREADY_CLAIMED`): When already claimed for the current period.
+
+---
+
+## 8. AI Quest Campaign Generator
+
+### 8.1 Generate Quest Campaign with AI
+Decomposes a broad goal into sequential phases and tasks, calculates authoritative rewards, and atomically creates the Quest and child Tasks in the user's quest line.
+
+* **Method:** `POST`
+* **URL:** `/api/ai/quests/generate`
+* **Auth Required:** Yes
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`, `Content-Type: application/json`
+* **Request Body:**
+| Field | Type | Required | Constraints | Description |
+|---|---|---|---|---|
+| `goal` | string | Yes | 3 - 300 chars | Broad objective or ambition |
+| `category` | string | No | Enum (Default: `INTELLECT`) | Life RPG category |
+| `difficulty` | string | No | Enum (Default: `MEDIUM`) | `EASY`, `MEDIUM`, `HARD`, `EPIC` |
+| `autoCreate` | boolean | No | Default: `true` | When true, atomically saves quest + tasks to database |
+
+* **Example Request:**
+```json
+{
+  "goal": "Learn Docker and Kubernetes for Cloud Deployment",
+  "category": "CAREER",
+  "difficulty": "MEDIUM",
+  "autoCreate": true
+}
+```
+* **Success Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "cmty81aiquest...",
+    "userId": "cmty81xyz...",
+    "name": "Campaign: Learn Docker and Kubernetes for Cloud Deployment",
+    "description": "Campaign Goal: Learn Docker and Kubernetes for Cloud Deployment",
+    "category": "CAREER",
+    "difficulty": "MEDIUM",
+    "type": "PROJECT",
+    "status": "ACTIVE",
+    "progress": 0,
+    "totalTasks": 6,
+    "completedTasks": 0,
+    "bonusXP": 250,
+    "bonusCoins": 120,
+    "tasks": [
+      {
+        "id": "cmty81aitask1...",
+        "title": "Research fundamentals for Docker and Kubernetes",
+        "description": "Phase 1: Foundation and Research",
+        "status": "PENDING",
+        "difficulty": "MEDIUM",
+        "xpReward": 45,
+        "coinReward": 18
+      }
+    ]
+  }
+}
+```
+
+---
+
+## 9. Common Status Codes
+
+| Status Code | Code Constant | Reason |
+|---|---|---|
+| `200 OK` | - | Request succeeded |
+| `201 Created` | - | Resource created successfully |
+| `400 Bad Request` | `VALIDATION_ERROR`, `SELF_FOLLOW_NOT_ALLOWED`, `CHALLENGE_NOT_COMPLETED` | Invalid input or invalid business action |
+| `401 Unauthorized` | `UNAUTHORIZED` | Missing, invalid, or expired JWT Bearer token |
+| `403 Forbidden` | `ACCOUNT_NOT_VERIFIED` | Action blocked until email is verified |
+| `404 Not Found` | `USER_NOT_FOUND`, `NOT_FOLLOWING`, `QUEST_NOT_FOUND`, `TASK_NOT_FOUND` | Target resource does not exist |
+| `409 Conflict` | `EMAIL_ALREADY_EXISTS`, `USERNAME_ALREADY_EXISTS`, `ALREADY_FOLLOWING`, `CHALLENGE_ALREADY_CLAIMED` | Uniqueness conflict or duplicate claim |
+| `429 Too Many Requests` | `RATE_LIMIT_EXCEEDED` | Rate limit threshold reached |
+| `500 Internal Server Error` | `INTERNAL_SERVER_ERROR` | Unexpected server condition |
+

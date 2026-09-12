@@ -1,6 +1,7 @@
 const TaskAnalyzerService = require('../services/ai/taskAnalyzer.service');
 const ProjectPlannerService = require('../services/ai/projectPlanner.service');
 const HabitPlannerService = require('../services/ai/habitPlanner.service');
+const AiQuestGeneratorService = require('../services/ai/aiQuestGenerator.service');
 const { sendSuccess } = require('../utils/response');
 
 const analyzeTask = async (req, res, next) => {
@@ -33,8 +34,19 @@ const planHabit = async (req, res, next) => {
   }
 };
 
+const generateQuest = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const result = await AiQuestGeneratorService.generateQuest(userId, req.body);
+    sendSuccess(res, result, 201);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   analyzeTask,
   planProject,
-  planHabit
+  planHabit,
+  generateQuest
 };

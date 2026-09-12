@@ -128,6 +128,7 @@ enum ActivityType {
   STREAK_BROKEN
   STREAK_RECOVERED
   ACHIEVEMENT_UNLOCKED
+  CHALLENGE_CLAIMED
 }
 
 enum FriendshipStatus {
@@ -172,6 +173,7 @@ model User {
   verificationToken   VerificationToken?
   following           Follow[]           @relation("Following")
   followers           Follow[]           @relation("Followers")
+  challengeClaims     ChallengeClaim[]
 
   @@index([email])
   @@index([googleId])
@@ -270,6 +272,9 @@ model Project {
 
   name        String
   description String?
+  category    Category      @default(INTELLECT)
+  difficulty  Difficulty    @default(MEDIUM)
+  type        QuestType     @default(PROJECT)
   status      ProjectStatus @default(ACTIVE)
   progress    Float         @default(0.0)
 
@@ -426,5 +431,17 @@ model Follow {
   @@unique([followerId, followingId])
   @@index([followerId])
   @@index([followingId])
+}
+
+model ChallengeClaim {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // "DAILY" or "WEEKLY"
+  periodKey String   // e.g. "2026-09-12" or "2026-W37"
+  claimedAt DateTime @default(now())
+
+  @@unique([userId, type, periodKey])
+  @@index([userId])
 }
 

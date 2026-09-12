@@ -1,4 +1,5 @@
 const { generateJson } = require('./groq.client');
+const FallbackService = require('./fallback.service');
 const logger = require('../../errorlogging/logger');
 const { z } = require('zod');
 
@@ -50,8 +51,8 @@ Do not output markdown code blocks or additional text.`;
       const parsed = habitPlanSchema.parse(response);
       return parsed;
     } catch (error) {
-      logger.error('AI Habit Planning failed', { error: error.message, habitGoal });
-      throw new Error('Could not generate habit plan. The scribes are resting. Please try again later.');
+      logger.warn('AI Habit Planning failed, using deterministic habit fallback', { error: error.message, habitGoal });
+      return FallbackService.planHabitFallback(habitGoal);
     }
   }
 }

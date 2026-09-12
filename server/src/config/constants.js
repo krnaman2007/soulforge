@@ -49,6 +49,30 @@ const RPG_CONSTANTS = {
     AVATAR_ID: 'avatar_starter',
     THEME_ID: 'theme_classic',
     TITLE_ID: 'title_apprentice'
+  },
+
+  QUEST_DIFFICULTY_REWARDS: {
+    EASY: { xp: 100, coins: 50 },
+    MEDIUM: { xp: 250, coins: 120 },
+    HARD: { xp: 500, coins: 250 },
+    EPIC: { xp: 1000, coins: 500 }
+  },
+
+  CHALLENGE_CONFIG: {
+    DAILY: {
+      targetCount: 3,
+      xpReward: 150,
+      coinReward: 75,
+      title: 'Daily Heroics',
+      description: 'Complete 3 tasks in a single day.'
+    },
+    WEEKLY: {
+      targetCount: 15,
+      xpReward: 750,
+      coinReward: 400,
+      title: 'Weekly Grand Crusade',
+      description: 'Complete 15 tasks this week.'
+    }
   }
 };
 

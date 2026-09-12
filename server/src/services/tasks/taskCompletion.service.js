@@ -125,13 +125,23 @@ class TaskCompletionService {
         }
       });
 
-      // 8. Handle Project Progress (if part of a project)
+      // 8. Handle Project / Quest Progress (if part of a project)
+      let questCompleted = false;
+      let questRewards = null;
+      let finalCharacter = updatedCharacter;
+      let finalLevelUp = {
+        leveledUp: levelUpData.leveledUp,
+        oldLevel: levelUpData.oldLevel,
+        newLevel: levelUpData.newLevel,
+        nextLevelXP: levelUpData.nextLevelXP
+      };
+
       if (task.projectId) {
         const projectTasks = await tx.task.findMany({
           where: { projectId: task.projectId }
         });
         const completedCount = projectTasks.filter(t => t.status === 'COMPLETED').length;
-        const progress = completedCount / projectTasks.length;
+        const progress = projectTasks.length > 0 ? completedCount / projectTasks.length : 1.0;
 
         const projectUpdate = { progress };
         
@@ -141,22 +151,65 @@ class TaskCompletionService {
           projectUpdate.completedAt = new Date();
           
           const project = await tx.project.findUnique({ where: { id: task.projectId } });
-          if (project) {
-            // Apply project bonus
-            await tx.character.update({
-              where: { userId },
-              data: {
-                xp: { increment: project.bonusXP }, // Note: Realistically should run through applyXP again for massive bonuses
-                coins: { increment: project.bonusCoins }
-              }
+          if (project && project.status !== 'COMPLETED') {
+            questCompleted = true;
+
+            // Calculate quest attribute gains based on category & difficulty
+            const questAttrGains = AttributeService.calculateAttributeGains({
+              primaryAttribute: project.category || 'INTELLECT',
+              difficulty: project.difficulty || 'MEDIUM'
             });
+
+            // Route quest bonus XP through authoritative LevelService.applyXP
+            const questLevelData = LevelService.applyXP(
+              finalCharacter.level,
+              finalCharacter.xp,
+              project.bonusXP
+            );
+
+            const questCharUpdate = {
+              level: questLevelData.newLevel,
+              xp: questLevelData.remainingXP,
+              coins: { increment: project.bonusCoins }
+            };
+
+            for (const [attr, gain] of Object.entries(questAttrGains)) {
+              questCharUpdate[attr] = { increment: gain };
+            }
+
+            finalCharacter = await tx.character.update({
+              where: { userId },
+              data: questCharUpdate
+            });
+
+            finalLevelUp = {
+              leveledUp: levelUpData.leveledUp || questLevelData.leveledUp,
+              oldLevel: levelUpData.oldLevel,
+              newLevel: questLevelData.newLevel,
+              nextLevelXP: questLevelData.nextLevelXP
+            };
+
+            questRewards = {
+              questId: project.id,
+              questName: project.name,
+              bonusXP: project.bonusXP,
+              bonusCoins: project.bonusCoins,
+              attribute: project.category,
+              attributeGains: questAttrGains
+            };
+
             await tx.activityLog.create({
               data: {
                 userId,
                 type: 'PROJECT_COMPLETED',
                 projectId: project.id,
                 xpChange: project.bonusXP,
-                coinChange: project.bonusCoins
+                coinChange: project.bonusCoins,
+                metadata: {
+                  levelUp: questLevelData.leveledUp,
+                  newLevel: questLevelData.newLevel,
+                  attributeGains: questAttrGains
+                }
               }
             });
           }
@@ -177,35 +230,37 @@ class TaskCompletionService {
           attribute: task.primaryAttribute,
           attributeIncrease: attributeGains[AttributeService.calculateAttributeGains({ primaryAttribute: task.primaryAttribute, difficulty: task.difficulty }) ? Object.keys(AttributeService.calculateAttributeGains({ primaryAttribute: task.primaryAttribute, difficulty: task.difficulty }))[0] : ''] || 0
         },
+        questCompleted,
+        questRewards,
         character: {
-          level: updatedCharacter.level,
-          xp: updatedCharacter.xp,
-          nextLevelXP: levelUpData.nextLevelXP,
-          coins: updatedCharacter.coins,
-          intellect: updatedCharacter.intellect,
-          strength: updatedCharacter.strength,
-          discipline: updatedCharacter.discipline,
-          health: updatedCharacter.health,
-          creativity: updatedCharacter.creativity,
-          social: updatedCharacter.social,
-          leadership: updatedCharacter.leadership,
-          finance: updatedCharacter.finance,
-          career: updatedCharacter.career,
-          emotional: updatedCharacter.emotional,
-          learning: updatedCharacter.learning,
-          personalGrowth: updatedCharacter.personalGrowth
+          level: finalCharacter.level,
+          xp: finalCharacter.xp,
+          nextLevelXP: finalLevelUp.nextLevelXP,
+          coins: finalCharacter.coins,
+          intellect: finalCharacter.intellect,
+          strength: finalCharacter.strength,
+          discipline: finalCharacter.discipline,
+          health: finalCharacter.health,
+          creativity: finalCharacter.creativity,
+          social: finalCharacter.social,
+          leadership: finalCharacter.leadership,
+          finance: finalCharacter.finance,
+          career: finalCharacter.career,
+          emotional: finalCharacter.emotional,
+          learning: finalCharacter.learning,
+          personalGrowth: finalCharacter.personalGrowth
         },
         levelUp: {
-          leveledUp: levelUpData.leveledUp,
-          oldLevel: levelUpData.oldLevel,
-          newLevel: levelUpData.newLevel
+          leveledUp: finalLevelUp.leveledUp,
+          oldLevel: finalLevelUp.oldLevel,
+          newLevel: finalLevelUp.newLevel
         },
         streak: {
-          current: updatedCharacter.currentStreak,
-          longest: updatedCharacter.longestStreak,
+          current: finalCharacter.currentStreak,
+          longest: finalCharacter.longestStreak,
           streakIncreased: streakData.streakIncreased
         },
-        achievementsUnlocked: [] // Placeholder for achievement system
+        achievementsUnlocked: []
       };
     });
   }

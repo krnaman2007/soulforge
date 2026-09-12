@@ -1,4 +1,5 @@
 const { generateJson } = require('./groq.client');
+const FallbackService = require('./fallback.service');
 const logger = require('../../errorlogging/logger');
 const { z } = require('zod');
 
@@ -57,8 +58,8 @@ Do not output markdown code blocks or additional text.`;
       const parsed = projectPlanSchema.parse(response);
       return parsed;
     } catch (error) {
-      logger.error('AI Project Planning failed', { error: error.message, goal });
-      throw new Error('Could not generate project plan. The scribes are resting. Please try again later.');
+      logger.warn('AI Project Planning failed, using deterministic campaign fallback', { error: error.message, goal });
+      return FallbackService.planProjectFallback(goal);
     }
   }
 }

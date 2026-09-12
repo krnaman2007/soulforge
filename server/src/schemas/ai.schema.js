@@ -14,8 +14,31 @@ const planHabitSchema = z.object({
   habitGoal: z.string().min(3).max(200)
 });
 
+const generateQuestAiSchema = z.object({
+  goal: z.string().trim().min(3, 'Goal must be at least 3 characters').max(300, 'Goal is too long'),
+  category: z.enum([
+    'PHYSICAL',
+    'INTELLECT',
+    'STRENGTH',
+    'DISCIPLINE',
+    'HEALTH',
+    'CREATIVITY',
+    'SOCIAL',
+    'LEADERSHIP',
+    'FINANCE',
+    'CAREER',
+    'EMOTIONAL',
+    'LEARNING',
+    'PERSONAL_GROWTH'
+  ]).default('INTELLECT'),
+  difficulty: z.enum(['EASY', 'MEDIUM', 'HARD', 'EPIC']).default('MEDIUM'),
+  autoCreate: z.boolean().default(true)
+});
+
 module.exports = {
   analyzeTaskSchema,
   planProjectSchema,
-  planHabitSchema
+  planHabitSchema,
+  generateQuestAiSchema
 };
+
