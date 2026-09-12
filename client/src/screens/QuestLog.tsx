@@ -9,15 +9,17 @@ import GlassCard from "../components/GlassCard";
 import TaskCard from "../components/TaskCard";
 import { ProjectDetail } from "./Projects";
 import { isProjectActive, isTaskCompleted } from "../utils/status";
+import CreateTaskModal from "../components/CreateTaskModal";
+import CreateQuestModal from "../components/CreateQuestModal";
 
-type Tab = "daily" | "projects" | "ai";
+type Tab = "daily" | "projects" | "completed";
 
 
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "daily", label: "Daily" },
   { id: "projects", label: "Projects" },
-  { id: "ai", label: "AI-Suggested" },
+  { id: "completed", label: "Completed" },
 ];
 
 function ProjectRowCard({ project, index, onDelete, onOpen }: { project: any; index: number; onDelete: (id: string, type: string) => void; onOpen: (project: any) => void; }) {
@@ -90,7 +92,7 @@ export default function QuestLog() {
   const { quests: allQuests } = useSelector((state: RootState) => state.quests);
   const activeQuests = allQuests.filter((q) => isProjectActive(q.status));
   const dailyTasks = tasks.filter((task) => !task.projectId && !isTaskCompleted(task.status));
-  const aiProjects = activeQuests.filter((q) => q.tasks?.some((task: any) => task.aiAnalyzed));
+  const completedTasks = tasks.filter((task) => isTaskCompleted(task.status));
 
   useEffect(() => {
     dispatch(fetchTasks());
@@ -99,6 +101,8 @@ export default function QuestLog() {
 
   const [tab, setTab] = useState<Tab>("daily");
   const [selectedProject, setSelectedProject] = useState<any | null>(null);
+  const [showCreateTask, setShowCreateTask] = useState(false);
+  const [showCreateQuest, setShowCreateQuest] = useState(false);
 
   const handleCompleteTask = async (id: string) => {
     await dispatch(completeTask(id)).unwrap();
@@ -149,7 +153,7 @@ export default function QuestLog() {
   const getTabData = () => {
     if (tab === 'daily') return dailyTasks;
     if (tab === 'projects') return activeQuests;
-    return aiProjects;
+    return completedTasks;
   };
 
   if (selectedProject) {
@@ -175,6 +179,20 @@ export default function QuestLog() {
          </div>
         <h1 className="text-4xl md:text-5xl font-black uppercase tracking-widest text-white mb-2" style={{ fontFamily: "Rajdhani, sans-serif" }}>Quest Log</h1>
         <p className="text-[10px] md:text-xs uppercase tracking-[0.1em] text-[rgba(232,232,240,0.5)] font-['Inter']">Active missions and objectives. Execute to acquire resources.</p>
+        
+        {/* Creation Buttons */}
+        <div className="absolute top-0 right-0 mt-4 md:mt-0 flex gap-2">
+          {tab === "daily" && (
+            <button onClick={() => setShowCreateTask(true)} className="px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all bg-[rgba(0,240,255,0.1)] hover:bg-[rgba(0,240,255,0.2)] text-[#00f0ff] font-['Rajdhani'] border border-[#00f0ff]" style={{ clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))" }}>
+              + Initialize Task
+            </button>
+          )}
+          {tab === "projects" && (
+            <button onClick={() => setShowCreateQuest(true)} className="px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all bg-[rgba(139,92,246,0.1)] hover:bg-[rgba(139,92,246,0.2)] text-[#c084fc] font-['Rajdhani'] border border-[#8b5cf6]" style={{ clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))" }}>
+              + Initialize Campaign
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tabs — glowing underline on active */}
@@ -190,12 +208,7 @@ export default function QuestLog() {
             }}
           >
             {t.label}
-            {t.id === "ai" && (
-              <span className="ml-2 text-[9px] px-2 py-0.5"
-                style={{ background: "rgba(139,92,246,0.15)", color: "#c084fc", border: "1px solid rgba(139,92,246,0.3)", clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))" }}>
-                AI
-              </span>
-            )}
+
             {/* Glowing underline */}
             {tab === t.id && (
               <motion.div
@@ -217,25 +230,14 @@ export default function QuestLog() {
           transition={{ duration: 0.2 }}
           className="space-y-4"
         >
-          {tab === "ai" && (
-            <div className="p-4 flex items-start gap-3 bg-[rgba(139,92,246,0.05)] border border-[rgba(139,92,246,0.2)] mb-6"
-              style={{ clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))" }}>
-              <span className="text-[#c084fc] text-lg mt-0.5 animate-pulse drop-shadow-[0_0_8px_#c084fc]">✦</span>
-              <div>
-                 <p className="text-xs font-black uppercase tracking-widest text-[#c084fc] font-['Rajdhani'] mb-1">Algorithmic Suggestions</p>
-                 <p className="text-[10px] font-['Inter'] uppercase tracking-wider leading-relaxed" style={{ color: "rgba(232,232,240,0.6)" }}>
-                   Missions generated by Soulforge AI based on current attributes and progression velocity. Rewards pre-calculated.
-                 </p>
-              </div>
-            </div>
-          )}
+
           {getTabData().length === 0 ? (
              <div className="py-12 text-center text-[rgba(232,232,240,0.5)] italic text-sm border border-[rgba(255,255,255,0.05)] bg-[rgba(15,15,22,0.6)]" style={{ clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))" }}>
                No objectives found for this section.
              </div>
           ) : (
              getTabData().map((item: any, i: number) => {
-               if (tab === 'projects' || tab === 'ai') {
+               if (tab === 'projects') {
                  return <ProjectRowCard key={item.id || i} project={item} index={i} onDelete={handleDelete} onOpen={handleOpenProject} />;
                }
                return <TaskCard key={item.id || i} task={item} index={i} onComplete={handleCompleteTask} onDelete={(id) => handleDelete(id, tab)} />;
@@ -243,6 +245,9 @@ export default function QuestLog() {
           )}
         </motion.div>
       </AnimatePresence>
+
+      {showCreateTask && <CreateTaskModal onClose={() => setShowCreateTask(false)} />}
+      {showCreateQuest && <CreateQuestModal onClose={() => setShowCreateQuest(false)} />}
     </div>
   );
 }

@@ -7,30 +7,28 @@ import GlassCard from "../components/GlassCard";
 import Starfield from "../components/Starfield";
 
 export const RANKS = [
-  { id: "novice", name: "Novice", xpMin: 0, xpMax: 1000, tier: 1, color: "#9ca3af", icon: "◇", desc: "Every forge begins here. Establish your foundations and learn the basics." },
-  { id: "apprentice", name: "Apprentice", xpMin: 1000, xpMax: 2000, tier: 2, color: "#9ca3af", icon: "◈", desc: "Learning the craft. Take on more challenging tasks to hone your skills." },
-  { id: "journeyman", name: "Journeyman", xpMin: 2000, xpMax: 6000, tier: 3, color: "#60a5fa", icon: "◉", desc: "The path is taking shape. Your consistency is starting to pay off." },
-  { id: "adept", name: "Adept", xpMin: 6000, xpMax: 15000, tier: 4, color: "#60a5fa", icon: "⬡", desc: "Skill sharpens like steel. You are becoming a force to be reckoned with." },
-  { id: "specialist", name: "Specialist", xpMin: 15000, xpMax: 30000, tier: 5, color: "#e2e8f0", icon: "◎", desc: "The professional emerges. Precision and focus define your daily actions." },
-  { id: "expert", name: "Expert", xpMin: 30000, xpMax: 60000, tier: 6, color: "#cd7f32", icon: "▲", desc: "Bronze-tempered resolve. Others look to you for guidance." },
-  { id: "master", name: "Master", xpMin: 60000, xpMax: 120000, tier: 7, color: "#00f0ff", icon: "★", desc: "Neon burns in the veins. Mastery over mind, body, and craft." },
-  { id: "grandmaster", name: "Grand Master", xpMin: 120000, xpMax: 250000, tier: 8, color: "#00f0ff", icon: "✦", desc: "Few reach this height. Your legacy is being forged into legend." },
-  { id: "enlightened", name: "Enlightened", xpMin: 250000, xpMax: Infinity, tier: 9, color: "#a78bfa", icon: "◈", desc: "Beyond rank. Beyond limit. Total mastery and inner peace." },
+  { id: "iron", name: "Iron", xpMin: 0, xpMax: 1000, tier: 1, color: "#9ca3af", icon: "◇", desc: "Every forge begins here. Establish your foundations and learn the basics." },
+  { id: "bronze", name: "Bronze", xpMin: 1000, xpMax: 5000, tier: 2, color: "#cd7f32", icon: "◈", desc: "Bronze-tempered resolve. You are starting to shape your fate." },
+  { id: "silver", name: "Silver", xpMin: 5000, xpMax: 15000, tier: 3, color: "#e2e8f0", icon: "◉", desc: "The path is taking shape. Your consistency is starting to pay off." },
+  { id: "gold", name: "Gold", xpMin: 15000, xpMax: 30000, tier: 4, color: "#fbbf24", icon: "⬡", desc: "Skill sharpens like gold. You are becoming a force to be reckoned with." },
+  { id: "platinum", name: "Platinum", xpMin: 30000, xpMax: 50000, tier: 5, color: "#94a3b8", icon: "◎", desc: "The professional emerges. Precision and focus define your daily actions." },
+  { id: "diamond", name: "Diamond", xpMin: 50000, xpMax: 80000, tier: 6, color: "#38bdf8", icon: "▲", desc: "Diamond resolve. Others look to you for guidance." },
+  { id: "master", name: "Master", xpMin: 80000, xpMax: 120000, tier: 7, color: "#00f0ff", icon: "★", desc: "Neon burns in the veins. Mastery over mind, body, and craft." },
+  { id: "grandmaster", name: "Grand Master", xpMin: 120000, xpMax: Infinity, tier: 8, color: "#a78bfa", icon: "✦", desc: "Few reach this height. Your legacy is being forged into legend." }
 ];
 
 // CURRENT_XP and CURRENT_RANK are now derived in the component
 
 // Defining organic positions and scaling for the journey
 const JOURNEY_STAGES = [
-  { x: 50, yOffset: 0, scale: 1, isMilestone: false },       // Novice
-  { x: 65, yOffset: 200, scale: 1, isMilestone: false },     // Apprentice
-  { x: 80, yOffset: 220, scale: 1.2, isMilestone: true },    // Journeyman (Milestone 1)
-  { x: 60, yOffset: 260, scale: 1.2, isMilestone: false },   // Adept
-  { x: 35, yOffset: 300, scale: 1.3, isMilestone: false },   // Specialist
-  { x: 20, yOffset: 330, scale: 1.5, isMilestone: true },    // Expert (Milestone 2)
+  { x: 50, yOffset: 0, scale: 1, isMilestone: false },       // Iron
+  { x: 65, yOffset: 200, scale: 1, isMilestone: false },     // Bronze
+  { x: 80, yOffset: 220, scale: 1.2, isMilestone: true },    // Silver
+  { x: 60, yOffset: 260, scale: 1.2, isMilestone: false },   // Gold
+  { x: 35, yOffset: 300, scale: 1.3, isMilestone: false },   // Platinum
+  { x: 20, yOffset: 330, scale: 1.5, isMilestone: true },    // Diamond
   { x: 45, yOffset: 380, scale: 1.5, isMilestone: false },   // Master
-  { x: 70, yOffset: 450, scale: 1.7, isMilestone: false },   // Grand Master
-  { x: 50, yOffset: 550, scale: 2.2, isMilestone: true },    // Enlightened (Final Destination)
+  { x: 70, yOffset: 450, scale: 1.7, isMilestone: true },    // Grand Master
 ];
 
 // Calculate absolute Y positions
@@ -291,7 +289,18 @@ export default function ProgressionPath() {
     if (!user) dispatch(fetchCurrentUser());
   }, [dispatch, user]);
 
-  const CURRENT_XP = character?.xp || 0;
+  const level = character?.level || 1;
+  const currentXp = character?.xp || 0;
+  
+  const calculateTotalXP = (lvl: number, xp: number) => {
+    let total = Math.max(0, xp);
+    for (let i = 1; i < lvl; i++) {
+      total += Math.floor(100 * Math.pow(i, 1.6));
+    }
+    return total;
+  };
+  
+  const CURRENT_XP = calculateTotalXP(level, currentXp);
   const CURRENT_RANK = RANKS.find((r) => CURRENT_XP >= r.xpMin && (CURRENT_XP < r.xpMax || r.xpMax === Infinity)) || RANKS[0];
   const currentIndex = RANKS.findIndex((r) => r.id === CURRENT_RANK.id);
   

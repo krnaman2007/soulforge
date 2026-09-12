@@ -139,7 +139,7 @@ export default function Dashboard() {
                   clipPath: "polygon(50% 0%, 95% 25%, 95% 75%, 50% 100%, 5% 75%, 5% 25%)",
                   boxShadow: "0 0 15px rgba(0,240,255,0.5)"
                 }}>
-                7
+                {level}
               </div>
             </div>
 
@@ -158,7 +158,7 @@ export default function Dashboard() {
             </div>
 
             <div className="mb-6 relative z-10">
-              <XPBar current={currentXp} max={level * 1000} level={level} className="w-full" />
+              <XPBar current={currentXp} max={Math.floor(100 * Math.pow(level, 1.6))} level={level} className="w-full" />
             </div>
 
             {/* Debuff indicator */}
