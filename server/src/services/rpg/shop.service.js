@@ -196,7 +196,7 @@ class ShopService {
             coins: updatedCharacter ? updatedCharacter.coins : 0
           }
         };
-      }, { timeout: 15000, maxWait: 10000 });
+      }, { timeout: 25000, maxWait: 20000 });
 
       return {
         message: `Successfully purchased ${result.item.name}!`,

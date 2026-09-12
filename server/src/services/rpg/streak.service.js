@@ -241,7 +241,7 @@ class StreakService {
         cost: STREAK_RECOVERY_COST,
         recoveredAt: now
       };
-    }, { timeout: 15000, maxWait: 10000 });
+    }, { timeout: 25000, maxWait: 20000 });
   }
 }
 

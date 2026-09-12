@@ -62,28 +62,7 @@ class TaskCompletionService {
 
       const completedTask = await tx.task.findUnique({ where: { id: taskId } });
 
-      // 4. Record TASK_COMPLETED action event in ActivityLog
-      // xpChange is 0 because canonical economic XP is recorded as XP_GAINED by RewardService
-      await tx.activityLog.create({
-        data: {
-          userId,
-          type: 'TASK_COMPLETED',
-          taskId: task.id,
-          projectId: task.projectId || null,
-          xpChange: 0,
-          coinChange: 0,
-          metadata: {
-            taskTitle: task.title,
-            primaryAttribute: task.primaryAttribute,
-            difficulty: task.difficulty,
-            xpEarned: finalXP,
-            coinsEarned: finalCoins,
-            integrityReason: integrity.reason
-          }
-        }
-      });
-
-      // 5. Authoritative Reward Engine: Grant Task Rewards (writes canonical XP_GAINED log)
+      // 4. Authoritative Reward Engine: Grant Task Rewards (writes single authoritative TASK_COMPLETED log)
       const taskRewardResult = await RewardService.grantRewards(userId, tx, {
         xp: finalXP,
         coins: finalCoins,
@@ -94,6 +73,7 @@ class TaskCompletionService {
         taskId: task.id,
         projectId: task.projectId,
         metadata: {
+          taskTitle: task.title,
           integrityReason: integrity.reason
         }
       });
@@ -150,31 +130,17 @@ class TaskCompletionService {
               }
             });
 
-            // Record PROJECT_COMPLETED action event in ActivityLog
-            await tx.activityLog.create({
-              data: {
-                userId,
-                type: 'PROJECT_COMPLETED',
-                projectId: project.id,
-                xpChange: 0,
-                coinChange: 0,
-                metadata: {
-                  questName: project.name,
-                  category: project.category,
-                  bonusXP: project.bonusXP,
-                  bonusCoins: project.bonusCoins
-                }
-              }
-            });
-
-            // Grant Quest Bonus authoritatively via RewardService (writes canonical XP_GAINED log)
+            // Grant Quest Bonus authoritatively via RewardService (writes single authoritative PROJECT_COMPLETED log)
             const questRewardResult = await RewardService.grantRewards(userId, tx, {
               xp: project.bonusXP,
               coins: project.bonusCoins,
               primaryAttribute: project.category || 'INTELLECT',
               difficulty: project.difficulty || 'MEDIUM',
               source: 'PROJECT_COMPLETED',
-              projectId: project.id
+              projectId: project.id,
+              metadata: {
+                questName: project.name
+              }
             });
 
             if (questRewardResult.levelUp.leveledUp) {
@@ -278,7 +244,7 @@ class TaskCompletionService {
           rewardTitle: a.rewardTitle
         }))
       };
-    }, { timeout: 15000, maxWait: 10000 });
+    }, { timeout: 25000, maxWait: 20000 });
   }
 }
 

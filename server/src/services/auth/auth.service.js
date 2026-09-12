@@ -128,7 +128,19 @@ async function login({ email, password }) {
   }
 
   if (!user.isVerified) {
-    throw new AppError('ACCOUNT_NOT_VERIFIED', 'Please verify your email address to log in', 403);
+    // Automatically dispatch a fresh verification link to assist the user
+    try {
+      await verificationService.generateAndSendVerificationLink(user);
+    } catch (err) {
+      logger.warn('Failed to dispatch auto-verification link on login attempt', { error: err.message, userId: user.id });
+    }
+
+    throw new AppError(
+      'ACCOUNT_NOT_VERIFIED',
+      'Your account is not yet verified. A verification link has been dispatched to your email address.',
+      403,
+      { email: user.email, emailSent: true }
+    );
   }
 
   const token = generateToken({

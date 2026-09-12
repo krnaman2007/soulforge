@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Get backend URL from environment or use production fallback
-const API_URL = import.meta.env.VITE_API_URL || 'https://soulforge.onrender.com/api/v1';
+// Get backend URL from environment or use dev / production fallback
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000/api/v1' : 'https://soulforge.onrender.com/api/v1');
 
 const api = axios.create({
   baseURL: API_URL,

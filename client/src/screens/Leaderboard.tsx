@@ -169,7 +169,7 @@ function LeaderRow({ entry, index }: { entry: any; index: number }) {
               )}
             </div>
             <p className="text-[10px] uppercase tracking-widest mt-0.5 truncate font-['Inter']" style={{ color: tc, opacity: 0.9 }}>
-              Lv {entry.level} <span className="mx-1 opacity-50">•</span> {entry.rankTitle} <span className="mx-1 opacity-50">•</span> <span className="text-[rgba(232,232,240,0.5)]">{entry.guild}</span>
+              Lv {entry.level} <span className="mx-1 opacity-50">•</span> {entry.rankTitle}
             </p>
           </div>
         </div>
@@ -189,17 +189,6 @@ function LeaderRow({ entry, index }: { entry: any; index: number }) {
               <span className="font-black stat-num text-sm md:text-base" style={{ color: "#ec4899", filter: "drop-shadow(0 0 5px rgba(236,72,153,0.3))" }}>{entry.streak}</span>
             </p>
           </div>
-          <div className="w-12 text-right">
-             <p className="text-[9px] uppercase tracking-widest text-[rgba(232,232,240,0.4)] font-['Rajdhani'] mb-0.5">Trend</p>
-            {entry.change === 0 ? (
-              <span className="text-[rgba(232,232,240,0.3)] font-bold">—</span>
-            ) : (
-              <span className="text-xs md:text-sm font-black flex items-center justify-end gap-0.5" 
-                style={{ color: entry.change > 0 ? "#10e07f" : "#dc2626", fontFamily: "Rajdhani, sans-serif" }}>
-                {entry.change > 0 ? "▲" : "▼"}{Math.abs(entry.change)}
-              </span>
-            )}
-          </div>
         </div>
       </div>
     </motion.div>
@@ -208,7 +197,7 @@ function LeaderRow({ entry, index }: { entry: any; index: number }) {
 
 export default function Leaderboard() {
   const dispatch = useDispatch<AppDispatch>();
-  const { global, friends, me } = useSelector((state: RootState) => state.leaderboard);
+  const { global, friends, me, status, error } = useSelector((state: RootState) => state.leaderboard);
   const authUser = useSelector((state: RootState) => state.auth.user);
 
   useEffect(() => {
@@ -222,15 +211,13 @@ export default function Leaderboard() {
   const mapEntry = (e: any, index: number) => ({
     rank: e.rank || index + 1,
     name: e.user?.username || "Unknown",
-    rankTitle: "Journeyman", // Placeholder until title is added to state
-    tier: 3, // Placeholder
+    rankTitle: e.rankTitle || "Journeyman",
+    tier: e.tier || 3,
     level: e.user?.level || 1,
-    xp: e.xp || 0,
+    xp: e.xp || e.weeklyXP || 0,
     streak: e.currentStreak || 0,
-    change: 0,
-    avatar: e.user?.avatarId ? "👤" : "🌟",
+    avatar: e.user?.username ? e.user.username[0].toUpperCase() : "👤",
     you: e.user?.id === authUser?.id,
-    guild: "None", // Placeholder
   });
 
   const rawData = view === "global" ? global : friends;
@@ -278,7 +265,29 @@ export default function Leaderboard() {
         </div>
       </div>
 
-      {you && (
+      {status === 'loading' && data.length === 0 && (
+        <div className="flex flex-col items-center justify-center h-64 text-center">
+           <div className="w-12 h-12 border-2 border-[#00f0ff] border-t-transparent rounded-full animate-spin mb-4" />
+           <p className="text-[#00f0ff] font-['Rajdhani'] font-black tracking-widest uppercase">Fetching Rankings...</p>
+        </div>
+      )}
+
+      {status === 'failed' && (
+        <div className="flex flex-col items-center justify-center h-64 text-center bg-[rgba(220,38,38,0.05)] border border-[rgba(220,38,38,0.2)] p-8">
+           <p className="text-[#dc2626] font-['Rajdhani'] font-black tracking-widest uppercase mb-2">Failed to load Leaderboard</p>
+           <p className="text-[rgba(232,232,240,0.5)] text-sm">{error || "A network error occurred."}</p>
+        </div>
+      )}
+
+      {status !== 'loading' && status !== 'failed' && data.length === 0 && (
+        <div className="text-center p-12 border border-dashed border-[rgba(255,255,255,0.1)] opacity-50 mt-10">
+          <p className="text-sm uppercase tracking-widest font-bold font-['Rajdhani']">No players found on this leaderboard.</p>
+        </div>
+      )}
+
+      {data.length > 0 && (
+        <>
+          {you && (
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -315,10 +324,12 @@ export default function Leaderboard() {
         ))}
       </div>
       
-      {remaining.length === 0 && (
+      {remaining.length === 0 && data.length > 3 && (
          <div className="text-center p-12 border border-dashed border-[rgba(255,255,255,0.1)] opacity-50">
            <p className="text-xs uppercase tracking-widest font-bold font-['Rajdhani']">No more contenders in this bracket.</p>
          </div>
+      )}
+        </>
       )}
     </div>
   );

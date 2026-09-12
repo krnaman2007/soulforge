@@ -13,6 +13,8 @@ export interface PublicProfile {
   avatarId?: string;
   themeId?: string;
   titleId?: string;
+  rankTitle?: string;
+  tier?: number;
   followersCount?: number;
   followingCount?: number;
   isFollowing: boolean;

@@ -139,19 +139,19 @@ class RewardService {
         data: updateData
       });
 
-      // 6. Write canonical economic ActivityLog entry within same transactional boundary
-      if (safeXP > 0 || safeCoins > 0) {
+      // 6. Write single authoritative ActivityLog entry within same transactional boundary
+      const logType = source || (safeXP > 0 ? 'XP_GAINED' : null);
+      if (logType) {
         await db.activityLog.create({
           data: {
             userId,
-            type: 'XP_GAINED',
+            type: logType,
             taskId: taskId || null,
             projectId: projectId || null,
             itemId: itemId || null,
             xpChange: safeXP,
             coinChange: safeCoins,
             metadata: {
-              source: source || 'UNKNOWN',
               levelUp: levelUpData.leveledUp,
               oldLevel: levelUpData.oldLevel,
               newLevel: levelUpData.newLevel,
@@ -181,7 +181,7 @@ class RewardService {
     if (tx) {
       return execute(tx);
     }
-    return prisma.$transaction(execute, { timeout: 15000, maxWait: 10000 });
+    return prisma.$transaction(execute, { timeout: 25000, maxWait: 20000 });
   }
 
   /**

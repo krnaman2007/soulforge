@@ -1,22 +1,8 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "../store/store";
 import { fetchFollowing, fetchFollowers, followUser, unfollowUser, searchUsers } from "../store/slices/socialSlice";
-
-const FRIENDS_LIST = [
-  { name: "Alex Torres", title: "The Hustler", level: 22, streak: 15, avatar: "☄", xp: 48200, online: true, guild: "Shadow Syndicate" },
-  { name: "Sarah Chen", title: "Master Architect", level: 31, streak: 42, avatar: "✧", xp: 89000, online: true, guild: "Neon Knights" },
-  { name: "Marcus Webb", title: "The Relentless", level: 18, streak: 7, avatar: "⚡", xp: 22400, online: false, guild: "None" },
-  { name: "Elena Rostova", title: "Void Walker", level: 45, streak: 120, avatar: "◈", xp: 156000, online: true, guild: "Shadow Syndicate" },
-  { name: "James Holden", title: "Journeyman", level: 12, streak: 2, avatar: "⚙", xp: 14200, online: false, guild: "Neon Knights" },
-  { name: "Maya Lin", title: "Zen Master", level: 28, streak: 65, avatar: "✿", xp: 76000, online: true, guild: "None" },
-];
-
-const SUGGESTIONS = [
-  { name: "Morgan Blake", title: "Night Owl", level: 14, avatar: "🌙" },
-  { name: "Riley Stone", title: "Forge Born", level: 9, avatar: "🔥" },
-];
 
 type View = "following" | "followers" | "add" | "guilds";
 
@@ -56,7 +42,7 @@ function FriendCard({ friend, view }: { friend: any; view?: string }) {
                 <p className="font-black text-base md:text-lg uppercase tracking-wide text-white font-['Rajdhani'] truncate">{friend.username || friend.name}</p>
                 <span className="text-[10px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-[rgba(139,92,246,0.1)] text-[#8b5cf6] border border-[rgba(139,92,246,0.3)] truncate" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%)" }}>Lv {friend.level}</span>
               </div>
-              <p className="text-[10px] md:text-xs text-[rgba(232,232,240,0.5)] font-['Inter'] truncate">{friend.title || 'Novice'} <span className="mx-1">•</span> <span className="text-[#00f0ff]">{friend.guild || 'No Guild'}</span></p>
+              <p className="text-[10px] md:text-xs text-[rgba(232,232,240,0.5)] font-['Inter'] truncate">{friend.rankTitle || friend.titleId?.replace('title_', '').toUpperCase() || 'Novice'}</p>
               
               <div className="flex items-center gap-4 mt-2">
                 <span className="text-xs font-black stat-num text-[#00f0ff] drop-shadow-[0_0_5px_rgba(0,240,255,0.4)]">{(friend.xp || 0).toLocaleString()} XP</span>
@@ -143,11 +129,15 @@ export default function Friends() {
   };
 
   const list = getActiveList();
-  const activeList = list.length > 0 ? list : FRIENDS_LIST;
+  const activeList = list;
 
   const filtered = activeList.filter((f: any) =>
     (f.username || f.name).toLowerCase().includes(query.toLowerCase())
   );
+
+  const dynamicSuggestions = useMemo(() => {
+    return followers.users.filter(f => !f.isFollowing).slice(0, 5);
+  }, [followers.users]);
 
   return (
     <div className="relative min-h-screen pb-20 pt-8 px-4 md:px-8 max-w-5xl mx-auto selection:bg-[#8b5cf6] selection:text-[#0a0a12]">
@@ -216,24 +206,35 @@ export default function Friends() {
             </div>
             
             <div className="space-y-4">
-              <AnimatePresence>
-                {filtered.map((f: any, i: number) => (
-                  <motion.div
-                    key={f.id || f.name}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ delay: i * 0.05, type: "spring" }}
-                  >
-                    <FriendCard friend={f} view={view} />
-                  </motion.div>
-                ))}
-                {filtered.length === 0 && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-8 text-center bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]" style={{ clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%)" }}>
-                    <p className="text-xs uppercase font-bold tracking-widest text-[rgba(232,232,240,0.3)] font-['Rajdhani']">No allies found matching query.</p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {status === 'loading' && filtered.length === 0 && (
+                <div className="flex flex-col items-center justify-center h-48 text-center bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]" style={{ clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%)" }}>
+                  <div className="w-12 h-12 border-2 border-[#8b5cf6] border-t-transparent rounded-full animate-spin mb-4" />
+                  <p className="text-[#8b5cf6] font-['Rajdhani'] font-black tracking-widest uppercase">Loading Allies...</p>
+                </div>
+              )}
+
+              {status !== 'loading' && (
+                <AnimatePresence>
+                  {filtered.map((f: any, i: number) => (
+                    <motion.div
+                      key={f.id || f.name}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ delay: i * 0.05, type: "spring" }}
+                    >
+                      <FriendCard friend={f} view={view} />
+                    </motion.div>
+                  ))}
+                  {filtered.length === 0 && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-8 text-center bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]" style={{ clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%)" }}>
+                      <p className="text-xs uppercase font-bold tracking-widest text-[rgba(232,232,240,0.3)] font-['Rajdhani']">
+                        {query ? "No allies found matching query." : `No allies found in ${view}.`}
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              )}
             </div>
           </div>
         </div>
@@ -256,48 +257,53 @@ export default function Friends() {
           </div>
 
           {/* Suggestions */}
-          <div>
-            <div className="flex items-center gap-4 mb-4">
-              <h2 className="text-sm font-black uppercase tracking-[0.2em] text-white font-['Rajdhani']">Suggested Allies</h2>
-              <div className="h-px flex-1 bg-gradient-to-r from-[rgba(255,255,255,0.1)] to-transparent" />
-            </div>
-            
-            <div className="space-y-3">
-              {SUGGESTIONS.map((s, i) => (
-                <motion.div
-                  key={s.name}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.2 + i * 0.1, type: "spring" }}
-                  className="p-3 md:p-4 bg-[rgba(20,20,30,0.4)] border border-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.1)] transition-colors"
-                  style={{ clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)" }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 hex-clip flex items-center justify-center text-lg bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)]">
-                      {s.avatar}
+          {dynamicSuggestions.length > 0 && (
+            <div>
+              <div className="flex items-center gap-4 mb-4">
+                <h2 className="text-sm font-black uppercase tracking-[0.2em] text-white font-['Rajdhani']">Suggested Allies</h2>
+                <div className="h-px flex-1 bg-gradient-to-r from-[rgba(255,255,255,0.1)] to-transparent" />
+              </div>
+              
+              <div className="space-y-3">
+                {dynamicSuggestions.map((s, i) => (
+                  <motion.div
+                    key={s.id}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 + i * 0.1, type: "spring" }}
+                    className="p-3 md:p-4 bg-[rgba(20,20,30,0.4)] border border-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.1)] transition-colors"
+                    style={{ clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)" }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 hex-clip flex items-center justify-center text-lg bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)]">
+                        {s.avatarId === 'avatar_starter' || !s.avatarId ? '👤' : s.avatarId}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sm uppercase tracking-wide truncate font-['Rajdhani'] text-white">{s.username || s.name}</p>
+                        <p className="text-[10px] text-[rgba(232,232,240,0.5)] truncate font-['Inter']">Lv {s.level} · {s.rankTitle || 'Novice'}</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          dispatch(followUser(s.id));
+                          setAdded((prev) => [...prev, s.id]);
+                        }}
+                        disabled={added.includes(s.id) || s.isFollowing}
+                        className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 transition-all disabled:opacity-50 flex-shrink-0 font-['Rajdhani']"
+                        style={{
+                          background: (added.includes(s.id) || s.isFollowing) ? "rgba(16,224,127,0.1)" : "rgba(0,240,255,0.1)",
+                          border: `1px solid ${(added.includes(s.id) || s.isFollowing) ? "rgba(16,224,127,0.3)" : "rgba(0,240,255,0.3)"}`,
+                          color: (added.includes(s.id) || s.isFollowing) ? "#10e07f" : "#00f0ff",
+                          clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)"
+                        }}
+                      >
+                        {(added.includes(s.id) || s.isFollowing) ? "Followed" : "Add Ally"}
+                      </button>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-sm uppercase tracking-wide truncate font-['Rajdhani'] text-white">{s.name}</p>
-                      <p className="text-[10px] text-[rgba(232,232,240,0.5)] truncate font-['Inter']">Lv {s.level} · {s.title}</p>
-                    </div>
-                    <button
-                      onClick={() => setAdded((prev) => [...prev, s.name])}
-                      disabled={added.includes(s.name)}
-                      className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 transition-all disabled:opacity-50 flex-shrink-0 font-['Rajdhani']"
-                      style={{
-                        background: added.includes(s.name) ? "rgba(16,224,127,0.1)" : "rgba(0,240,255,0.1)",
-                        border: `1px solid ${added.includes(s.name) ? "rgba(16,224,127,0.3)" : "rgba(0,240,255,0.3)"}`,
-                        color: added.includes(s.name) ? "#10e07f" : "#00f0ff",
-                        clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)"
-                      }}
-                    >
-                      {added.includes(s.name) ? "Request Sent" : "Add Ally"}
-                    </button>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

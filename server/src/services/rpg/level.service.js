@@ -72,6 +72,23 @@ class LevelService {
     }
     return total;
   }
+
+  /**
+   * Derives rank title and tier based on total lifetime XP.
+   *
+   * @param {number} xp - Total lifetime XP
+   * @returns {{ rankTitle: string, tier: number }}
+   */
+  static getRankTier(xp) {
+    if (xp >= 120000) return { rankTitle: "Grand Master", tier: 8 };
+    if (xp >= 80000) return { rankTitle: "Master", tier: 7 };
+    if (xp >= 50000) return { rankTitle: "Diamond", tier: 6 };
+    if (xp >= 30000) return { rankTitle: "Platinum", tier: 5 };
+    if (xp >= 15000) return { rankTitle: "Gold", tier: 4 };
+    if (xp >= 5000) return { rankTitle: "Silver", tier: 3 };
+    if (xp >= 1000) return { rankTitle: "Bronze", tier: 2 };
+    return { rankTitle: "Iron", tier: 1 };
+  }
 }
 
 module.exports = LevelService;
