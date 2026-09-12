@@ -29,7 +29,7 @@ class AiQuestGeneratorService {
     }
 
     return {
-      questName: rawPlan.projectName || goal,
+      questName: (rawPlan.projectName || goal).substring(0, 100),
       goal,
       category,
       difficulty,
@@ -64,8 +64,8 @@ class AiQuestGeneratorService {
             type: 'PROJECT',
             status: 'ACTIVE',
             progress: 0,
-            bonusXP: questRewards.xp,
-            bonusCoins: questRewards.coins
+            bonusXP: plan.bonusXP || 0,
+            bonusCoins: plan.bonusCoins || 0
           }
         });
 
