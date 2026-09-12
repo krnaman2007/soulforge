@@ -1,26 +1,57 @@
-const ShopService = require('../services/rpg/shop.service');
-const { sendSuccess } = require('../utils/response');
+const rewardService = require('../services/reward.service');
+const { AppError } = require('../utils/errors');
+const logger = require('../utils/logger');
 
-class ShopController {
-  static async getShop(req, res, next) {
-    try {
-      const userId = req.user ? req.user.id : null;
-      const data = await ShopService.getShopItems(userId, req.query);
-      return sendSuccess(res, data, 200);
-    } catch (error) {
-      next(error);
-    }
+exports.getRewards = async (req, res, next) => {
+  try {
+    const filters = {
+      category: req.query.category,
+      rarity: req.query.rarity,
+    };
+    const rewards = await rewardService.getAllRewards(filters);
+    res.status(200).json({
+      success: true,
+      data: rewards,
+    });
+  } catch (error) {
+    logger.error('Error fetching rewards', { error: error.message });
+    next(error);
   }
+};
 
-  static async purchase(req, res, next) {
-    try {
-      const { itemId } = req.params;
-      const result = await ShopService.purchaseItem(req.user.id, itemId);
-      return sendSuccess(res, result, 200, result.message);
-    } catch (error) {
-      next(error);
+exports.redeemReward = async (req, res, next) => {
+  try {
+    const { id: rewardId } = req.params;
+    const userId = req.user.id;
+
+    if (!rewardId) {
+      throw new AppError('VALIDATION_ERROR', 'Reward ID is required', 400);
     }
-  }
-}
 
-module.exports = ShopController;
+    const redemption = await rewardService.redeemReward(userId, rewardId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Reward successfully redeemed',
+      data: redemption,
+    });
+  } catch (error) {
+    logger.error('Error redeeming reward', { error: error.message, userId: req.user.id, rewardId: req.params.id });
+    next(error);
+  }
+};
+
+exports.getMyRedemptions = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const redemptions = await rewardService.getUserRedemptions(userId);
+
+    res.status(200).json({
+      success: true,
+      data: redemptions,
+    });
+  } catch (error) {
+    logger.error('Error fetching redemptions', { error: error.message, userId: req.user.id });
+    next(error);
+  }
+};

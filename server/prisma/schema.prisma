@@ -147,6 +147,16 @@ enum AchievementType {
   CHALLENGE
 }
 
+enum RewardCategory {
+  FOOD
+  SHOPPING
+  GAMING
+  LEARNING
+  ENTERTAINMENT
+  TRAVEL
+  TECH
+}
+
 // =========================================================================
 // CORE MODELS
 // =========================================================================
@@ -176,6 +186,7 @@ model User {
   following           Follow[]           @relation("Following")
   followers           Follow[]           @relation("Followers")
   challengeClaims     ChallengeClaim[]
+  redeemedRewards     RedeemedReward[]
 
   @@index([email])
   @@index([googleId])
@@ -457,3 +468,36 @@ model ChallengeClaim {
   @@index([userId])
 }
 
+model Reward {
+  id             String         @id @default(cuid())
+  name           String
+  brand          String?
+  description    String
+  category       RewardCategory
+  rarity         ItemRarity     @default(COMMON)
+  xpCost         Int
+  discountValue  String?
+  totalStock     Int?
+  remainingStock Int?
+  isFlash        Boolean        @default(false)
+  expiresAt      DateTime?
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+
+  redemptions    RedeemedReward[]
+}
+
+model RedeemedReward {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rewardId   String
+  reward     Reward    @relation(fields: [rewardId], references: [id], onDelete: Restrict)
+  couponCode String
+  redeemedAt DateTime  @default(now())
+  expiresAt  DateTime?
+  isUsed     Boolean   @default(false)
+
+  @@index([userId])
+  @@index([rewardId])
+}

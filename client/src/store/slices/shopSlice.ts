@@ -1,91 +1,93 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../api/axiosConfig';
 
-export interface ShopItem {
+export interface Reward {
   id: string;
-  code: string;
   name: string;
+  brand: string | null;
   description: string;
-  type: string;
-  rarity: string;
-  price: number;
-  metadata: any;
-  isOwned?: boolean;
-  isEquipped?: boolean;
-  canAfford?: boolean;
+  category: 'FOOD' | 'SHOPPING' | 'GAMING' | 'LEARNING' | 'ENTERTAINMENT' | 'TRAVEL' | 'TECH';
+  rarity: 'COMMON' | 'UNCOMMON' | 'RARE' | 'EPIC' | 'LEGENDARY';
+  xpCost: number;
+  discountValue: string | null;
+  totalStock: number | null;
+  remainingStock: number | null;
+  isFlash: boolean;
+  expiresAt: string | null;
 }
 
-export interface InventoryItem {
-  inventoryId: string;
-  itemId: string;
-  code: string;
-  name: string;
-  description: string;
-  type: string;
-  rarity: string;
-  equipped: boolean;
-  metadata: any;
-  purchasedAt: string;
+export interface RedeemedReward {
+  id: string;
+  rewardId: string;
+  couponCode: string;
+  redeemedAt: string;
+  expiresAt: string | null;
+  isUsed: boolean;
+  reward: Reward;
 }
 
-export interface ShopState {
-  catalog: { items: ShopItem[]; coins: number; total: number } | null;
-  inventory: { items: InventoryItem[]; coins: number; total: number; loadout: any } | null;
+interface ShopState {
+  rewards: Reward[];
+  redemptions: RedeemedReward[];
   status: 'idle' | 'loading' | 'succeeded' | 'failed';
   error: string | null;
+  redemptionStatus: 'idle' | 'loading' | 'succeeded' | 'failed';
+  redemptionError: string | null;
+  lastRedeemedCoupon: string | null;
 }
 
 const initialState: ShopState = {
-  catalog: null,
-  inventory: null,
+  rewards: [],
+  redemptions: [],
   status: 'idle',
   error: null,
+  redemptionStatus: 'idle',
+  redemptionError: null,
+  lastRedeemedCoupon: null,
 };
 
-export const fetchShopCatalog = createAsyncThunk(
-  'shop/fetchCatalog',
-  async (params: { type?: string; rarity?: string; minPrice?: number; maxPrice?: number; search?: string } | undefined, { rejectWithValue }) => {
+export const fetchRewards = createAsyncThunk(
+  'shop/fetchRewards',
+  async (filters: Record<string, string> = {}, { rejectWithValue }) => {
     try {
-      const response = await api.get('/shop', { params });
-      return response.data.data;
+      const params = new URLSearchParams(filters).toString();
+      const response = await api.get(`/shop/rewards?${params}`);
+      if (response.data.success) {
+        return response.data.data;
+      }
+      return rejectWithValue('Failed to fetch rewards');
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error?.message || 'Failed to fetch shop catalog');
+      return rejectWithValue(error.response?.data?.error?.message || 'Failed to fetch rewards');
     }
   }
 );
 
-export const purchaseItem = createAsyncThunk(
-  'shop/purchaseItem',
-  async (itemId: string, { rejectWithValue }) => {
+export const fetchRedemptions = createAsyncThunk(
+  'shop/fetchRedemptions',
+  async (_, { rejectWithValue }) => {
     try {
-      const response = await api.post(`/shop/${itemId}/purchase`);
-      return response.data.data;
+      const response = await api.get('/shop/redemptions');
+      if (response.data.success) {
+        return response.data.data;
+      }
+      return rejectWithValue('Failed to fetch redemptions');
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error?.message || 'Failed to purchase item');
+      return rejectWithValue(error.response?.data?.error?.message || 'Failed to fetch redemptions');
     }
   }
 );
 
-export const fetchInventory = createAsyncThunk(
-  'shop/fetchInventory',
-  async (params: { type?: string; equipped?: boolean } | undefined, { rejectWithValue }) => {
+export const redeemReward = createAsyncThunk(
+  'shop/redeemReward',
+  async (rewardId: string, { rejectWithValue }) => {
     try {
-      const response = await api.get('/inventory', { params });
-      return response.data.data;
+      const response = await api.post(`/shop/rewards/${rewardId}/redeem`);
+      if (response.data.success) {
+        return response.data.data;
+      }
+      return rejectWithValue('Redemption failed');
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error?.message || 'Failed to fetch inventory');
-    }
-  }
-);
-
-export const equipItem = createAsyncThunk(
-  'shop/equipItem',
-  async (itemId: string, { rejectWithValue }) => {
-    try {
-      const response = await api.post(`/inventory/${itemId}/equip`);
-      return response.data.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error?.message || 'Failed to equip item');
+      return rejectWithValue(error.response?.data?.error?.message || 'Redemption failed');
     }
   }
 );
@@ -93,67 +95,53 @@ export const equipItem = createAsyncThunk(
 const shopSlice = createSlice({
   name: 'shop',
   initialState,
-  reducers: {},
+  reducers: {
+    clearRedemptionState: (state) => {
+      state.redemptionStatus = 'idle';
+      state.redemptionError = null;
+      state.lastRedeemedCoupon = null;
+    }
+  },
   extraReducers: (builder) => {
     builder
-      // fetchShopCatalog
-      .addCase(fetchShopCatalog.pending, (state) => {
+      .addCase(fetchRewards.pending, (state) => {
         state.status = 'loading';
       })
-      .addCase(fetchShopCatalog.fulfilled, (state, action) => {
+      .addCase(fetchRewards.fulfilled, (state, action) => {
         state.status = 'succeeded';
-        state.catalog = action.payload;
+        state.rewards = action.payload;
+        state.error = null;
       })
-      .addCase(fetchShopCatalog.rejected, (state, action) => {
+      .addCase(fetchRewards.rejected, (state, action) => {
         state.status = 'failed';
         state.error = action.payload as string;
       })
-      // fetchInventory
-      .addCase(fetchInventory.pending, (state) => {
-        state.status = 'loading';
+      .addCase(fetchRedemptions.fulfilled, (state, action) => {
+        state.redemptions = action.payload;
       })
-      .addCase(fetchInventory.fulfilled, (state, action) => {
-        state.status = 'succeeded';
-        state.inventory = action.payload;
+      .addCase(redeemReward.pending, (state) => {
+        state.redemptionStatus = 'loading';
+        state.redemptionError = null;
+        state.lastRedeemedCoupon = null;
       })
-      .addCase(fetchInventory.rejected, (state, action) => {
-        state.status = 'failed';
-        state.error = action.payload as string;
-      })
-      // purchaseItem
-      .addCase(purchaseItem.fulfilled, (state, action) => {
-        if (state.catalog) {
-          state.catalog.coins = action.payload.remainingCoins;
-          const itemInCatalog = state.catalog.items.find(i => i.id === action.payload.item.id || i.code === action.payload.item.code);
-          if (itemInCatalog) {
-            itemInCatalog.isOwned = true;
-          }
-        }
-      })
-      // equipItem
-      .addCase(equipItem.fulfilled, (state, action) => {
-        if (state.inventory) {
-          state.inventory.loadout = action.payload.loadout;
-          
-          // Update equipped status in inventory list
-          const itemType = action.payload.item.type;
-          state.inventory.items.forEach(item => {
-            if (item.type === itemType) {
-              item.equipped = (item.itemId === action.payload.item.id || item.code === action.payload.item.code);
-            }
-          });
-        }
+      .addCase(redeemReward.fulfilled, (state, action) => {
+        state.redemptionStatus = 'succeeded';
+        state.redemptionError = null;
+        state.lastRedeemedCoupon = action.payload.couponCode;
+        state.redemptions = [action.payload, ...state.redemptions];
         
-        if (state.catalog) {
-          const itemType = action.payload.item.type;
-          state.catalog.items.forEach(item => {
-            if (item.type === itemType) {
-              item.isEquipped = (item.id === action.payload.item.id || item.code === action.payload.item.code);
-            }
-          });
+        // Update reward remaining stock locally to be responsive
+        const reward = state.rewards.find(r => r.id === action.payload.rewardId);
+        if (reward && reward.remainingStock !== null) {
+          reward.remainingStock = Math.max(0, reward.remainingStock - 1);
         }
+      })
+      .addCase(redeemReward.rejected, (state, action) => {
+        state.redemptionStatus = 'failed';
+        state.redemptionError = action.payload as string;
       });
   },
 });
 
+export const { clearRedemptionState } = shopSlice.actions;
 export default shopSlice.reducer;

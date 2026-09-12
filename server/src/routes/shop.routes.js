@@ -1,23 +1,12 @@
-const { Router } = require('express');
-const ShopController = require('../controllers/shop.controller');
-const { authenticate, optionalAuthenticate } = require('../middleware/auth.middleware');
-const { validateQuery, validateParams } = require('../middleware/validation.middleware');
-const {
-  listShopQuerySchema,
-  purchaseItemParamsSchema
-} = require('../schemas/shop.schema');
+const express = require('express');
+const router = express.Router();
+const shopController = require('../controllers/shop.controller');
+const { requireAuth } = require('../middlewares/auth');
 
-const router = Router();
+router.use(requireAuth);
 
-// GET /api/v1/shop (or /api/shop) - Browsable anonymously, enriched if authenticated
-router.get('/', optionalAuthenticate, validateQuery(listShopQuerySchema), ShopController.getShop);
-
-// POST /api/v1/shop/:itemId/purchase - Authenticated purchase
-router.post(
-  '/:itemId/purchase',
-  authenticate,
-  validateParams(purchaseItemParamsSchema),
-  ShopController.purchase
-);
+router.get('/rewards', shopController.getRewards);
+router.post('/rewards/:id/redeem', shopController.redeemReward);
+router.get('/redemptions', shopController.getMyRedemptions);
 
 module.exports = router;
