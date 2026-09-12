@@ -273,12 +273,12 @@ Executes atomic task completion transaction and returns celebratory payload.
 
 ---
 
-## 6. Campaigns / Projects (`/api/projects`)
+## 6. Campaigns / Projects (`/api/quests`)
 
-### `GET /api/projects`
+### `GET /api/quests`
 - **Response `200 OK`**: Lists user's active and completed projects with computed progress.
 
-### `POST /api/projects`
+### `POST /api/quests`
 - **Request Body**:
 ```json
 {
@@ -289,7 +289,7 @@ Executes atomic task completion transaction and returns celebratory payload.
 }
 ```
 
-### `POST /api/projects/:id/complete`
+### `POST /api/quests/:id/complete`
 Validates that all tasks inside the project are completed, then grants bonus XP and gold.
 - **Response `200 OK`**: Returns updated character and project status.
 

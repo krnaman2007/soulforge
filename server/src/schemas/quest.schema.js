@@ -45,8 +45,7 @@ const updateQuestSchema = z.object({
   description: z.string().trim().max(1000).optional(),
   category: CategoryEnum.optional(),
   difficulty: DifficultyEnum.optional(),
-  type: QuestTypeEnum.optional(),
-  status: ProjectStatusEnum.optional()
+  type: QuestTypeEnum.optional()
 });
 
 const questIdParamSchema = z.object({
@@ -57,6 +56,7 @@ const listQuestsQuerySchema = z.object({
   status: ProjectStatusEnum.optional(),
   category: CategoryEnum.optional(),
   difficulty: DifficultyEnum.optional(),
+  type: QuestTypeEnum.optional(),
   page: z.coerce.number().int().min(1, 'Page must be at least 1').default(1),
   limit: z.coerce.number().int().min(1, 'Limit must be at least 1').max(50, 'Limit cannot exceed 50').default(20)
 });

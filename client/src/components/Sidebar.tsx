@@ -171,7 +171,7 @@ export default function Sidebar({ currentScreen, setScreen, navItems, groups, us
 
         {/* Footer / User Profile */}
         <div className="mt-auto px-3">
-          <div className="relative overflow-hidden cursor-pointer group/user" onClick={onLogout}
+          <div className="relative overflow-hidden cursor-pointer group/user" onClick={() => setScreen("profile")}
             style={{
               background: "rgba(255,255,255,0.02)",
               border: "1px solid rgba(255,255,255,0.05)",
@@ -181,7 +181,7 @@ export default function Sidebar({ currentScreen, setScreen, navItems, groups, us
             }}>
             
             {/* Hover glow */}
-            <div className="absolute inset-0 bg-red-500/10 opacity-0 group-hover/user:opacity-100 transition-opacity duration-300 pointer-events-none" />
+            <div className="absolute inset-0 bg-cyan-500/10 opacity-0 group-hover/user:opacity-100 transition-opacity duration-300 pointer-events-none" />
             
             <div className={`flex items-center gap-3 relative z-10 ${isCollapsed ? 'justify-center' : ''}`}>
               <div className="w-8 h-8 flex items-center justify-center text-lg flex-shrink-0 shadow-[0_0_15px_rgba(0,240,255,0.2)]"
@@ -197,8 +197,7 @@ export default function Sidebar({ currentScreen, setScreen, navItems, groups, us
                   <p className="text-sm font-black truncate" style={{ fontFamily: "Rajdhani, sans-serif" }}>
                     {user?.username || user?.name || 'Aiden'}
                   </p>
-                  <p className="text-[10px] uppercase tracking-widest truncate group-hover/user:hidden" style={{ color: "rgba(0,240,255,0.6)" }}>Journeyman</p>
-                  <p className="text-[10px] uppercase tracking-widest truncate text-red-400 hidden group-hover/user:block">Logout</p>
+                  <p className="text-[10px] uppercase tracking-widest truncate" style={{ color: "rgba(0,240,255,0.6)" }}>View Character</p>
                 </div>
               )}
             </div>

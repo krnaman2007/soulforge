@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, Link } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { AppDispatch, RootState } from '../store/store';
 import { registerUser, loginWithGoogle } from '../store/slices/authSlice';
 import GamingBackground from '../components/GamingBackground';
+import EmailVerificationPortal from '../components/EmailVerificationPortal';
 
 export default function Signup() {
   const dispatch = useDispatch<AppDispatch>();
@@ -19,7 +20,7 @@ export default function Signup() {
     password: '',
   });
 
-  const [successMessage, setSuccessMessage] = useState('');
+  const [isRegistered, setIsRegistered] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
@@ -32,9 +33,7 @@ export default function Signup() {
     e.preventDefault();
     const resultAction = await dispatch(registerUser(formData));
     if (registerUser.fulfilled.match(resultAction)) {
-      setSuccessMessage('Registration successful! Please check your email to verify your account.');
-      // Optional: Navigate to login after delay
-      setTimeout(() => navigate('/login'), 5000);
+      setIsRegistered(true);
     }
   };
 
@@ -56,42 +55,55 @@ export default function Signup() {
         animate={{ opacity: 1, scale: 1 }}
         className="w-full max-w-md relative z-10"
       >
-        <div className="absolute inset-0 bg-gradient-to-b from-[rgba(139,92,246,0.05)] to-transparent opacity-50 blur-2xl pointer-events-none" />
-        
-        <div className="relative bg-[rgba(10,10,15,0.8)] border border-[rgba(255,255,255,0.1)] backdrop-blur-xl p-8"
-             style={{ clipPath: "polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))" }}>
-          
-          <div className="text-center mb-8">
-            <div className="text-[10px] uppercase font-bold tracking-[0.3em] text-[#8b5cf6] mb-2 font-['Rajdhani'] flex items-center justify-center gap-2">
-              <span className="w-1.5 h-1.5 bg-[#8b5cf6] animate-pulse" />
-              New Profile Setup
-            </div>
-            <h1 className="text-4xl font-black uppercase tracking-widest text-white mb-2" style={{ fontFamily: "Rajdhani, sans-serif" }}>
-              Forge Identity
-            </h1>
-            <p className="text-xs uppercase tracking-[0.1em] text-[rgba(232,232,240,0.5)]">
-              Register to begin tracking your real-world progression.
-            </p>
-          </div>
-
-          {successMessage ? (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="p-6 bg-[rgba(16,224,127,0.1)] border border-[#10e07f] text-[#10e07f] text-center"
-              style={{ clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))" }}
+        <AnimatePresence mode="wait">
+          {isRegistered ? (
+            <motion.div
+              key="verification"
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={{ duration: 0.2 }}
             >
-              <div className="text-3xl mb-2">✓</div>
-              <p className="font-bold uppercase tracking-wider text-sm font-['Rajdhani']">{successMessage}</p>
-              <p className="text-[10px] mt-4 opacity-70">Redirecting to login sequence...</p>
+              <EmailVerificationPortal
+                email={formData.email}
+                title="Identity Forged // Verification Sent"
+                subtitle="Your neural profile has been created. An activation link has been dispatched to your designated frequency. Authorize your token or check your inbox."
+                onBackToLogin={() => navigate('/login')}
+                onVerificationSuccess={() => navigate('/app')}
+              />
             </motion.div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div className="p-3 bg-[rgba(239,68,68,0.1)] border border-red-500/50 text-red-400 text-xs text-center uppercase tracking-wider font-bold">
-                  {error}
+            <motion.div
+              key="signup-form"
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-b from-[rgba(139,92,246,0.05)] to-transparent opacity-50 blur-2xl pointer-events-none" />
+              
+              <div className="relative bg-[rgba(10,10,15,0.8)] border border-[rgba(255,255,255,0.1)] backdrop-blur-xl p-8"
+                   style={{ clipPath: "polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))" }}>
+                
+                <div className="text-center mb-8">
+                  <div className="text-[10px] uppercase font-bold tracking-[0.3em] text-[#8b5cf6] mb-2 font-['Rajdhani'] flex items-center justify-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-[#8b5cf6] animate-pulse" />
+                    New Profile Setup
+                  </div>
+                  <h1 className="text-4xl font-black uppercase tracking-widest text-white mb-2" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+                    Forge Identity
+                  </h1>
+                  <p className="text-xs uppercase tracking-[0.1em] text-[rgba(232,232,240,0.5)]">
+                    Register to begin tracking your real-world progression.
+                  </p>
                 </div>
-              )}
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  {error && (
+                    <div className="p-3 bg-[rgba(239,68,68,0.1)] border border-red-500/50 text-red-400 text-xs text-center uppercase tracking-wider font-bold">
+                      {error}
+                    </div>
+                  )}
               
               <div className="grid grid-cols-1 gap-4">
                 <div className="relative group">
@@ -197,9 +209,11 @@ export default function Signup() {
                 </p>
               </div>
             </form>
-          )}
-        </div>
-      </motion.div>
-    </div>
-  );
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </motion.div>
+</div>
+);
 }

@@ -32,13 +32,34 @@ const generateQuestAiSchema = z.object({
     'PERSONAL_GROWTH'
   ]).default('INTELLECT'),
   difficulty: z.enum(['EASY', 'MEDIUM', 'HARD', 'EPIC']).default('MEDIUM'),
-  autoCreate: z.boolean().default(true)
+  autoCreate: z.boolean().default(false)
+});
+
+const createQuestAiSchema = z.object({
+  questName: z.string().trim().min(3).max(100),
+  goal: z.string().trim().min(3).max(300),
+  category: z.enum(['PHYSICAL','INTELLECT','STRENGTH','DISCIPLINE','HEALTH','CREATIVITY','SOCIAL','LEADERSHIP','FINANCE','CAREER','EMOTIONAL','LEARNING','PERSONAL_GROWTH']),
+  difficulty: z.enum(['EASY','MEDIUM','HARD','EPIC']),
+  bonusXP: z.number().int().nonnegative(),
+  bonusCoins: z.number().int().nonnegative(),
+  phases: z.array(z.any()).default([]),
+  tasks: z.array(z.object({
+    title: z.string().trim().min(1).max(200),
+    description: z.string().max(1000).optional(),
+    primaryAttribute: z.enum(['PHYSICAL','INTELLECT','STRENGTH','DISCIPLINE','HEALTH','CREATIVITY','SOCIAL','LEADERSHIP','FINANCE','CAREER','EMOTIONAL','LEARNING','PERSONAL_GROWTH']).optional(),
+    difficulty: z.enum(['EASY','MEDIUM','HARD','EPIC']).optional(),
+    xpReward: z.number().int().nonnegative(),
+    coinReward: z.number().int().nonnegative(),
+    aiAnalyzed: z.boolean().optional(),
+    aiConfidence: z.number().min(0).max(1).optional()
+  })).max(200)
 });
 
 module.exports = {
   analyzeTaskSchema,
   planProjectSchema,
   planHabitSchema,
-  generateQuestAiSchema
+  generateQuestAiSchema,
+  createQuestAiSchema
 };
 

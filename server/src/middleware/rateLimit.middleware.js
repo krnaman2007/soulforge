@@ -7,6 +7,7 @@ const globalLimiter = rateLimit({
   limit: RATE_LIMIT_CONFIG.GLOBAL.limit,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS',
   handler: (_req, res) => {
     return sendError(
       res,
@@ -22,6 +23,7 @@ const authLimiter = rateLimit({
   limit: RATE_LIMIT_CONFIG.AUTH.limit,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS',
   handler: (_req, res) => {
     return sendError(
       res,
@@ -37,6 +39,7 @@ const aiLimiter = rateLimit({
   limit: RATE_LIMIT_CONFIG.AI.limit,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS',
   handler: (_req, res) => {
     return sendError(
       res,

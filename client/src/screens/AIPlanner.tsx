@@ -2,7 +2,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "../store/store";
-import { generateQuestCampaign, clearCampaignStatus } from "../store/slices/aiSlice";
+import { generateQuestCampaign, createQuestCampaign, clearCampaignStatus, clearAllAiStates } from "../store/slices/aiSlice";
+import { fetchQuests } from "../store/slices/questSlice";
 import GlassCard from "../components/GlassCard";
 
 interface GeneratedTask {
@@ -50,7 +51,7 @@ export default function AIPlanner() {
 
   useEffect(() => {
     return () => {
-      dispatch(clearCampaignStatus());
+      dispatch(clearAllAiStates());
     };
   }, [dispatch]);
 
@@ -59,14 +60,31 @@ export default function AIPlanner() {
 
   const handleGenerate = async () => {
     if (!goal.trim()) return;
-    dispatch(generateQuestCampaign({ goal }));
+    setAccepted(false);
+    dispatch(clearAllAiStates());
+    try {
+      await dispatch(generateQuestCampaign({ goal, autoCreate: false })).unwrap();
+    } catch {
+      // Handled by Redux
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (!campaignStatus || !goal.trim()) return;
+    try {
+      await dispatch(createQuestCampaign({ ...campaignStatus, goal })).unwrap();
+      await dispatch(fetchQuests({ limit: 50 })).unwrap();
+      setAccepted(true);
+    } catch {
+      // Redux owns the visible error state.
+    }
   };
 
   const tasks = campaignStatus?.tasks || null;
   const generating = status === "loading";
 
-  const totalXP = tasks?.reduce((s: number, t: any) => s + t.xp, 0) ?? 0;
-  const totalCoins = tasks?.reduce((s: number, t: any) => s + t.coins, 0) ?? 0;
+  const totalXP = tasks?.reduce((sum: number, t: any) => sum + Number(t.xp ?? t.xpReward ?? 0), 0) ?? 0;
+  const totalCoins = tasks?.reduce((sum: number, t: any) => sum + Number(t.coins ?? t.coinReward ?? 0), 0) ?? 0;
 
   return (
     <div className="relative min-h-screen pb-20 pt-8 px-4 md:px-8 max-w-4xl mx-auto selection:bg-[#8b5cf6] selection:text-[#0a0a12]">
@@ -128,6 +146,12 @@ export default function AIPlanner() {
           </motion.button>
         </div>
       </motion.div>
+
+      {error && !generating && (
+        <div className="mb-6 p-4 border border-[rgba(239,68,68,0.25)] bg-[rgba(239,68,68,0.05)] text-[#ef4444] text-xs font-black uppercase tracking-widest">
+          {error}
+        </div>
+      )}
 
       {/* Generating state */}
       <AnimatePresence>
@@ -202,9 +226,9 @@ export default function AIPlanner() {
                     <div className="flex-1">
                       <p className="text-sm md:text-base font-bold text-white mb-2">{task.title}</p>
                       <div className="flex flex-wrap items-center gap-3 text-[10px] md:text-xs font-['Rajdhani'] uppercase font-bold tracking-wider">
-                        <div className="flex items-center gap-1" style={{ color: DIFF_COLORS[task.diff || 'Medium'] || '#00f0ff' }}>
-                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: DIFF_COLORS[task.diff || 'Medium'] || '#00f0ff', boxShadow: `0 0 5px ${DIFF_COLORS[task.diff || 'Medium'] || '#00f0ff'}` }} />
-                          {task.diff || 'Medium'}
+                        <div className="flex items-center gap-1" style={{ color: DIFF_COLORS[task.diff || (task.difficulty === 'EASY' ? 'Easy' : task.difficulty === 'HARD' || task.difficulty === 'EPIC' ? 'Hard' : 'Medium')] || '#00f0ff' }}>
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: DIFF_COLORS[task.diff || (task.difficulty === 'EASY' ? 'Easy' : task.difficulty === 'HARD' || task.difficulty === 'EPIC' ? 'Hard' : 'Medium')] || '#00f0ff', boxShadow: `0 0 5px ${DIFF_COLORS[task.diff || (task.difficulty === 'EASY' ? 'Easy' : task.difficulty === 'HARD' || task.difficulty === 'EPIC' ? 'Hard' : 'Medium')] || '#00f0ff'}` }} />
+                          {task.diff || (task.difficulty === 'EASY' ? 'Easy' : task.difficulty === 'HARD' || task.difficulty === 'EPIC' ? 'Hard' : 'Medium')}
                         </div>
                         <span className="text-[rgba(232,232,240,0.3)]">/</span>
                         <span className="text-[rgba(232,232,240,0.6)]">Day {task.day || i + 1}</span>
@@ -216,8 +240,8 @@ export default function AIPlanner() {
                     </div>
                     
                     <div className="text-left md:text-right flex md:flex-col gap-4 md:gap-1 mt-4 md:mt-0 font-['Rajdhani'] font-black text-sm tracking-wider">
-                      <p className="text-[#00f0ff] drop-shadow-[0_0_5px_rgba(0,240,255,0.4)]">+{task.xp || 100} XP</p>
-                      <p className="text-[#ec4899]">◈ {task.coins || 50}</p>
+                      <p className="text-[#00f0ff] drop-shadow-[0_0_5px_rgba(0,240,255,0.4)]">+{task.xp ?? task.xpReward ?? 0} XP</p>
+                      <p className="text-[#ec4899]">◈ {task.coins ?? task.coinReward ?? 0}</p>
                     </div>
                   </div>
                 </motion.div>
@@ -239,7 +263,7 @@ export default function AIPlanner() {
                   Discard Map
                 </button>
                 <button
-                  onClick={() => setAccepted(true)}
+                  onClick={handleConfirm}
                   className="group relative flex-1 flex items-center justify-center px-8 py-3 font-black uppercase tracking-[0.2em] text-xs md:text-sm cursor-pointer font-['Rajdhani']"
                 >
                   <div className="absolute inset-0 bg-transparent border border-[#10e07f] opacity-80 group-hover:bg-[rgba(16,224,127,0.1)] transition-colors duration-300" style={{ clipPath: "polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)" }} />

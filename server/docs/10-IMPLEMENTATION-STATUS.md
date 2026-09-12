@@ -45,13 +45,13 @@
 - [ ] `DELETE /api/tasks/:id`
 - [ ] `POST /api/tasks/:id/complete` (Core Transaction)
 
-### Campaigns / Projects (`/api/projects`)
-- [ ] `GET /api/projects`
-- [ ] `POST /api/projects`
-- [ ] `GET /api/projects/:id`
-- [ ] `PATCH /api/projects/:id`
-- [ ] `DELETE /api/projects/:id`
-- [ ] `POST /api/projects/:id/complete`
+### Campaigns / Projects (`/api/quests`)
+- [ ] `GET /api/quests`
+- [ ] `POST /api/quests`
+- [ ] `GET /api/quests/:id`
+- [ ] `PATCH /api/quests/:id`
+- [ ] `DELETE /api/quests/:id`
+- [ ] `POST /api/tasks/:id/complete`
 
 ### Artificial Intelligence (`/api/ai`)
 - [ ] `POST /api/ai/tasks/analyze`
