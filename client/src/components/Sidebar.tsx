@@ -169,59 +169,60 @@ export default function Sidebar({ currentScreen, setScreen, navItems, groups, us
           })}
         </div>
 
-        {/* Footer / User Profile */}
-        <div className="mt-auto px-3">
-          <div className="relative overflow-hidden group/user"
-            style={{
-              background: "rgba(255,255,255,0.02)",
-              border: "1px solid rgba(255,255,255,0.05)",
-              clipPath: isCollapsed ? "circle(50% at 50% 50%)" : "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))",
-              padding: isCollapsed ? "12px" : "12px 14px",
-              transition: "all 0.3s ease"
-            }}>
-            
-            {/* Hover glow */}
-            <div className="absolute inset-0 bg-cyan-500/10 opacity-0 group-hover/user:opacity-100 transition-opacity duration-300 pointer-events-none" />
-            
-            <div className={`flex items-center gap-3 relative z-10 ${isCollapsed ? 'justify-center' : ''}`}>
-              <button 
-                onClick={() => setScreen("profile")}
-                title="View Profile"
-                className="w-8 h-8 flex items-center justify-center flex-shrink-0 shadow-[0_0_15px_rgba(0,240,255,0.2)] hover:scale-105 transition-transform"
-                style={{ 
-                  background: "rgba(0,240,255,0.1)", 
-                  border: "1px solid rgba(0,240,255,0.4)",
-                  clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)"
-                }}>
-                <svg className="w-4 h-4 text-[#00f0ff]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              </button>
-              {!isCollapsed && (
-                <>
-                  <div className="min-w-0 flex-1 cursor-pointer" onClick={() => setScreen("profile")}>
-                    <p className="text-sm font-black truncate text-white hover:text-[#00f0ff] transition-colors" style={{ fontFamily: "Rajdhani, sans-serif" }}>
-                      {user?.username || user?.name || 'Aiden'}
-                    </p>
-                    <p className="text-[10px] uppercase tracking-widest truncate text-[rgba(0,240,255,0.7)]">View Profile</p>
-                  </div>
-                  {onLogout && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onLogout();
-                      }}
-                      title="Terminate Session (Logout)"
-                      className="p-1.5 rounded text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                      </svg>
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
+      </div>
+
+      {/* Footer / User Profile (Fixed at bottom) */}
+      <div className="px-3 pb-6 pt-2 mt-auto shrink-0 z-10 bg-[rgba(10,10,15,0.75)] backdrop-blur-xl">
+        <div className="relative overflow-hidden group/user"
+          style={{
+            background: "rgba(255,255,255,0.02)",
+            border: "1px solid rgba(255,255,255,0.05)",
+            clipPath: isCollapsed ? "circle(50% at 50% 50%)" : "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))",
+            padding: isCollapsed ? "12px" : "12px 14px",
+            transition: "all 0.3s ease"
+          }}>
+          
+          {/* Hover glow */}
+          <div className="absolute inset-0 bg-cyan-500/10 opacity-0 group-hover/user:opacity-100 transition-opacity duration-300 pointer-events-none" />
+          
+          <div className={`flex items-center gap-3 relative z-10 ${isCollapsed ? 'justify-center' : ''}`}>
+            <button 
+              onClick={() => setScreen("profile")}
+              title="View Profile"
+              className="w-8 h-8 flex items-center justify-center flex-shrink-0 shadow-[0_0_15px_rgba(0,240,255,0.2)] hover:scale-105 transition-transform"
+              style={{ 
+                background: "rgba(0,240,255,0.1)", 
+                border: "1px solid rgba(0,240,255,0.4)",
+                clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)"
+              }}>
+              <svg className="w-4 h-4 text-[#00f0ff]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+            </button>
+            {!isCollapsed && (
+              <>
+                <div className="min-w-0 flex-1 cursor-pointer" onClick={() => setScreen("profile")}>
+                  <p className="text-sm font-black truncate text-white hover:text-[#00f0ff] transition-colors" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+                    {user?.username || user?.name || 'Aiden'}
+                  </p>
+                  <p className="text-[10px] uppercase tracking-widest truncate text-[rgba(0,240,255,0.7)]">View Profile</p>
+                </div>
+                {onLogout && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onLogout();
+                    }}
+                    title="Terminate Session (Logout)"
+                    className="p-1.5 rounded text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                  </button>
+                )}
+              </>
+            )}
           </div>
         </div>
       </div>
