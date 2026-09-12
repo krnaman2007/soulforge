@@ -183,25 +183,7 @@ class ChallengeService {
           }
         });
 
-        // Record CHALLENGE_CLAIMED action event in ActivityLog
-        await tx.activityLog.create({
-          data: {
-            userId,
-            type: 'CHALLENGE_CLAIMED',
-            xpChange: 0,
-            coinChange: 0,
-            metadata: {
-              challengeType: type,
-              periodKey,
-              targetCount: config.targetCount,
-              completedCount,
-              xpReward: config.xpReward,
-              coinReward: config.coinReward
-            }
-          }
-        });
-
-        // 2. Authoritatively Grant Challenge Rewards via RewardService (writes canonical XP_GAINED log)
+        // 2. Authoritatively Grant Challenge Rewards via RewardService (writes single authoritative CHALLENGE_CLAIMED log)
         const rewardResult = await RewardService.grantRewards(userId, tx, {
           xp: config.xpReward,
           coins: config.coinReward,
@@ -265,7 +247,7 @@ class ChallengeService {
             rewardTitle: a.rewardTitle
           }))
         };
-      }, { timeout: 15000, maxWait: 10000 });
+      }, { timeout: 25000, maxWait: 20000 });
     } catch (error) {
       if (error.code === 'P2002') {
         throw new AppError('CHALLENGE_ALREADY_CLAIMED', 'You have already claimed this challenge reward', 409);

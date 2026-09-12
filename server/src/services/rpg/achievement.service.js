@@ -195,25 +195,7 @@ class AchievementService {
             }
           });
 
-          // Record ACHIEVEMENT_UNLOCKED action event in ActivityLog
-          await tx.activityLog.create({
-            data: {
-              userId,
-              type: 'ACHIEVEMENT_UNLOCKED',
-              xpChange: 0,
-              coinChange: 0,
-              metadata: {
-                achievementCode: ach.code,
-                achievementName: ach.name,
-                badge: ach.badge,
-                rewardTitle: ach.rewardTitle,
-                rewardXP: ach.rewardXP,
-                rewardCoins: ach.rewardCoins
-              }
-            }
-          });
-
-          // Route bonus XP and Coins authoritatively through RewardService (writes canonical XP_GAINED log)
+          // Route bonus XP and Coins authoritatively through RewardService (writes single authoritative ACHIEVEMENT_UNLOCKED log)
           if (ach.rewardXP > 0 || ach.rewardCoins > 0) {
             await RewardService.grantRewards(userId, tx, {
               xp: ach.rewardXP,
@@ -223,7 +205,26 @@ class AchievementService {
                 achievementCode: ach.code,
                 achievementName: ach.name,
                 badge: ach.badge,
-                rewardTitle: ach.rewardTitle
+                rewardTitle: ach.rewardTitle,
+                rewardXP: ach.rewardXP,
+                rewardCoins: ach.rewardCoins
+              }
+            });
+          } else {
+            await tx.activityLog.create({
+              data: {
+                userId,
+                type: 'ACHIEVEMENT_UNLOCKED',
+                xpChange: 0,
+                coinChange: 0,
+                metadata: {
+                  achievementCode: ach.code,
+                  achievementName: ach.name,
+                  badge: ach.badge,
+                  rewardTitle: ach.rewardTitle,
+                  rewardXP: 0,
+                  rewardCoins: 0
+                }
               }
             });
           }
@@ -303,25 +304,7 @@ class AchievementService {
             }
           });
 
-          // Record ACHIEVEMENT_UNLOCKED action event in ActivityLog
-          await tx.activityLog.create({
-            data: {
-              userId,
-              type: 'ACHIEVEMENT_UNLOCKED',
-              xpChange: 0,
-              coinChange: 0,
-              metadata: {
-                achievementCode: ach.code,
-                achievementName: ach.name,
-                badge: ach.badge,
-                rewardTitle: ach.rewardTitle,
-                rewardXP: ach.rewardXP,
-                rewardCoins: ach.rewardCoins
-              }
-            }
-          });
-
-          // Route bonus XP and Coins authoritatively through RewardService (writes canonical XP_GAINED log)
+          // Route bonus XP and Coins authoritatively through RewardService (writes single authoritative ACHIEVEMENT_UNLOCKED log)
           if (ach.rewardXP > 0 || ach.rewardCoins > 0) {
             await RewardService.grantRewards(userId, tx, {
               xp: ach.rewardXP,
@@ -331,7 +314,26 @@ class AchievementService {
                 achievementCode: ach.code,
                 achievementName: ach.name,
                 badge: ach.badge,
-                rewardTitle: ach.rewardTitle
+                rewardTitle: ach.rewardTitle,
+                rewardXP: ach.rewardXP,
+                rewardCoins: ach.rewardCoins
+              }
+            });
+          } else {
+            await tx.activityLog.create({
+              data: {
+                userId,
+                type: 'ACHIEVEMENT_UNLOCKED',
+                xpChange: 0,
+                coinChange: 0,
+                metadata: {
+                  achievementCode: ach.code,
+                  achievementName: ach.name,
+                  badge: ach.badge,
+                  rewardTitle: ach.rewardTitle,
+                  rewardXP: 0,
+                  rewardCoins: 0
+                }
               }
             });
           }

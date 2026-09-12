@@ -3,6 +3,14 @@ const DateService = require('../utils/date.service');
 const LevelService = require('./level.service');
 const { AppError } = require('../../utils/errors');
 
+const CANONICAL_XP_TYPES = [
+  'TASK_COMPLETED',
+  'PROJECT_COMPLETED',
+  'CHALLENGE_CLAIMED',
+  'ACHIEVEMENT_UNLOCKED',
+  'XP_GAINED'
+];
+
 class LeaderboardService {
   /**
    * Helper to compute the global weekly boundary using UTC for consistency across players.
@@ -47,11 +55,11 @@ class LeaderboardService {
       }));
     }
 
-    // For Weekly, we aggregate canonical economic XP events (XP_GAINED)
+    // For Weekly, aggregate canonical XP events
     const startOfWeek = this._getWeeklyBoundary();
     const where = {
       createdAt: { gte: startOfWeek },
-      type: 'XP_GAINED',
+      type: { in: CANONICAL_XP_TYPES },
       xpChange: { gt: 0 }
     };
 
