@@ -5,3 +5,7 @@ dist
 
 /generated/prisma
 /docs
+postman
+postman/
+.postman
+.postman/
