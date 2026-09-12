@@ -1,5 +1,6 @@
 const prisma = require('../db/prisma');
 const { AppError } = require('../utils/errors');
+const LevelService = require('./rpg/level.service');
 
 /**
  * Follow a user
@@ -146,18 +147,23 @@ async function getUserProfile(targetUserId, currentUserId = null) {
       : null
   ]);
 
+  const totalXP = LevelService.calculateTotalXP(user.character?.level || 1, user.character?.xp || 0);
+  const { rankTitle, tier } = LevelService.getRankTier(totalXP);
+
   return {
     id: user.id,
     name: user.name,
     username: user.username,
     createdAt: user.createdAt,
     level: user.character?.level || 1,
-    xp: user.character?.xp || 0,
+    xp: totalXP,
     currentStreak: user.character?.currentStreak || 0,
     longestStreak: user.character?.longestStreak || 0,
     avatarId: user.character?.avatarId || 'avatar_starter',
     themeId: user.character?.themeId || 'theme_classic',
     titleId: user.character?.titleId || 'title_apprentice',
+    rankTitle,
+    tier,
     followersCount,
     followingCount,
     isFollowing: Boolean(followRecord)
@@ -200,6 +206,7 @@ async function getFollowers(targetUserId, { page = 1, limit = 20 }, currentUserI
             character: {
               select: {
                 level: true,
+                xp: true,
                 currentStreak: true,
                 avatarId: true,
                 titleId: true
@@ -225,17 +232,24 @@ async function getFollowers(targetUserId, { page = 1, limit = 20 }, currentUserI
     followedByUserSet = new Set(userFollows.map(f => f.followingId));
   }
 
-  const users = follows.map(f => ({
-    id: f.follower.id,
-    name: f.follower.name,
-    username: f.follower.username,
-    level: f.follower.character?.level || 1,
-    currentStreak: f.follower.character?.currentStreak || 0,
-    avatarId: f.follower.character?.avatarId || 'avatar_starter',
-    titleId: f.follower.character?.titleId || 'title_apprentice',
-    followedAt: f.createdAt,
-    isFollowing: followedByUserSet.has(f.follower.id)
-  }));
+  const users = follows.map(f => {
+    const totalXP = LevelService.calculateTotalXP(f.follower.character?.level || 1, f.follower.character?.xp || 0);
+    const { rankTitle, tier } = LevelService.getRankTier(totalXP);
+    return {
+      id: f.follower.id,
+      name: f.follower.name,
+      username: f.follower.username,
+      level: f.follower.character?.level || 1,
+      xp: totalXP,
+      currentStreak: f.follower.character?.currentStreak || 0,
+      avatarId: f.follower.character?.avatarId || 'avatar_starter',
+      titleId: f.follower.character?.titleId || 'title_apprentice',
+      rankTitle,
+      tier,
+      followedAt: f.createdAt,
+      isFollowing: followedByUserSet.has(f.follower.id)
+    };
+  });
 
   return {
     users,
@@ -284,6 +298,7 @@ async function getFollowing(targetUserId, { page = 1, limit = 20 }, currentUserI
             character: {
               select: {
                 level: true,
+                xp: true,
                 currentStreak: true,
                 avatarId: true,
                 titleId: true
@@ -309,17 +324,24 @@ async function getFollowing(targetUserId, { page = 1, limit = 20 }, currentUserI
     followedByUserSet = new Set(userFollows.map(f => f.followingId));
   }
 
-  const users = follows.map(f => ({
-    id: f.following.id,
-    name: f.following.name,
-    username: f.following.username,
-    level: f.following.character?.level || 1,
-    currentStreak: f.following.character?.currentStreak || 0,
-    avatarId: f.following.character?.avatarId || 'avatar_starter',
-    titleId: f.following.character?.titleId || 'title_apprentice',
-    followedAt: f.createdAt,
-    isFollowing: followedByUserSet.has(f.following.id)
-  }));
+  const users = follows.map(f => {
+    const totalXP = LevelService.calculateTotalXP(f.following.character?.level || 1, f.following.character?.xp || 0);
+    const { rankTitle, tier } = LevelService.getRankTier(totalXP);
+    return {
+      id: f.following.id,
+      name: f.following.name,
+      username: f.following.username,
+      level: f.following.character?.level || 1,
+      xp: totalXP,
+      currentStreak: f.following.character?.currentStreak || 0,
+      avatarId: f.following.character?.avatarId || 'avatar_starter',
+      titleId: f.following.character?.titleId || 'title_apprentice',
+      rankTitle,
+      tier,
+      followedAt: f.createdAt,
+      isFollowing: followedByUserSet.has(f.following.id)
+    };
+  });
 
   return {
     users,
@@ -362,6 +384,7 @@ async function searchUsers(query, { page = 1, limit = 20 }, currentUserId = null
         character: {
           select: {
             level: true,
+            xp: true,
             currentStreak: true,
             avatarId: true,
             titleId: true
@@ -385,16 +408,23 @@ async function searchUsers(query, { page = 1, limit = 20 }, currentUserId = null
     followedByUserSet = new Set(userFollows.map(f => f.followingId));
   }
 
-  const users = usersFound.map(u => ({
-    id: u.id,
-    name: u.name,
-    username: u.username,
-    level: u.character?.level || 1,
-    currentStreak: u.character?.currentStreak || 0,
-    avatarId: u.character?.avatarId || 'avatar_starter',
-    titleId: u.character?.titleId || 'title_apprentice',
-    isFollowing: followedByUserSet.has(u.id)
-  }));
+  const users = usersFound.map(u => {
+    const totalXP = LevelService.calculateTotalXP(u.character?.level || 1, u.character?.xp || 0);
+    const { rankTitle, tier } = LevelService.getRankTier(totalXP);
+    return {
+      id: u.id,
+      name: u.name,
+      username: u.username,
+      level: u.character?.level || 1,
+      xp: totalXP,
+      currentStreak: u.character?.currentStreak || 0,
+      avatarId: u.character?.avatarId || 'avatar_starter',
+      titleId: u.character?.titleId || 'title_apprentice',
+      rankTitle,
+      tier,
+      isFollowing: followedByUserSet.has(u.id)
+    };
+  });
 
   return {
     users,

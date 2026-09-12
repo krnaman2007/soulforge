@@ -33,18 +33,24 @@ class LeaderboardService {
         }
       });
 
-      return characters.map((char, index) => ({
-        rank: index + 1,
-        user: {
-          id: char.user.id,
-          username: char.user.username || char.user.name,
-          avatarId: char.avatarId,
-          level: char.level
-        },
-        xp: LevelService.calculateTotalXP(char.level, char.xp),
-        levelXP: char.xp,
-        currentStreak: char.currentStreak
-      }));
+      return characters.map((char, index) => {
+        const totalXP = LevelService.calculateTotalXP(char.level, char.xp);
+        const { rankTitle, tier } = LevelService.getRankTier(totalXP);
+        return {
+          rank: index + 1,
+          user: {
+            id: char.user.id,
+            username: char.user.username || char.user.name,
+            avatarId: char.avatarId,
+            level: char.level
+          },
+          xp: totalXP,
+          levelXP: char.xp,
+          currentStreak: char.currentStreak,
+          rankTitle,
+          tier
+        };
+      });
     }
 
     // For Weekly, we aggregate canonical economic XP events (XP_GAINED)
@@ -90,6 +96,8 @@ class LeaderboardService {
 
     return aggregations.map((agg, index) => {
       const char = charMap[agg.userId];
+      const totalXP = LevelService.calculateTotalXP(char?.level || 1, char?.xp || 0);
+      const { rankTitle, tier } = LevelService.getRankTier(totalXP);
       return {
         rank: index + 1,
         user: {
@@ -99,7 +107,9 @@ class LeaderboardService {
           level: char?.level || 1
         },
         weeklyXP: agg._sum.xpChange || 0,
-        currentStreak: char?.currentStreak || 0
+        currentStreak: char?.currentStreak || 0,
+        rankTitle,
+        tier
       };
     });
   }
@@ -162,6 +172,9 @@ class LeaderboardService {
       throw new AppError('Character not found', 404, 'CHARACTER_NOT_FOUND');
     }
 
+    const totalXP = LevelService.calculateTotalXP(character.level, character.xp);
+    const { rankTitle, tier } = LevelService.getRankTier(totalXP);
+
     return {
       rank: null,
       user: {
@@ -171,7 +184,9 @@ class LeaderboardService {
         level: character.level
       },
       weeklyXP: 0,
-      currentStreak: character.currentStreak
+      currentStreak: character.currentStreak,
+      rankTitle,
+      tier
     };
   }
 }
