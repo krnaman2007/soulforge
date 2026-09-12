@@ -34,6 +34,10 @@ export interface AuthState {
   needsUsername: boolean;
   status: 'idle' | 'loading' | 'succeeded' | 'failed';
   error: string | null;
+  errorCode: string | null;
+  unverifiedEmail: string | null;
+  resendStatus: 'idle' | 'loading' | 'succeeded' | 'failed';
+  resendMessage: string | null;
 }
 
 const initialState: AuthState = {
@@ -44,6 +48,10 @@ const initialState: AuthState = {
   needsUsername: false,
   status: 'idle',
   error: null,
+  errorCode: null,
+  unverifiedEmail: null,
+  resendStatus: 'idle',
+  resendMessage: null,
 };
 
 // Async thunks
@@ -52,7 +60,7 @@ export const registerUser = createAsyncThunk(
   async (userData: any, { rejectWithValue }) => {
     try {
       const response = await api.post('/auth/register', userData);
-      return response.data; // Note: Register doesn't return token immediately in the current API, it sends an email
+      return { ...response.data, email: userData.email };
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.error?.message || 'Registration failed');
     }
@@ -68,9 +76,13 @@ export const loginUser = createAsyncThunk(
         localStorage.setItem('soulforge_token', response.data.data.token);
         return response.data.data;
       }
-      return rejectWithValue('Login failed');
+      return rejectWithValue({ message: 'Login failed', code: 'LOGIN_FAILED' });
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error?.message || 'Invalid credentials');
+      const errData = error.response?.data?.error;
+      const code = errData?.code || 'INVALID_CREDENTIALS';
+      const message = errData?.message || 'Invalid email or password';
+      const email = errData?.details?.email || credentials.email;
+      return rejectWithValue({ message, code, email });
     }
   }
 );
@@ -94,7 +106,6 @@ export const logoutUser = createAsyncThunk(
   'auth/logout',
   async (_, { rejectWithValue }) => {
     try {
-      // API call to invalidate session on backend if supported
       await api.post('/auth/logout').catch(() => {});
       localStorage.removeItem('soulforge_token');
       return null;
@@ -169,6 +180,15 @@ const authSlice = createSlice({
   reducers: {
     clearError: (state) => {
       state.error = null;
+      state.errorCode = null;
+      state.unverifiedEmail = null;
+    },
+    setUnverifiedEmail: (state, action: { payload: string | null }) => {
+      state.unverifiedEmail = action.payload;
+    },
+    resetResendStatus: (state) => {
+      state.resendStatus = 'idle';
+      state.resendMessage = null;
     },
     logoutLocally: (state) => {
       localStorage.removeItem('soulforge_token');
@@ -177,6 +197,9 @@ const authSlice = createSlice({
       state.character = null;
       state.isAuthenticated = false;
       state.status = 'idle';
+      state.unverifiedEmail = null;
+      state.errorCode = null;
+      state.error = null;
     }
   },
   extraReducers: (builder) => {
@@ -185,10 +208,11 @@ const authSlice = createSlice({
       .addCase(registerUser.pending, (state) => {
         state.status = 'loading';
         state.error = null;
+        state.errorCode = null;
       })
-      .addCase(registerUser.fulfilled, (state) => {
+      .addCase(registerUser.fulfilled, (state, action: any) => {
         state.status = 'succeeded';
-        // After registration, user must check email (based on endpoints.md)
+        state.unverifiedEmail = action.payload?.email || null;
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.status = 'failed';
@@ -200,6 +224,7 @@ const authSlice = createSlice({
       .addCase(loginUser.pending, (state) => {
         state.status = 'loading';
         state.error = null;
+        state.errorCode = null;
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.status = 'succeeded';
@@ -208,10 +233,21 @@ const authSlice = createSlice({
         state.character = action.payload.character;
         state.needsUsername = action.payload.needsUsername || false;
         state.isAuthenticated = true;
+        state.unverifiedEmail = null;
+        state.errorCode = null;
       })
-      .addCase(loginUser.rejected, (state, action) => {
+      .addCase(loginUser.rejected, (state, action: any) => {
         state.status = 'failed';
-        state.error = action.payload as string;
+        if (action.payload && typeof action.payload === 'object') {
+          state.error = action.payload.message;
+          state.errorCode = action.payload.code;
+          if (action.payload.code === 'ACCOUNT_NOT_VERIFIED') {
+            state.unverifiedEmail = action.payload.email || null;
+          }
+        } else {
+          state.error = (action.payload as string) || 'Login failed';
+          state.errorCode = null;
+        }
       });
 
     // Google Login
@@ -227,6 +263,7 @@ const authSlice = createSlice({
         state.character = action.payload.character;
         state.needsUsername = action.payload.needsUsername || false;
         state.isAuthenticated = true;
+        state.unverifiedEmail = null;
       })
       .addCase(loginWithGoogle.rejected, (state, action) => {
         state.status = 'failed';
@@ -279,6 +316,7 @@ const authSlice = createSlice({
         state.character = null;
         state.isAuthenticated = false;
         state.status = 'idle';
+        state.unverifiedEmail = null;
       });
 
     // Verify Email
@@ -286,6 +324,7 @@ const authSlice = createSlice({
       .addCase(verifyEmail.pending, (state) => {
         state.status = 'loading';
         state.error = null;
+        state.errorCode = null;
       })
       .addCase(verifyEmail.fulfilled, (state, action) => {
         state.status = 'succeeded';
@@ -293,14 +332,31 @@ const authSlice = createSlice({
         state.user = action.payload.user;
         state.character = action.payload.character;
         state.isAuthenticated = true;
+        state.unverifiedEmail = null;
+        state.errorCode = null;
       })
       .addCase(verifyEmail.rejected, (state, action) => {
         state.status = 'failed';
         state.error = action.payload as string;
       });
+
+    // Resend Verification
+    builder
+      .addCase(resendVerification.pending, (state) => {
+        state.resendStatus = 'loading';
+        state.resendMessage = null;
+      })
+      .addCase(resendVerification.fulfilled, (state, action: any) => {
+        state.resendStatus = 'succeeded';
+        state.resendMessage = action.payload?.data?.message || action.payload?.message || 'Verification link has been resent to your email.';
+      })
+      .addCase(resendVerification.rejected, (state, action) => {
+        state.resendStatus = 'failed';
+        state.resendMessage = (action.payload as string) || 'Failed to resend verification link.';
+      });
   },
 });
 
-export const { clearError, logoutLocally } = authSlice.actions;
+export const { clearError, setUnverifiedEmail, resetResendStatus, logoutLocally } = authSlice.actions;
 
 export default authSlice.reducer;
