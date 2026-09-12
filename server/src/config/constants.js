@@ -49,7 +49,51 @@ const RPG_CONSTANTS = {
     AVATAR_ID: 'avatar_starter',
     THEME_ID: 'theme_classic',
     TITLE_ID: 'title_apprentice'
+  },
+
+  QUEST_DIFFICULTY_REWARDS: {
+    EASY: { xp: 100, coins: 50 },
+    MEDIUM: { xp: 250, coins: 120 },
+    HARD: { xp: 500, coins: 250 },
+    EPIC: { xp: 1000, coins: 500 }
+  },
+
+  CHALLENGE_CONFIG: {
+    DAILY: {
+      targetCount: 3,
+      xpReward: 150,
+      coinReward: 75,
+      title: 'Daily Heroics',
+      description: 'Complete 3 tasks in a single day.'
+    },
+    WEEKLY: {
+      targetCount: 15,
+      xpReward: 750,
+      coinReward: 400,
+      title: 'Weekly Grand Crusade',
+      description: 'Complete 15 tasks this week.'
+    }
   }
+};
+
+const ANTI_CHEAT = {
+  MIN_COMPLETION_TIME_MS: 3000,
+  MAX_DAILY_COMPLETIONS: 50,
+  SUSPICIOUS_EFFORT_REDUCTION: 0.5,
+  HIGH_RISK_REDUCTION: 0
+};
+
+const AI_CONFIG = {
+  GEMINI_MODEL: 'gemini-1.5-flash',
+  GEMINI_TIMEOUT_MS: 8000,
+  GROQ_TIMEOUT_MS: 5000,
+  FALLBACK_CONFIDENCE: 0.85
+};
+
+const VALIDATION_CONFIG = {
+  MAX_TASK_TITLE_LENGTH: 100,
+  MAX_TASK_DESCRIPTION_LENGTH: 1000,
+  MAX_PROJECT_NAME_LENGTH: 50
 };
 
 const RATE_LIMIT_CONFIG = {
@@ -67,7 +111,53 @@ const RATE_LIMIT_CONFIG = {
   }
 };
 
+const CORE_ATTRIBUTES = [
+  'INTELLECT',
+  'STRENGTH',
+  'DISCIPLINE',
+  'HEALTH',
+  'CREATIVITY',
+  'SOCIAL'
+];
+
+const CATEGORY_TO_ATTRIBUTE_MAP = {
+  CAREER: 'INTELLECT',
+  LEARNING: 'INTELLECT',
+  INTELLECT: 'INTELLECT',
+  PHYSICAL: 'STRENGTH',
+  STRENGTH: 'STRENGTH',
+  DISCIPLINE: 'DISCIPLINE',
+  FINANCE: 'DISCIPLINE',
+  PERSONAL_GROWTH: 'DISCIPLINE',
+  HEALTH: 'HEALTH',
+  EMOTIONAL: 'HEALTH',
+  CREATIVITY: 'CREATIVITY',
+  SOCIAL: 'SOCIAL',
+  LEADERSHIP: 'SOCIAL'
+};
+
+function getPrimaryAttributeForCategory(category) {
+  if (!category) return 'DISCIPLINE';
+  const normalized = String(category).toUpperCase();
+  return CATEGORY_TO_ATTRIBUTE_MAP[normalized] || 'DISCIPLINE';
+}
+
+const REWARD_BOUNDS = {
+  MIN_TASK_XP: 10,
+  MAX_TASK_XP: 150,
+  MIN_TASK_COINS: 5,
+  MAX_TASK_COINS: 75
+};
+
 module.exports = {
   RPG_CONSTANTS,
+  CORE_ATTRIBUTES,
+  CATEGORY_TO_ATTRIBUTE_MAP,
+  getPrimaryAttributeForCategory,
+  REWARD_BOUNDS,
+  ANTI_CHEAT,
+  AI_CONFIG,
+  VALIDATION_CONFIG,
   RATE_LIMIT_CONFIG
 };
+

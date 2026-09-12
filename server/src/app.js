@@ -26,6 +26,8 @@ function createApp() {
 
   app.use(globalLimiter);
 
+  // Dual API version mount: /api/v1 (canonical) and /api (backward compatible)
+  app.use('/api/v1', apiRouter);
   app.use('/api', apiRouter);
 
   app.use(notFoundHandler);

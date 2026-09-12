@@ -11,12 +11,46 @@ datasource db {
 // =========================================================================
 
 enum Category {
+  PHYSICAL
   INTELLECT
   STRENGTH
   DISCIPLINE
   HEALTH
   CREATIVITY
   SOCIAL
+  LEADERSHIP
+  FINANCE
+  CAREER
+  EMOTIONAL
+  LEARNING
+  PERSONAL_GROWTH
+}
+
+enum QuestType {
+  ONE_TIME
+  DAILY
+  RECURRING
+  MILESTONE
+  HABIT
+  PROJECT
+  LEARNING
+  CHALLENGE
+}
+
+enum TimeScale {
+  MINUTES
+  LESS_THAN_HOUR
+  HOURS
+  HALF_DAY
+  FULL_DAY
+  MULTI_DAY
+  MULTI_WEEK
+}
+
+enum SuspicionLevel {
+  NORMAL
+  SUSPICIOUS
+  HIGH_RISK
 }
 
 enum Priority {
@@ -94,6 +128,7 @@ enum ActivityType {
   STREAK_BROKEN
   STREAK_RECOVERED
   ACHIEVEMENT_UNLOCKED
+  CHALLENGE_CLAIMED
 }
 
 enum FriendshipStatus {
@@ -109,6 +144,7 @@ enum AchievementType {
   LEVEL
   PROJECT
   ECONOMY
+  CHALLENGE
 }
 
 // =========================================================================
@@ -123,6 +159,7 @@ model User {
   passwordHash String?
   googleId     String?
   isVerified   Boolean  @default(false)
+  timezone     String   @default("UTC")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -136,6 +173,9 @@ model User {
   sentFriendships     Friendship[]       @relation("SentFriendships")
   receivedFriendships Friendship[]       @relation("ReceivedFriendships")
   verificationToken   VerificationToken?
+  following           Follow[]           @relation("Following")
+  followers           Follow[]           @relation("Followers")
+  challengeClaims     ChallengeClaim[]
 
   @@index([email])
   @@index([googleId])
@@ -150,13 +190,21 @@ model Character {
   xp    Int @default(0)
   coins Int @default(50)
 
-  // 6 Life RPG Attributes
+  // 6 Original Life RPG Attributes
   strength   Int @default(10)
   intellect  Int @default(10)
   discipline Int @default(10)
   health     Int @default(10)
   creativity Int @default(10)
   social     Int @default(10)
+
+  // 6 Expanded Attributes
+  leadership Int @default(10)
+  finance    Int @default(10)
+  career     Int @default(10)
+  emotional  Int @default(10)
+  learning   Int @default(10)
+  personalGrowth Int @default(10)
 
   // Consecutive Day Tracking
   currentStreak  Int       @default(0)
@@ -186,7 +234,11 @@ model Task {
 
   title       String
   description String?
-  category    Category   @default(INTELLECT)
+  primaryAttribute Category @default(INTELLECT)
+  secondaryAttributes Category[]
+  questType    QuestType?
+  timeScale    TimeScale?
+  suspicion    SuspicionLevel @default(NORMAL)
   priority    Priority   @default(MEDIUM)
   difficulty  Difficulty @default(MEDIUM)
   effort      Effort     @default(MEDIUM)
@@ -211,6 +263,8 @@ model Task {
 
   @@index([userId])
   @@index([userId, status])
+  @@index([userId, completedAt])
+  @@index([userId, dueDate])
   @@index([projectId])
   @@index([createdAt])
 }
@@ -222,6 +276,9 @@ model Project {
 
   name        String
   description String?
+  category    Category      @default(INTELLECT)
+  difficulty  Difficulty    @default(MEDIUM)
+  type        QuestType     @default(PROJECT)
   status      ProjectStatus @default(ACTIVE)
   progress    Float         @default(0.0)
 
@@ -323,6 +380,8 @@ model Achievement {
   description String
   type        AchievementType
   requirement Json
+  badge       String?
+  rewardTitle String?
   rewardCoins Int             @default(50)
   rewardXP    Int             @default(100)
   createdAt   DateTime        @default(now())
@@ -365,3 +424,30 @@ model VerificationToken {
 
   @@index([token])
 }
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower    User     @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+model ChallengeClaim {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // "DAILY" or "WEEKLY"
+  periodKey String   // e.g. "2026-09-12" or "2026-W37"
+  claimedAt DateTime @default(now())
+
+  @@unique([userId, type, periodKey])
+  @@index([userId])
+}
+
